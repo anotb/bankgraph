@@ -277,3 +277,43 @@ export interface RiskResponse {
   };
   pca_category: string | null;
 }
+
+/** Single macro data observation */
+export interface MacroDataPoint {
+  date: string;
+  value: number;
+}
+
+/** FRED series metadata */
+export interface MacroSeries {
+  series_id: string;
+  title: string | null;
+  frequency: string | null;
+  units: string | null;
+  category: string | null;
+}
+
+/** Macro data API response */
+export interface MacroResponse {
+  series_id: string;
+  title: string | null;
+  frequency: string | null;
+  units: string | null;
+  data: MacroDataPoint[];
+}
+
+/** Multi-bank comparison API response */
+export interface CompareResponse {
+  certs: number[];
+  metrics: string[];
+  data: Record<number, Financial[]>;
+}
+
+/** Correlation result between two metrics */
+export interface CorrelationResult {
+  metric_a: string;
+  metric_b: string;
+  period_start: string;
+  correlation: number | null;
+  lag_quarters: number;
+}

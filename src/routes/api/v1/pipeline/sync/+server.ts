@@ -10,6 +10,8 @@
  *   ?stage=trends        - run trend computation
  *   ?stage=anomalies     - run anomaly detection
  *   ?stage=risk          - run risk score computation
+ *   ?stage=fred          - run FRED macro data sync
+ *   ?stage=correlations  - run correlation computation
  *   (no stage)           - run all stages in order
  */
 
@@ -23,6 +25,8 @@ import { computeIndustryAggregates } from '$lib/server/analytics/industry-agg';
 import { computeAllTrends } from '$lib/server/analytics/trends';
 import { detectAnomalies } from '$lib/server/analytics/anomalies';
 import { computeRiskScores } from '$lib/server/analytics/risk-scores';
+import { syncFredData } from '$lib/server/pipeline/fred-sync';
+import { computeCorrelations } from '$lib/server/analytics/correlations';
 
 function corsJson(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -180,6 +184,39 @@ export const POST: RequestHandler = async ({ platform, url }) => {
           elapsed_seconds: Number(((Date.now() - t0) / 1000).toFixed(1))
         };
       }
+    }
+
+    // Stage: fred (sync FRED macro data)
+    if (!stage || stage === 'fred') {
+      console.log('=== Stage: fred ===');
+      const t0 = Date.now();
+
+      const fredApiKey = (platform?.env as Record<string, unknown>)?.FRED_API_KEY as string | undefined;
+      if (fredApiKey) {
+        const fredResult = await syncFredData(db, fredApiKey);
+        results.fred = {
+          ...fredResult,
+          elapsed_seconds: Number(((Date.now() - t0) / 1000).toFixed(1))
+        };
+      } else {
+        results.fred = {
+          skipped: true,
+          reason: 'FRED_API_KEY not configured',
+          elapsed_seconds: Number(((Date.now() - t0) / 1000).toFixed(1))
+        };
+      }
+    }
+
+    // Stage: correlations (compute macro vs bank metric correlations)
+    if (!stage || stage === 'correlations') {
+      console.log('=== Stage: correlations ===');
+      const t0 = Date.now();
+
+      const corrRows = await computeCorrelations(db);
+      results.correlations = {
+        rows_inserted: corrRows,
+        elapsed_seconds: Number(((Date.now() - t0) / 1000).toFixed(1))
+      };
     }
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
