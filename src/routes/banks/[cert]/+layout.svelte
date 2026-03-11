@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import AnomalyBadge from '$lib/components/data/AnomalyBadge.svelte';
 
 	let { data, children } = $props();
 
@@ -7,7 +8,7 @@
 		{ label: 'Overview', href: `/banks/${data.bank.cert}`, comingSoon: false },
 		{ label: 'Financials', href: `/banks/${data.bank.cert}/financials`, comingSoon: false },
 		{ label: 'Peers', href: `/banks/${data.bank.cert}/peers`, comingSoon: false },
-		{ label: 'Risk', href: `/banks/${data.bank.cert}/risk`, comingSoon: true }
+		{ label: 'Risk', href: `/banks/${data.bank.cert}/risk`, comingSoon: false }
 	]);
 
 	let basePath = $derived(`/banks/${data.bank.cert}`);
@@ -38,7 +39,16 @@
 
 	<!-- Header -->
 	<div>
-		<h1 class="text-2xl font-semibold text-[--text-primary]">{data.bank.name}</h1>
+		<div class="flex items-center gap-2 flex-wrap">
+			<h1 class="text-2xl font-semibold text-[--text-primary]">{data.bank.name}</h1>
+			{#if data.anomalyCounts && (data.anomalyCounts.critical > 0 || data.anomalyCounts.warning > 0)}
+				<AnomalyBadge
+					critical={data.anomalyCounts.critical}
+					warning={data.anomalyCounts.warning}
+					info={data.anomalyCounts.info}
+				/>
+			{/if}
+		</div>
 		<p class="text-[13px] text-[--text-tertiary] font-mono">CERT #{data.bank.cert}</p>
 	</div>
 

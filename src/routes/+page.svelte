@@ -70,6 +70,21 @@
 	</a>
 </div>
 
+<!-- Risk & Anomaly teaser -->
+<div class="mt-8 rounded border border-[--border] bg-[--surface-1] p-4 text-center">
+	<p class="text-[13px] font-medium text-[--text-primary]">Risk Analysis & Anomaly Detection</p>
+	<p class="text-[13px] text-[--text-tertiary] mt-1">
+		CAMELS-proxy risk scores and anomaly detection are now available on individual bank pages.
+	</p>
+	<a
+		href="/banks"
+		class="inline-flex items-center gap-1 mt-2 text-[13px] font-medium text-[--accent] hover:text-[--accent-hover]"
+	>
+		Find a bank to view risk analysis
+		<span aria-hidden="true">&rarr;</span>
+	</a>
+</div>
+
 <!-- Attribution & Disclaimer -->
 <div class="mt-12 space-y-1 border-t border-[--border] pt-6 text-center text-[11px] text-[--text-tertiary]">
 	<p>Data from FDIC BankFind, Federal Reserve, FFIEC.</p>
