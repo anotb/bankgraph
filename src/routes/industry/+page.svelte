@@ -1,7 +1,170 @@
+<script lang="ts">
+	import MetricCard from '$lib/components/data/MetricCard.svelte';
+	import { formatCurrency, formatPercent, formatDate, formatNumber } from '$lib/utils/formatters.js';
+	import { getMode } from '$lib/stores/mode.svelte.js';
+
+	let { data } = $props();
+	let meta = $derived(data.meta);
+	let mode = $derived(getMode());
+
+	interface SegmentQuarter {
+		repdte: string;
+		metrics: Record<string, number>;
+	}
+
+	interface SegmentData {
+		segment: string;
+		data: SegmentQuarter[];
+	}
+
+	/** Get the latest quarter's metrics for a segment */
+	function latestMetrics(seg: SegmentData | null): Record<string, number> | null {
+		if (!seg || !seg.data || seg.data.length === 0) return null;
+		return seg.data[0].metrics;
+	}
+
+	let allMetrics = $derived(latestMetrics(data.allSegment));
+	let communityMetrics = $derived(latestMetrics(data.communitySegment));
+	let regionalMetrics = $derived(latestMetrics(data.regionalSegment));
+	let largeMetrics = $derived(latestMetrics(data.largeSegment));
+
+	let latestQuarter = $derived(
+		data.allSegment?.data?.[0]?.repdte ?? meta?.latest_quarter ?? null
+	);
+
+	interface SegmentRow {
+		label: string;
+		metrics: Record<string, number> | null;
+	}
+
+	let segments = $derived.by((): SegmentRow[] => {
+		const all: SegmentRow[] = [
+			{ label: 'All Banks', metrics: allMetrics },
+			{ label: 'Community', metrics: communityMetrics },
+			{ label: 'Regional', metrics: regionalMetrics },
+			{ label: 'Large', metrics: largeMetrics }
+		];
+		if (mode === 'accessible') {
+			// Show just All Banks row in accessible mode
+			return [all[0]];
+		}
+		return all;
+	});
+
+	/** Columns for the segment table */
+	type MetricCol = { key: string; label: string; fmt: (v: number | null) => string };
+
+	let columns = $derived.by((): MetricCol[] => {
+		const core: MetricCol[] = [
+			{ key: 'bank_count', label: 'Banks', fmt: (v) => formatNumber(v) },
+			{ key: 'total_assets', label: 'Total Assets', fmt: (v) => formatCurrency(v) },
+			{ key: 'median_roa', label: 'Median ROA', fmt: (v) => formatPercent(v) },
+			{ key: 'median_roe', label: 'Median ROE', fmt: (v) => formatPercent(v) },
+			{ key: 'median_nim', label: 'Median NIM', fmt: (v) => formatPercent(v) }
+		];
+		if (mode === 'power') {
+			return [
+				...core,
+				{ key: 'median_eeffr', label: 'Median Eff. Ratio', fmt: (v) => formatPercent(v) },
+				{ key: 'median_nclnlsr', label: 'Median NPL', fmt: (v) => formatPercent(v) },
+				{ key: 'median_rbcrwaj', label: 'Median Capital', fmt: (v) => formatPercent(v) }
+			];
+		}
+		return core;
+	});
+
+	function getVal(metrics: Record<string, number> | null, key: string): number | null {
+		if (!metrics) return null;
+		return metrics[key] ?? null;
+	}
+</script>
+
 <svelte:head>
 	<title>Industry | Bank Data Explorer</title>
 </svelte:head>
 
-<div class="flex min-h-[40vh] items-center justify-center">
-	<p class="text-[15px] text-[--text-disabled]">Industry dashboard coming in Phase 3.</p>
+<div class="space-y-5">
+	<!-- Header -->
+	<div>
+		<h1 class="text-2xl font-semibold text-[--text-primary]">Industry Overview</h1>
+		{#if latestQuarter}
+			<p class="text-[13px] text-[--text-tertiary]">Latest data: {formatDate(latestQuarter)}</p>
+		{/if}
+	</div>
+
+	<!-- Top stats cards -->
+	{#if meta}
+		<section>
+			<div class="flex items-center gap-2 mb-3">
+				<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+				<h2 class="text-[15px] font-semibold text-[--text-primary]">Industry Snapshot</h2>
+			</div>
+			<div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+				<MetricCard
+					label="Total Banks"
+					value={formatNumber(meta.bank_count)}
+				/>
+				<MetricCard
+					label="Active Banks"
+					value={formatNumber(meta.active_count)}
+				/>
+				{#if allMetrics}
+					<MetricCard
+						label="Total Assets"
+						value={formatCurrency(getVal(allMetrics, 'total_assets'))}
+						sublabel="Industry-wide"
+					/>
+					<MetricCard
+						label="Median ROA"
+						value={formatPercent(getVal(allMetrics, 'median_roa'))}
+						sublabel="All banks"
+					/>
+				{/if}
+			</div>
+		</section>
+	{:else}
+		<div class="rounded border border-[--border] bg-[--surface-1] py-24 text-center">
+			<p class="text-[--text-tertiary] text-[15px]">No metadata available</p>
+		</div>
+	{/if}
+
+	<!-- Segment breakdown table -->
+	<section>
+		<div class="flex items-center gap-2 mb-3">
+			<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+			<h2 class="text-[15px] font-semibold text-[--text-primary]">Segment Breakdown</h2>
+		</div>
+
+		{#if segments.some((s) => s.metrics !== null)}
+			<div class="rounded border border-[--border] bg-[--surface-1] overflow-x-auto">
+				<table class="w-full text-[13px]">
+					<thead>
+						<tr class="border-b border-[--border]">
+							<th class="text-left px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Segment</th>
+							{#each columns as col (col.key)}
+								<th class="text-right px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">{col.label}</th>
+							{/each}
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-[--border-muted]">
+						{#each segments as seg (seg.label)}
+							<tr class="hover:bg-[--surface-2] transition-colors">
+								<td class="px-3 py-2 font-medium text-[--text-primary]">{seg.label}</td>
+								{#each columns as col (col.key)}
+									<td class="px-3 py-2 text-right tabular-nums text-[--text-primary]">
+										{col.fmt(getVal(seg.metrics, col.key))}
+									</td>
+								{/each}
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{:else}
+			<div class="rounded border border-[--border] bg-[--surface-1] py-16 text-center">
+				<p class="text-[--text-tertiary] text-[15px]">No industry data available yet</p>
+				<p class="text-[--text-disabled] text-[13px] mt-1">Run the aggregation pipeline to populate industry stats.</p>
+			</div>
+		{/if}
+	</section>
 </div>

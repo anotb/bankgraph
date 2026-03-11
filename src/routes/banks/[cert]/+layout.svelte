@@ -6,7 +6,7 @@
 	let tabs = $derived([
 		{ label: 'Overview', href: `/banks/${data.bank.cert}`, comingSoon: false },
 		{ label: 'Financials', href: `/banks/${data.bank.cert}/financials`, comingSoon: false },
-		{ label: 'Peers', href: `/banks/${data.bank.cert}/peers`, comingSoon: true },
+		{ label: 'Peers', href: `/banks/${data.bank.cert}/peers`, comingSoon: false },
 		{ label: 'Risk', href: `/banks/${data.bank.cert}/risk`, comingSoon: true }
 	]);
 
