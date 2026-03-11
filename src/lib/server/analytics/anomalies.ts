@@ -12,6 +12,7 @@ import { queryAll, execute, batchInsert } from '$lib/server/db';
 const BANK_BATCH_SIZE = 200;
 
 interface AnomalyRow {
+  [key: string]: unknown;
   cert: number;
   repdte: string;
   metric: string;
