@@ -53,7 +53,7 @@ async function fetchWithRetry(url: string): Promise<Response> {
 }
 
 const INSTITUTION_FIELDS = [
-  'CERT', 'INSTNAME', 'CITY', 'STALP', 'ZIP', 'COUNTY',
+  'CERT', 'NAME', 'CITY', 'STALP', 'ZIP', 'COUNTY',
   'CHRTAGNT', 'REGAGNT', 'ACTIVE', 'ESTYMD', 'INSDATE',
   'HCTMULT', 'RSSDHCR', 'RSSDID', 'ASSET', 'DEP', 'OFFDOM', 'NUMEMP'
 ].join(',');

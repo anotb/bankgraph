@@ -30,7 +30,7 @@ function mapInstitution(raw: Record<string, unknown>): Record<string, unknown> {
   return {
     cert: Number(raw.CERT),
     rssd_id: raw.RSSDID != null ? Number(raw.RSSDID) : null,
-    name: String(raw.INSTNAME ?? ''),
+    name: String(raw.NAME ?? ''),
     city: raw.CITY != null ? String(raw.CITY) : null,
     state: raw.STALP != null ? String(raw.STALP) : null,
     zip: raw.ZIP != null ? String(raw.ZIP) : null,
