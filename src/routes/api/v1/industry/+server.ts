@@ -11,37 +11,28 @@
 import type { RequestHandler } from './$types';
 import { getDB, queryAll } from '$lib/server/db';
 import { cacheWrap } from '$lib/server/cache';
+import { jsonResponse, errorResponse } from '$lib/server/response';
 import type { IndustryAggregate } from '$lib/types';
 
 const TWELVE_HOURS = 43200;
 const VALID_SEGMENTS = new Set(['all', 'community', 'regional', 'large']);
 const DATE_RE = /^\d{8}$/;
 
-function corsJson(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
-    }
-  });
-}
-
 export const GET: RequestHandler = async ({ platform, url }) => {
   const segment = url.searchParams.get('segment') || 'all';
   if (!VALID_SEGMENTS.has(segment)) {
-    return corsJson({ error: `segment must be one of: ${[...VALID_SEGMENTS].join(', ')}` }, 400);
+    return errorResponse(`segment must be one of: ${[...VALID_SEGMENTS].join(', ')}`, 400);
   }
 
   const repdteParam = url.searchParams.get('repdte');
   if (repdteParam && !DATE_RE.test(repdteParam)) {
-    return corsJson({ error: 'repdte must be YYYYMMDD format' }, 400);
+    return errorResponse('repdte must be YYYYMMDD format', 400);
   }
 
   const limitRaw = url.searchParams.get('limit') || '20';
   let limit = parseInt(limitRaw, 10);
   if (isNaN(limit) || limit < 1) {
-    return corsJson({ error: 'limit must be a positive integer' }, 400);
+    return errorResponse('limit must be a positive integer', 400);
   }
   if (limit > 100) limit = 100;
 
@@ -98,5 +89,5 @@ export const GET: RequestHandler = async ({ platform, url }) => {
     return { segment, data };
   });
 
-  return corsJson(result);
+  return jsonResponse(result);
 };

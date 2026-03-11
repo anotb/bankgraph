@@ -9,30 +9,21 @@
 import type { RequestHandler } from './$types';
 import { getDB, queryAll } from '$lib/server/db';
 import { cacheWrap } from '$lib/server/cache';
+import { jsonResponse, errorResponse } from '$lib/server/response';
 import type { Anomaly, AnomalyResponse } from '$lib/types';
 
 const SIX_HOURS = 21600;
 const DATE_RE = /^\d{8}$/;
 
-function corsJson(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
-    }
-  });
-}
-
 export const GET: RequestHandler = async ({ params, platform, url }) => {
   const cert = parseInt(params.cert, 10);
   if (isNaN(cert) || cert < 1) {
-    return corsJson({ error: 'cert must be a positive integer' }, 400);
+    return errorResponse('cert must be a positive integer', 400);
   }
 
   const repdteParam = url.searchParams.get('repdte');
   if (repdteParam && !DATE_RE.test(repdteParam)) {
-    return corsJson({ error: 'repdte must be YYYYMMDD format' }, 400);
+    return errorResponse('repdte must be YYYYMMDD format', 400);
   }
 
   const db = getDB(platform);
@@ -62,5 +53,5 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
     return { cert, anomalies, counts };
   });
 
-  return corsJson(result);
+  return jsonResponse(result);
 };

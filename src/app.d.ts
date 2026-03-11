@@ -8,6 +8,7 @@ declare global {
 				DB: D1Database;
 				CACHE: KVNamespace;
 				EXPORTS: R2Bucket;
+				PIPELINE_SECRET: string;
 			};
 			context: {
 				waitUntil(promise: Promise<unknown>): void;

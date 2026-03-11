@@ -10,22 +10,13 @@
 import type { RequestHandler } from './$types';
 import { getDB, queryOne, queryAll } from '$lib/server/db';
 import { cacheWrap } from '$lib/server/cache';
+import { jsonResponse, errorResponse } from '$lib/server/response';
 import type { PeerComparison, PeerMetricComparison, PeerStats } from '$lib/types';
 
 const SIX_HOURS = 21600;
 const DEFAULT_METRICS = ['roa', 'roe', 'nimy', 'eeffr', 'nclnlsr', 'rbcrwaj'];
 const VALID_METRICS = new Set(['roa', 'roe', 'nimy', 'eeffr', 'nclnlsr', 'rbcrwaj', 'lnlsdepr', 'eqv']);
 const DATE_RE = /^\d{8}$/;
-
-function corsJson(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
-    }
-  });
-}
 
 /**
  * Calculate a bank's percentile within the peer group for a given metric value.
@@ -58,7 +49,7 @@ async function calcPercentile(
 export const GET: RequestHandler = async ({ params, platform, url }) => {
   const cert = parseInt(params.cert, 10);
   if (isNaN(cert) || cert < 1) {
-    return corsJson({ error: 'cert must be a positive integer' }, 400);
+    return errorResponse('cert must be a positive integer', 400);
   }
 
   // Parse metrics
@@ -68,17 +59,17 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
     metrics = metricsRaw.split(',').map((m) => m.trim()).filter(Boolean);
     const invalid = metrics.filter((m) => !VALID_METRICS.has(m));
     if (invalid.length > 0) {
-      return corsJson({ error: `Invalid metrics: ${invalid.join(', ')}` }, 400);
+      return errorResponse(`Invalid metrics: ${invalid.join(', ')}`, 400);
     }
     if (metrics.length === 0) {
-      return corsJson({ error: 'metrics parameter must not be empty' }, 400);
+      return errorResponse('metrics parameter must not be empty', 400);
     }
   }
 
   // Parse repdte
   const repdteParam = url.searchParams.get('repdte');
   if (repdteParam && !DATE_RE.test(repdteParam)) {
-    return corsJson({ error: 'repdte must be YYYYMMDD format' }, 400);
+    return errorResponse('repdte must be YYYYMMDD format', 400);
   }
 
   const db = getDB(platform);
@@ -162,8 +153,8 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
   });
 
   if (!result) {
-    return corsJson({ error: 'Bank not found or no financial data available' }, 404);
+    return errorResponse('Bank not found or no financial data available', 404);
   }
 
-  return corsJson(result);
+  return jsonResponse(result);
 };

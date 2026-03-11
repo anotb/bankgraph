@@ -1,19 +1,10 @@
 import type { RequestHandler } from './$types';
 import { getDB, queryOne, queryAll } from '$lib/server/db';
 import { cacheWrap } from '$lib/server/cache';
+import { jsonResponse } from '$lib/server/response';
 import type { MetaResponse, PipelineState } from '$lib/types';
 
 const ONE_HOUR = 3600;
-
-function corsJson(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
-    }
-  });
-}
 
 export const GET: RequestHandler = async (event) => {
   const { platform } = event;
@@ -64,5 +55,5 @@ export const GET: RequestHandler = async (event) => {
     };
   });
 
-  return corsJson(result);
+  return jsonResponse(result);
 };

@@ -1,3 +1,4 @@
+import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { BankListResponse } from '$lib/types';
 
@@ -26,6 +27,12 @@ export const load: PageServerLoad = async ({ url, fetch }) => {
   if (limit) params.set('limit', limit);
 
   const res = await fetch(`/api/v1/banks?${params.toString()}`);
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null) as { error?: string } | null;
+    throw error(res.status, body?.error ?? 'Failed to load banks');
+  }
+
   const result: BankListResponse = await res.json();
 
   return {

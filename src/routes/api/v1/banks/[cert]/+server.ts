@@ -1,19 +1,10 @@
 import type { RequestHandler } from './$types';
 import { getDB, queryOne } from '$lib/server/db';
 import { cacheWrap } from '$lib/server/cache';
+import { jsonResponse, errorResponse } from '$lib/server/response';
 import type { Institution, Financial } from '$lib/types';
 
 const TWENTY_FOUR_HOURS = 86400;
-
-function corsJson(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
-    }
-  });
-}
 
 export const GET: RequestHandler = async (event) => {
   const { params, platform } = event;
@@ -21,7 +12,7 @@ export const GET: RequestHandler = async (event) => {
   const cert = parseInt(certRaw, 10);
 
   if (isNaN(cert) || cert < 1) {
-    return corsJson({ error: 'cert must be a positive integer' }, 400);
+    return errorResponse('cert must be a positive integer', 400);
   }
 
   const db = getDB(platform);
@@ -33,7 +24,7 @@ export const GET: RequestHandler = async (event) => {
   });
 
   if (!bank) {
-    return corsJson({ error: 'Bank not found' }, 404);
+    return errorResponse('Bank not found', 404);
   }
 
   const finCacheKey = `bank:${cert}:latest_fin`;
@@ -41,5 +32,5 @@ export const GET: RequestHandler = async (event) => {
     return queryOne<Financial>(db, 'SELECT * FROM financials WHERE cert = ? ORDER BY repdte DESC LIMIT 1', [cert]);
   });
 
-  return corsJson({ ...bank, latest_financials: latestFinancials });
+  return jsonResponse({ ...bank, latest_financials: latestFinancials });
 };

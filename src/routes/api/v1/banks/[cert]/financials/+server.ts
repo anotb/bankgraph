@@ -1,6 +1,7 @@
 import type { RequestHandler } from './$types';
 import { getDB, queryAll } from '$lib/server/db';
 import { cacheWrap } from '$lib/server/cache';
+import { jsonResponse, errorResponse } from '$lib/server/response';
 import type { Financial, FinancialsResponse } from '$lib/types';
 
 const SIX_HOURS = 21600;
@@ -14,20 +15,10 @@ const VALID_FIELDS = new Set([
 
 const DATE_RE = /^\d{8}$/;
 
-function corsJson(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
-    }
-  });
-}
-
 export const GET: RequestHandler = async ({ params, platform, url }) => {
   const cert = parseInt(params.cert, 10);
   if (isNaN(cert) || cert < 1) {
-    return corsJson({ error: 'cert must be a positive integer' }, 400);
+    return errorResponse('cert must be a positive integer', 400);
   }
 
   // Parse and validate query params
@@ -38,10 +29,10 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 
   // Validate dates
   if (from && !DATE_RE.test(from)) {
-    return corsJson({ error: 'from must be YYYYMMDD format (8 digits)' }, 400);
+    return errorResponse('from must be YYYYMMDD format (8 digits)', 400);
   }
   if (to && !DATE_RE.test(to)) {
-    return corsJson({ error: 'to must be YYYYMMDD format (8 digits)' }, 400);
+    return errorResponse('to must be YYYYMMDD format (8 digits)', 400);
   }
 
   // Validate limit
@@ -49,7 +40,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
   if (limitRaw !== null) {
     limit = parseInt(limitRaw, 10);
     if (isNaN(limit) || limit < 1) {
-      return corsJson({ error: 'limit must be a positive integer' }, 400);
+      return errorResponse('limit must be a positive integer', 400);
     }
     if (limit > 1000) limit = 1000;
   }
@@ -61,10 +52,10 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
     const requested = fieldsRaw.split(',').map((f) => f.trim()).filter(Boolean);
     const invalid = requested.filter((f) => !VALID_FIELDS.has(f));
     if (invalid.length > 0) {
-      return corsJson({ error: `Invalid fields: ${invalid.join(', ')}` }, 400);
+      return errorResponse(`Invalid fields: ${invalid.join(', ')}`, 400);
     }
     if (requested.length === 0) {
-      return corsJson({ error: 'fields parameter must not be empty' }, 400);
+      return errorResponse('fields parameter must not be empty', 400);
     }
     // Always include cert and repdte for meaningful results
     const fieldSet = new Set(requested);
@@ -107,5 +98,5 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
     to: to || null
   };
 
-  return corsJson(response);
+  return jsonResponse(response);
 };

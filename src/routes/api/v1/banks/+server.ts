@@ -1,6 +1,7 @@
 import type { RequestHandler } from './$types';
 import { getDB, queryAll, queryOne } from '$lib/server/db';
 import { cacheWrap } from '$lib/server/cache';
+import { jsonResponse, errorResponse } from '$lib/server/response';
 import type { Institution, BankListResponse } from '$lib/types';
 
 const VALID_SORT_COLUMNS = new Set(['name', 'assets', 'deposits']);
@@ -11,16 +12,6 @@ const SORT_COLUMN_MAP: Record<string, string> = {
 };
 
 const ONE_HOUR = 3600;
-
-function corsJson(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
-    }
-  });
-}
 
 function hashParams(url: URL): string {
   const params = new URLSearchParams(url.searchParams);
@@ -49,29 +40,29 @@ export const GET: RequestHandler = async (event) => {
   const limit = parseInt(limitRaw, 10);
 
   if (isNaN(page) || page < 1) {
-    return corsJson({ error: 'page must be a positive integer' }, 400);
+    return errorResponse('page must be a positive integer', 400);
   }
   if (isNaN(limit) || limit < 1 || limit > 100) {
-    return corsJson({ error: 'limit must be between 1 and 100' }, 400);
+    return errorResponse('limit must be between 1 and 100', 400);
   }
 
   let assetMin: number | undefined;
   if (assetMinRaw !== null) {
     assetMin = parseInt(assetMinRaw, 10);
-    if (isNaN(assetMin)) return corsJson({ error: 'asset_min must be a number' }, 400);
+    if (isNaN(assetMin)) return errorResponse('asset_min must be a number', 400);
   }
 
   let assetMax: number | undefined;
   if (assetMaxRaw !== null) {
     assetMax = parseInt(assetMaxRaw, 10);
-    if (isNaN(assetMax)) return corsJson({ error: 'asset_max must be a number' }, 400);
+    if (isNaN(assetMax)) return errorResponse('asset_max must be a number', 400);
   }
 
   let active: number | undefined;
   if (activeRaw !== null) {
     active = parseInt(activeRaw, 10);
     if (active !== 0 && active !== 1) {
-      return corsJson({ error: 'active must be 0 or 1' }, 400);
+      return errorResponse('active must be 0 or 1', 400);
     }
   } else {
     active = 1; // default
@@ -79,12 +70,12 @@ export const GET: RequestHandler = async (event) => {
 
   const sort = sortRaw.toLowerCase();
   if (!VALID_SORT_COLUMNS.has(sort)) {
-    return corsJson({ error: `sort must be one of: ${[...VALID_SORT_COLUMNS].join(', ')}` }, 400);
+    return errorResponse(`sort must be one of: ${[...VALID_SORT_COLUMNS].join(', ')}`, 400);
   }
 
   const order = orderRaw.toLowerCase();
   if (order !== 'asc' && order !== 'desc') {
-    return corsJson({ error: 'order must be asc or desc' }, 400);
+    return errorResponse('order must be asc or desc', 400);
   }
 
   const kv = platform?.env?.CACHE;
@@ -131,11 +122,14 @@ export const GET: RequestHandler = async (event) => {
     const total = countRow?.total ?? 0;
 
     // Get page of results
+    // SAFETY: sortColumn and order are interpolated directly into SQL, but both are
+    // validated against allowlists above (SORT_COLUMN_MAP keys and 'asc'/'desc')
+    // so there is no SQL injection risk here.
     const dataSql = `SELECT * FROM institutions ${whereClause} ORDER BY ${sortColumn} ${order.toUpperCase()} LIMIT ? OFFSET ?`;
     const data = await queryAll<Institution>(db, dataSql, [...params, limit, offset]);
 
     return { data, total, page, limit };
   });
 
-  return corsJson(result);
+  return jsonResponse(result);
 };

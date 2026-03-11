@@ -28,17 +28,25 @@ import { computeRiskScores } from '$lib/server/analytics/risk-scores';
 import { syncFredData } from '$lib/server/pipeline/fred-sync';
 import { computeCorrelations } from '$lib/server/analytics/correlations';
 
-function corsJson(body: unknown, status = 200): Response {
+/** No CORS headers on this endpoint (server-to-server only). */
+function pipelineJson(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
-    }
+    headers: { 'Content-Type': 'application/json' }
   });
 }
 
-export const POST: RequestHandler = async ({ platform, url }) => {
+export const POST: RequestHandler = async ({ platform, url, request }) => {
+  // --- Auth: require Bearer token matching PIPELINE_SECRET ---
+  const secret = (platform?.env as Record<string, unknown>)?.PIPELINE_SECRET as string | undefined;
+  if (!secret) {
+    return pipelineJson({ ok: false, error: 'PIPELINE_SECRET not configured on server' }, 500);
+  }
+
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || authHeader !== `Bearer ${secret}`) {
+    return pipelineJson({ ok: false, error: 'Unauthorized' }, 401);
+  }
   const startTime = Date.now();
   const stage = url.searchParams.get('stage');
 
@@ -222,7 +230,7 @@ export const POST: RequestHandler = async ({ platform, url }) => {
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`=== Sync complete in ${elapsed}s ===`);
 
-    return corsJson({
+    return pipelineJson({
       ok: true,
       stage: stage ?? 'all',
       elapsed_seconds: Number(elapsed),
@@ -232,7 +240,7 @@ export const POST: RequestHandler = async ({ platform, url }) => {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`Pipeline sync failed: ${message}`);
 
-    return corsJson(
+    return pipelineJson(
       {
         ok: false,
         stage: stage ?? 'all',

@@ -12,6 +12,7 @@
 import type { RequestHandler } from './$types';
 import { getDB, queryAll } from '$lib/server/db';
 import { cacheWrap } from '$lib/server/cache';
+import { jsonResponse, errorResponse } from '$lib/server/response';
 import type { Financial, CompareResponse } from '$lib/types';
 
 const ONE_HOUR = 3600;
@@ -23,44 +24,34 @@ const VALID_METRICS = new Set([
   'asset', 'dep', 'eq', 'lnlsnet', 'netinc', 'nim', 'numemp'
 ]);
 
-function corsJson(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
-    }
-  });
-}
-
 export const GET: RequestHandler = async ({ platform, url }) => {
   const certsRaw = url.searchParams.get('certs');
   if (!certsRaw) {
-    return corsJson({ error: 'certs parameter is required (comma-separated)' }, 400);
+    return errorResponse('certs parameter is required (comma-separated)', 400);
   }
 
   const certs = certsRaw.split(',').map((c) => parseInt(c.trim(), 10)).filter((c) => !isNaN(c) && c > 0);
   if (certs.length === 0) {
-    return corsJson({ error: 'certs must contain valid positive integers' }, 400);
+    return errorResponse('certs must contain valid positive integers', 400);
   }
   if (certs.length > 10) {
-    return corsJson({ error: 'Maximum 10 certs allowed' }, 400);
+    return errorResponse('Maximum 10 certs allowed', 400);
   }
 
   const metricsRaw = url.searchParams.get('metrics') || 'roa,roe,nimy';
   const metrics = metricsRaw.split(',').map((m) => m.trim()).filter(Boolean);
   const invalidMetrics = metrics.filter((m) => !VALID_METRICS.has(m));
   if (invalidMetrics.length > 0) {
-    return corsJson({ error: `Invalid metrics: ${invalidMetrics.join(', ')}` }, 400);
+    return errorResponse(`Invalid metrics: ${invalidMetrics.join(', ')}`, 400);
   }
 
   const from = url.searchParams.get('from');
   const to = url.searchParams.get('to');
   if (from && !DATE_RE.test(from)) {
-    return corsJson({ error: 'from must be YYYYMMDD format' }, 400);
+    return errorResponse('from must be YYYYMMDD format', 400);
   }
   if (to && !DATE_RE.test(to)) {
-    return corsJson({ error: 'to must be YYYYMMDD format' }, 400);
+    return errorResponse('to must be YYYYMMDD format', 400);
   }
 
   const kv = platform?.env?.CACHE;
@@ -106,5 +97,5 @@ export const GET: RequestHandler = async ({ platform, url }) => {
     } as CompareResponse;
   });
 
-  return corsJson(result);
+  return jsonResponse(result);
 };

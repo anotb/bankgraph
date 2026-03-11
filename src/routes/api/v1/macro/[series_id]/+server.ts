@@ -9,27 +9,18 @@
 import type { RequestHandler } from './$types';
 import { getDB, queryAll, queryOne } from '$lib/server/db';
 import { cacheWrap } from '$lib/server/cache';
+import { jsonResponse, errorResponse } from '$lib/server/response';
 import type { MacroResponse } from '$lib/types';
 
 const SIX_HOURS = 21600;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-function corsJson(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
-    }
-  });
-}
 
 export const GET: RequestHandler = async ({ params, platform, url }) => {
   const seriesId = params.series_id.toUpperCase();
 
   const from = url.searchParams.get('from');
   if (from && !DATE_RE.test(from)) {
-    return corsJson({ error: 'from must be YYYY-MM-DD format' }, 400);
+    return errorResponse('from must be YYYY-MM-DD format', 400);
   }
 
   const kv = platform?.env?.CACHE;
@@ -80,5 +71,5 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
     } as MacroResponse;
   });
 
-  return corsJson(result);
+  return jsonResponse(result);
 };
