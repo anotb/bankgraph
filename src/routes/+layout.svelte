@@ -23,8 +23,7 @@
 				>Macro</a>
 				<a
 					href="/glossary"
-					class="text-slate-400 hover:text-slate-300 transition-colors"
-					title="Coming soon"
+					class="text-slate-200 hover:text-white transition-colors"
 				>Glossary</a>
 			</div>
 		</div>
