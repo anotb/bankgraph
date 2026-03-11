@@ -1,7 +1,7 @@
 import type { RequestHandler } from './$types';
 import { getDB, queryOne } from '$lib/server/db';
 import { cacheWrap } from '$lib/server/cache';
-import type { Institution } from '$lib/types';
+import type { Institution, Financial } from '$lib/types';
 
 const TWENTY_FOUR_HOURS = 86400;
 
@@ -24,11 +24,11 @@ export const GET: RequestHandler = async (event) => {
     return corsJson({ error: 'cert must be a positive integer' }, 400);
   }
 
+  const db = getDB(platform);
   const kv = platform?.env?.CACHE;
   const cacheKey = `bank:${cert}`;
 
   const bank = await cacheWrap<Institution | null>(kv, cacheKey, TWENTY_FOUR_HOURS, async () => {
-    const db = getDB(platform);
     return queryOne<Institution>(db, 'SELECT * FROM institutions WHERE cert = ?', [cert]);
   });
 
@@ -36,5 +36,10 @@ export const GET: RequestHandler = async (event) => {
     return corsJson({ error: 'Bank not found' }, 404);
   }
 
-  return corsJson(bank);
+  const finCacheKey = `bank:${cert}:latest_fin`;
+  const latestFinancials = await cacheWrap<Financial | null>(kv, finCacheKey, TWENTY_FOUR_HOURS, async () => {
+    return queryOne<Financial>(db, 'SELECT * FROM financials WHERE cert = ? ORDER BY repdte DESC LIMIT 1', [cert]);
+  });
+
+  return corsJson({ ...bank, latest_financials: latestFinancials });
 };
