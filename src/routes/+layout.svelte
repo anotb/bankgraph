@@ -17,7 +17,8 @@
 			<div class="flex items-center gap-5 text-[13px] font-medium">
 				<a href="/banks" class="text-[--text-secondary] hover:text-[--text-primary] transition-colors">Banks</a>
 				<a href="/industry" class="text-[--text-secondary] hover:text-[--text-primary] transition-colors">Industry</a>
-				<a href="/macro" class="text-[--text-disabled] hover:text-[--text-tertiary] transition-colors" title="Coming soon">Macro</a>
+				<a href="/macro" class="text-[--text-secondary] hover:text-[--text-primary] transition-colors">Macro</a>
+				<a href="/compare" class="text-[--text-secondary] hover:text-[--text-primary] transition-colors">Compare</a>
 				<a href="/glossary" class="text-[--text-secondary] hover:text-[--text-primary] transition-colors">Glossary</a>
 			</div>
 

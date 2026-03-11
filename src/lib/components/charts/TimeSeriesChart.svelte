@@ -9,17 +9,20 @@
 		color?: string;
 		data: SeriesDataPoint[];
 	};
+	type MarkAreaRange = [string, string]; // [start ISO date, end ISO date]
 
 	let {
 		series,
 		title,
 		yAxisFormat = 'number',
-		height = '320px'
+		height = '320px',
+		markAreas = []
 	}: {
 		series: SeriesConfig[];
 		title?: string;
 		yAxisFormat?: 'currency' | 'percent' | 'number';
 		height?: string;
+		markAreas?: MarkAreaRange[];
 	} = $props();
 
 	let chartContainer: HTMLDivElement;
@@ -163,18 +166,34 @@
 					},
 					splitLine: { lineStyle: { color: isDark ? '#282c33' : '#e8e5df', type: 'dashed' } }
 				},
-				series: currentSeries.map((s, i) => ({
-					name: s.label,
-					type: 'line',
-					symbolSize: 4,
-					symbol: 'none',
-					smooth: false,
-					lineStyle: { width: 2, color: s.color || colors[i % colors.length] },
-					itemStyle: { color: s.color || colors[i % colors.length] },
-					data: s.data
-						.filter((d) => d.value !== null)
-						.map((d) => [parseDate(d.date), d.value])
-				}))
+				series: currentSeries.map((s, i) => {
+					const base: any = {
+						name: s.label,
+						type: 'line',
+						symbolSize: 4,
+						symbol: 'none',
+						smooth: false,
+						lineStyle: { width: 2, color: s.color || colors[i % colors.length] },
+						itemStyle: { color: s.color || colors[i % colors.length] },
+						data: s.data
+							.filter((d) => d.value !== null)
+							.map((d) => [parseDate(d.date), d.value])
+					};
+					// Add recession bands to the first series only
+					if (i === 0 && markAreas.length > 0) {
+						base.markArea = {
+							silent: true,
+							itemStyle: {
+								color: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'
+							},
+							data: markAreas.map(([start, end]) => [
+								{ xAxis: start },
+								{ xAxis: end }
+							])
+						};
+					}
+					return base;
+				})
 			};
 
 			chart.setOption(option, true);
