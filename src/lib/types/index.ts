@@ -215,3 +215,65 @@ export interface IndustryAggregate {
   value: number | null;
   count: number | null;
 }
+
+/** Trend data for a single bank-metric-quarter */
+export interface BankTrend {
+  cert: number;
+  metric: string;
+  repdte: string;
+  ma_4q: number | null;
+  ma_8q: number | null;
+  qoq_change: number | null;
+  yoy_change: number | null;
+  trend_slope: number | null;
+  trend_r_squared: number | null;
+  peer_group: string | null;
+  peer_percentile: number | null;
+}
+
+/** Anomaly detection result */
+export interface Anomaly {
+  id?: number;
+  cert: number;
+  repdte: string;
+  metric: string;
+  anomaly_type: string;
+  severity: 'critical' | 'warning' | 'info';
+  value: number | null;
+  reference_value: number | null;
+  delta: number | null;
+  description: string | null;
+}
+
+/** Risk score for a single bank-quarter */
+export interface RiskScore {
+  cert: number;
+  repdte: string;
+  capital_score: number | null;
+  asset_quality_score: number | null;
+  earnings_score: number | null;
+  liquidity_score: number | null;
+  composite_score: number | null;
+  pca_category: string | null;
+}
+
+/** Anomaly API response */
+export interface AnomalyResponse {
+  cert: number;
+  anomalies: Anomaly[];
+  counts: { critical: number; warning: number; info: number };
+}
+
+/** Risk score API response */
+export interface RiskResponse {
+  cert: number;
+  repdte: string;
+  scores: {
+    capital: number | null;
+    asset_quality: number | null;
+    earnings: number | null;
+    liquidity: number | null;
+    composite: number | null;
+  };
+  pca_category: string | null;
+}

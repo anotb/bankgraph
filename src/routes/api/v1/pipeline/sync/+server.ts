@@ -7,6 +7,9 @@
  *   ?stage=financials    - run only financials backfill
  *   ?stage=snapshot      - run only latest-quarter snapshot
  *   ?stage=analytics     - run peer stats and industry aggregates
+ *   ?stage=trends        - run trend computation
+ *   ?stage=anomalies     - run anomaly detection
+ *   ?stage=risk          - run risk score computation
  *   (no stage)           - run all stages in order
  */
 
@@ -17,6 +20,9 @@ import { syncLatestFinancials } from '$lib/server/pipeline/fdic-financials-snaps
 import { syncFinancials } from '$lib/server/pipeline/fdic-financials';
 import { computePeerStats } from '$lib/server/analytics/peer-stats';
 import { computeIndustryAggregates } from '$lib/server/analytics/industry-agg';
+import { computeAllTrends } from '$lib/server/analytics/trends';
+import { detectAnomalies } from '$lib/server/analytics/anomalies';
+import { computeRiskScores } from '$lib/server/analytics/risk-scores';
 
 function corsJson(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -91,6 +97,84 @@ export const POST: RequestHandler = async ({ platform, url }) => {
         };
       } else {
         results.analytics = {
+          skipped: true,
+          reason: 'No financial data found',
+          elapsed_seconds: Number(((Date.now() - t0) / 1000).toFixed(1))
+        };
+      }
+    }
+
+    // Stage: trends (compute trend analytics)
+    if (!stage || stage === 'trends') {
+      console.log('=== Stage: trends ===');
+      const t0 = Date.now();
+
+      const latestQ = await queryOne<{ repdte: string }>(
+        db,
+        'SELECT repdte FROM financials ORDER BY repdte DESC LIMIT 1'
+      );
+
+      if (latestQ) {
+        const trendRows = await computeAllTrends(db, latestQ.repdte);
+        results.trends = {
+          repdte: latestQ.repdte,
+          rows_inserted: trendRows,
+          elapsed_seconds: Number(((Date.now() - t0) / 1000).toFixed(1))
+        };
+      } else {
+        results.trends = {
+          skipped: true,
+          reason: 'No financial data found',
+          elapsed_seconds: Number(((Date.now() - t0) / 1000).toFixed(1))
+        };
+      }
+    }
+
+    // Stage: anomalies (detect anomalies)
+    if (!stage || stage === 'anomalies') {
+      console.log('=== Stage: anomalies ===');
+      const t0 = Date.now();
+
+      const latestQ = await queryOne<{ repdte: string }>(
+        db,
+        'SELECT repdte FROM financials ORDER BY repdte DESC LIMIT 1'
+      );
+
+      if (latestQ) {
+        const anomalyCount = await detectAnomalies(db, latestQ.repdte);
+        results.anomalies = {
+          repdte: latestQ.repdte,
+          anomalies_detected: anomalyCount,
+          elapsed_seconds: Number(((Date.now() - t0) / 1000).toFixed(1))
+        };
+      } else {
+        results.anomalies = {
+          skipped: true,
+          reason: 'No financial data found',
+          elapsed_seconds: Number(((Date.now() - t0) / 1000).toFixed(1))
+        };
+      }
+    }
+
+    // Stage: risk (compute risk scores)
+    if (!stage || stage === 'risk') {
+      console.log('=== Stage: risk ===');
+      const t0 = Date.now();
+
+      const latestQ = await queryOne<{ repdte: string }>(
+        db,
+        'SELECT repdte FROM financials ORDER BY repdte DESC LIMIT 1'
+      );
+
+      if (latestQ) {
+        const riskRows = await computeRiskScores(db, latestQ.repdte);
+        results.risk = {
+          repdte: latestQ.repdte,
+          scores_computed: riskRows,
+          elapsed_seconds: Number(((Date.now() - t0) / 1000).toFixed(1))
+        };
+      } else {
+        results.risk = {
           skipped: true,
           reason: 'No financial data found',
           elapsed_seconds: Number(((Date.now() - t0) / 1000).toFixed(1))
