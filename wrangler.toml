@@ -1,0 +1,16 @@
+name = "bank-data"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bank_data"
+database_id = "placeholder-d1-id"
+
+[[kv_namespaces]]
+binding = "CACHE"
+id = "placeholder-kv-id"
+
+[[r2_buckets]]
+binding = "EXPORTS"
+bucket_name = "bank-exports"
