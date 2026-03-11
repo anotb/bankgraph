@@ -92,3 +92,79 @@ export interface MetaResponse {
   data_freshness: Record<string, string>;
   states: Array<{ state: string; count: number }>;
 }
+
+/** Quarterly financial data for an institution */
+export interface Financial {
+  /** FDIC certificate number */
+  cert: number;
+  /** Reporting date (YYYYMMDD) */
+  repdte: string;
+  /** Total assets (thousands) */
+  asset: number | null;
+  /** Total deposits (thousands) */
+  dep: number | null;
+  /** Total equity capital (thousands) */
+  eq: number | null;
+  /** Net loans and leases (thousands) */
+  lnlsnet: number | null;
+  /** Real estate loans (thousands) */
+  lnre: number | null;
+  /** Commercial & industrial loans (thousands) */
+  lnci: number | null;
+  /** Consumer loans (thousands) */
+  lncon: number | null;
+  /** Securities (thousands) */
+  sec: number | null;
+  /** Net income (thousands) */
+  netinc: number | null;
+  /** Interest income (thousands) */
+  intinc: number | null;
+  /** Interest expense (thousands) */
+  eintexp: number | null;
+  /** Net interest margin (thousands) */
+  nim: number | null;
+  /** Non-interest income (thousands) */
+  nonii: number | null;
+  /** Non-interest expense (thousands) */
+  nonix: number | null;
+  /** Provision for loan losses (thousands) */
+  elnatr: number | null;
+  /** Return on assets (%) */
+  roa: number | null;
+  /** Return on equity (%) */
+  roe: number | null;
+  /** Net interest margin yield (%) */
+  nimy: number | null;
+  /** Efficiency ratio (%) */
+  eeffr: number | null;
+  /** Total risk-based capital ratio (%) */
+  rbcrwaj: number | null;
+  /** Tier 1 risk-based capital ratio (%) */
+  rbc1rwaj: number | null;
+  /** Tier 1 leverage ratio (%) */
+  rbc1aaj: number | null;
+  /** Equity-to-assets ratio (%) */
+  eqv: number | null;
+  /** Non-current loans to loans ratio (%) */
+  nclnlsr: number | null;
+  /** Loan loss allowance to non-current ratio (%) */
+  lnatresr: number | null;
+  /** Net charge-off ratio (%) */
+  nco_ratio: number | null;
+  /** Loans-to-deposits ratio (%) */
+  lnlsdepr: number | null;
+  /** Other borrowed funds incl. FHLB (thousands) */
+  othbfhlb: number | null;
+  /** Number of employees */
+  numemp: number | null;
+  /** Asset size bucket */
+  asset_bucket: number | null;
+}
+
+/** Financials API response for a single institution */
+export interface FinancialsResponse {
+  data: Financial[];
+  cert: number;
+  from: string | null;
+  to: string | null;
+}
