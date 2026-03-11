@@ -1,1 +1,204 @@
 @import "tailwindcss";
+
+/* ============================================================
+   FONTS
+   ============================================================ */
+
+/* Inter variable (full OpenType features, from official source) */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('https://rsms.me/inter/font-files/InterVariable.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('https://rsms.me/inter/font-files/InterVariable-Italic.woff2') format('woff2');
+}
+
+/* ============================================================
+   THEME TOKENS
+   ============================================================ */
+
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+}
+
+/* ============================================================
+   LIGHT MODE (default)
+   ============================================================ */
+
+:root {
+  /* Surfaces */
+  --surface-0: #faf9f7;
+  --surface-1: #ffffff;
+  --surface-2: #f3f1ee;
+  --surface-3: #e8e5df;
+
+  /* Borders */
+  --border: #d6d2cb;
+  --border-muted: #e2dfda;
+
+  /* Text */
+  --text-primary: #1c1a17;
+  --text-secondary: #6b6660;
+  --text-tertiary: #948f88;
+  --text-disabled: #b5b1ab;
+
+  /* Accent (teal) */
+  --accent: #0d7d7d;
+  --accent-hover: #096a6b;
+  --accent-muted: #e0f2f1;
+  --accent-text: #0a6565;
+
+  /* Semantic */
+  --positive: #1a8a4a;
+  --positive-muted: #e4f5ec;
+  --negative: #c53d2f;
+  --negative-muted: #fce8e5;
+  --warning: #c48a00;
+  --warning-muted: #fef3d6;
+  --neutral: #918c85;
+
+  /* Chart palette */
+  --chart-1: #0d7d7d;
+  --chart-2: #c53d2f;
+  --chart-3: #6b5ce7;
+  --chart-4: #c48a00;
+  --chart-5: #1a8a4a;
+  --chart-6: #c44e8a;
+  --chart-7: #4a82c4;
+  --chart-8: #7da82e;
+  --chart-9: #b04e6e;
+  --chart-10: #3e9a8a;
+}
+
+/* ============================================================
+   DARK MODE (Power Mode)
+   ============================================================ */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+.dark {
+  /* Surfaces */
+  --surface-0: #111318;
+  --surface-1: #191c23;
+  --surface-2: #22262f;
+  --surface-3: #2d3139;
+
+  /* Borders */
+  --border: #383c44;
+  --border-muted: #282c33;
+
+  /* Text */
+  --text-primary: #e8e5e0;
+  --text-secondary: #a8a39c;
+  --text-tertiary: #7a7e86;
+  --text-disabled: #555961;
+
+  /* Accent (teal, lifted) */
+  --accent: #2db5a8;
+  --accent-hover: #3fc8ba;
+  --accent-muted: #1a3535;
+  --accent-text: #2db5a8;
+
+  /* Semantic */
+  --positive: #34c772;
+  --positive-muted: #142e1f;
+  --negative: #e85c4a;
+  --negative-muted: #301a17;
+  --warning: #e0a620;
+  --warning-muted: #302810;
+  --neutral: #7a7e86;
+
+  /* Chart palette (lifted lightness) */
+  --chart-1: #2db5a8;
+  --chart-2: #e07060;
+  --chart-3: #8b7ef0;
+  --chart-4: #e0a620;
+  --chart-5: #34c772;
+  --chart-6: #e070a8;
+  --chart-7: #6aa0e0;
+  --chart-8: #a0c850;
+  --chart-9: #d07090;
+  --chart-10: #5ec0aa;
+}
+
+/* ============================================================
+   BASE STYLES
+   ============================================================ */
+
+html {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  font-feature-settings: "cv01" 1, "cv02" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--surface-0);
+  color: var(--text-primary);
+}
+
+/* Tabular figures utility - apply to all number-heavy elements */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* All table cells with numbers should be tabular by default */
+td[class*="text-right"],
+th[class*="text-right"] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Focus ring style (consistent across all interactive elements) */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Selection */
+::selection {
+  background-color: var(--accent-muted);
+  color: var(--text-primary);
+}
+
+/* Scrollbar styling for dark mode */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: var(--surface-0);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: var(--text-disabled);
+}
+
+/* Power mode density adjustments */
+.dark .dense-table td {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  font-size: 0.75rem;
+}
+
+.dark .dense-grid {
+  gap: 1px;
+}

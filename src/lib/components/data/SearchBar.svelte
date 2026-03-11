@@ -43,7 +43,7 @@
 
 <div class="relative">
 	<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-		<svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+		<svg class="h-4 w-4 text-[--text-disabled]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 			<path
 				stroke-linecap="round"
 				stroke-linejoin="round"
@@ -58,14 +58,17 @@
 		oninput={handleInput}
 		onkeydown={handleKeydown}
 		{placeholder}
-		class="block w-full rounded-lg border border-gray-300 bg-white py-2 pr-10 pl-10 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+		class="block w-full rounded border border-[--border] bg-[--surface-1] py-2 pr-9 pl-9
+			text-[14px] text-[--text-primary] placeholder:text-[--text-disabled]
+			focus:border-[--accent] focus:ring-1 focus:ring-[--accent]/30 focus:outline-none
+			transition-colors"
 	/>
 	{#if inputValue}
 		<button
 			type="button"
 			onclick={handleClear}
 			aria-label="Clear search"
-			class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+			class="absolute inset-y-0 right-0 flex items-center pr-3 text-[--text-disabled] hover:text-[--text-secondary]"
 		>
 			<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path

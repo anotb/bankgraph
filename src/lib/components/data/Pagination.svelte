@@ -19,11 +19,11 @@
 </script>
 
 <div class="flex items-center justify-between py-3">
-	<p class="text-sm text-gray-600">
+	<p class="text-[13px] text-[--text-secondary] tabular-nums">
 		{#if total === 0}
 			No results
 		{:else}
-			Showing {start}–{end} of {total.toLocaleString()} results
+			Showing {start}&ndash;{end} of {total.toLocaleString()} results
 		{/if}
 	</p>
 	<div class="flex gap-2">
@@ -31,7 +31,10 @@
 			type="button"
 			disabled={!hasPrev}
 			onclick={() => onpage(page - 1)}
-			class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+			class="rounded border border-[--border] bg-[--surface-1] px-2.5 py-1
+				text-[13px] font-medium text-[--text-secondary]
+				hover:bg-[--surface-2] hover:text-[--text-primary]
+				disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
 		>
 			Previous
 		</button>
@@ -39,7 +42,10 @@
 			type="button"
 			disabled={!hasNext}
 			onclick={() => onpage(page + 1)}
-			class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+			class="rounded border border-[--border] bg-[--surface-1] px-2.5 py-1
+				text-[13px] font-medium text-[--text-secondary]
+				hover:bg-[--surface-2] hover:text-[--text-primary]
+				disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
 		>
 			Next
 		</button>

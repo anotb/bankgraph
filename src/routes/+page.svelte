@@ -21,18 +21,18 @@
 	/>
 </svelte:head>
 
-<!-- Hero -->
-<div class="py-12 text-center">
-	<h1 class="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
+<!-- Compact header -->
+<div class="py-6 text-center">
+	<h1 class="text-2xl font-semibold tracking-tight text-[--text-primary]">
 		Bank Data Explorer
 	</h1>
-	<p class="mx-auto mt-4 max-w-xl text-lg text-gray-500">
+	<p class="mx-auto mt-2 max-w-xl text-[15px] text-[--text-secondary]">
 		Explore financial data for every FDIC-insured bank in America.
 	</p>
 </div>
 
 <!-- Quick stats -->
-<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
 	<MetricCard
 		label="Total Banks"
 		value={data.meta.bank_count ? formatNumber(data.meta.bank_count) : '...'}
@@ -51,8 +51,8 @@
 </div>
 
 <!-- Search -->
-<div class="mx-auto mt-10 max-w-lg">
-	<p class="mb-2 text-center text-sm font-medium text-gray-600">Find a bank</p>
+<div class="mx-auto mt-8 max-w-lg">
+	<p class="mb-1.5 text-center text-[13px] font-medium text-[--text-tertiary]">Find a bank</p>
 	<SearchBar
 		placeholder="Search by name, city, or state..."
 		onsearch={handleSearch}
@@ -60,10 +60,10 @@
 </div>
 
 <!-- Browse link -->
-<div class="mt-6 text-center">
+<div class="mt-5 text-center">
 	<a
 		href="/banks"
-		class="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800"
+		class="inline-flex items-center gap-1 text-[13px] font-medium text-[--accent] hover:text-[--accent-hover]"
 	>
 		Browse all banks
 		<span aria-hidden="true">&rarr;</span>
@@ -71,7 +71,7 @@
 </div>
 
 <!-- Attribution & Disclaimer -->
-<div class="mt-16 space-y-3 border-t border-gray-200 pt-8 text-center text-xs text-gray-400">
+<div class="mt-12 space-y-1 border-t border-[--border] pt-6 text-center text-[11px] text-[--text-tertiary]">
 	<p>Data from FDIC BankFind, Federal Reserve, FFIEC.</p>
 	<p>Not financial advice. Data provided as-is for educational purposes.</p>
 </div>

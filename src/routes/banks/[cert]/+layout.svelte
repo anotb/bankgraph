@@ -27,37 +27,37 @@
 	<title>{data.bank.name} | Bank Data Explorer</title>
 </svelte:head>
 
-<div class="space-y-4">
+<div class="space-y-3">
 	<!-- Back link -->
 	<a
 		href="/banks"
-		class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+		class="inline-flex items-center gap-1 text-[13px] text-[--text-tertiary] hover:text-[--text-primary] transition-colors"
 	>
 		&larr; All Banks
 	</a>
 
 	<!-- Header -->
 	<div>
-		<h1 class="text-2xl font-bold text-gray-900">{data.bank.name}</h1>
-		<p class="text-sm text-gray-500">CERT #{data.bank.cert}</p>
+		<h1 class="text-2xl font-semibold text-[--text-primary]">{data.bank.name}</h1>
+		<p class="text-[13px] text-[--text-tertiary] font-mono">CERT #{data.bank.cert}</p>
 	</div>
 
 	<!-- Tab navigation -->
-	<nav class="border-b border-gray-200">
-		<div class="flex gap-6 -mb-px">
+	<nav class="border-b border-[--border] -mx-4 px-4">
+		<div class="flex gap-0 -mb-px">
 			{#each tabs as tab}
 				<a
 					href={tab.href}
-					class="inline-flex items-center gap-1 border-b-2 px-1 py-3 text-sm font-medium transition-colors
+					class="inline-flex items-center gap-1 border-b-2 px-4 py-2.5 text-[13px] font-medium transition-colors -mb-px
 						{isActive(tab.href)
-							? 'border-blue-600 text-blue-600'
+							? 'border-[--accent] text-[--accent]'
 							: tab.comingSoon
-								? 'border-transparent text-gray-400 hover:text-gray-500 hover:border-gray-300'
-								: 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'}"
+								? 'border-transparent text-[--text-disabled] hover:text-[--text-tertiary] hover:border-[--border]'
+								: 'border-transparent text-[--text-tertiary] hover:text-[--text-secondary] hover:border-[--border]'}"
 				>
 					{tab.label}
 					{#if tab.comingSoon}
-						<span class="text-xs text-gray-400">(coming soon)</span>
+						<span class="text-[10px] text-[--text-disabled]">(soon)</span>
 					{/if}
 				</a>
 			{/each}

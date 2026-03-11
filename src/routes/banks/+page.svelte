@@ -13,11 +13,11 @@
 	const assetBuckets = [
 		{ label: 'All sizes', min: '', max: '' },
 		{ label: '< $100M', min: '', max: '100000' },
-		{ label: '$100M – $300M', min: '100000', max: '300000' },
-		{ label: '$300M – $1B', min: '300000', max: '1000000' },
-		{ label: '$1B – $10B', min: '1000000', max: '10000000' },
-		{ label: '$10B – $50B', min: '10000000', max: '50000000' },
-		{ label: '$50B – $250B', min: '50000000', max: '250000000' },
+		{ label: '$100M \u2013 $300M', min: '100000', max: '300000' },
+		{ label: '$300M \u2013 $1B', min: '300000', max: '1000000' },
+		{ label: '$1B \u2013 $10B', min: '1000000', max: '10000000' },
+		{ label: '$10B \u2013 $50B', min: '10000000', max: '50000000' },
+		{ label: '$50B \u2013 $250B', min: '50000000', max: '250000000' },
 		{ label: '> $250B', min: '250000000', max: '' }
 	];
 
@@ -146,9 +146,9 @@
 	<title>Banks | Bank Data Explorer</title>
 </svelte:head>
 
-<div class="space-y-4">
+<div class="space-y-3">
 	<div class="flex items-center justify-between">
-		<h1 class="text-2xl font-bold text-gray-900">Banks</h1>
+		<h1 class="text-2xl font-semibold text-[--text-primary]">Banks</h1>
 	</div>
 
 	<!-- Search -->
@@ -161,11 +161,14 @@
 	</div>
 
 	<!-- Filters -->
-	<div class="flex flex-wrap items-center gap-3">
+	<div class="flex flex-wrap items-center gap-2">
 		<select
 			value={data.params.state}
 			onchange={handleStateChange}
-			class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+			class="rounded border border-[--border] bg-[--surface-1] pl-3 pr-8 py-1.5
+				text-[13px] font-medium text-[--text-secondary]
+				focus:border-[--accent] focus:ring-1 focus:ring-[--accent]/30 focus:outline-none
+				transition-colors cursor-pointer"
 		>
 			<option value="">All states</option>
 			{#each states.slice(1) as st}
@@ -176,7 +179,10 @@
 		<select
 			value={selectedBucketIndex}
 			onchange={handleAssetBucketChange}
-			class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+			class="rounded border border-[--border] bg-[--surface-1] pl-3 pr-8 py-1.5
+				text-[13px] font-medium text-[--text-secondary]
+				focus:border-[--accent] focus:ring-1 focus:ring-[--accent]/30 focus:outline-none
+				transition-colors cursor-pointer"
 		>
 			{#each assetBuckets as bucket, i}
 				<option value={i}>{bucket.label}</option>
@@ -186,7 +192,10 @@
 		<select
 			value={data.params.active}
 			onchange={handleActiveToggle}
-			class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+			class="rounded border border-[--border] bg-[--surface-1] pl-3 pr-8 py-1.5
+				text-[13px] font-medium text-[--text-secondary]
+				focus:border-[--accent] focus:ring-1 focus:ring-[--accent]/30 focus:outline-none
+				transition-colors cursor-pointer"
 		>
 			<option value="1">Active only</option>
 			<option value="0">Inactive only</option>
@@ -196,8 +205,8 @@
 
 	<!-- Results -->
 	{#if data.banks.length === 0}
-		<div class="rounded-lg border border-gray-200 bg-white py-12 text-center">
-			<p class="text-gray-500">No banks found matching your criteria.</p>
+		<div class="rounded border border-[--border] bg-[--surface-1] py-12 text-center">
+			<p class="text-[--text-tertiary]">No banks found matching your criteria.</p>
 		</div>
 	{:else}
 		<DataTable

@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { formatCurrency, formatPercent, formatNumber } from '$lib/utils/formatters.js';
+	import { getMode } from '$lib/stores/mode.svelte.js';
 
 	type SeriesDataPoint = { date: string; value: number | null };
 	type SeriesConfig = {
 		key: string;
 		label: string;
-		color: string;
+		color?: string;
 		data: SeriesDataPoint[];
 	};
 
@@ -23,6 +24,18 @@
 
 	let chartContainer: HTMLDivElement;
 	let chart: any;
+
+	let mode = $derived(getMode());
+
+	const lightColors = [
+		'#0d7d7d', '#c53d2f', '#6b5ce7', '#c48a00', '#1a8a4a',
+		'#c44e8a', '#4a82c4', '#7da82e', '#b04e6e', '#3e9a8a'
+	];
+
+	const darkColors = [
+		'#2db5a8', '#e07060', '#8b7ef0', '#e0a620', '#34c772',
+		'#e070a8', '#6aa0e0', '#a0c850', '#d07090', '#5ec0aa'
+	];
 
 	function formatYValue(value: number): string {
 		switch (yAxisFormat) {
@@ -46,8 +59,9 @@
 	}
 
 	$effect(() => {
-		// Track series reactively so the chart updates when data changes
+		// Track series and mode reactively
 		const currentSeries = series;
+		const currentMode = mode;
 		let disposed = false;
 
 		import('echarts').then((echarts) => {
@@ -57,21 +71,36 @@
 				chart = echarts.init(chartContainer);
 			}
 
+			const isDark = currentMode === 'power';
+			const colors = isDark ? darkColors : lightColors;
+
 			const option: any = {
 				backgroundColor: 'transparent',
 				title: title
 					? {
 							text: title,
 							left: 'left',
-							textStyle: { fontSize: 14, fontWeight: 600, color: '#111827' }
+							textStyle: {
+								fontSize: 15,
+								fontWeight: 600,
+								color: isDark ? '#e8e5e0' : '#1c1a17',
+								fontFamily: "'Inter', system-ui, sans-serif"
+							}
 						}
 					: undefined,
 				tooltip: {
 					trigger: 'axis',
-					backgroundColor: '#fff',
-					borderColor: '#e5e7eb',
+					backgroundColor: isDark ? '#22262f' : '#ffffff',
+					borderColor: isDark ? '#383c44' : '#d6d2cb',
 					borderWidth: 1,
-					textStyle: { color: '#374151', fontSize: 12 },
+					textStyle: {
+						color: isDark ? '#e8e5e0' : '#1c1a17',
+						fontSize: 12,
+						fontFamily: "'Inter', system-ui, sans-serif"
+					},
+					extraCssText: isDark
+						? 'border-radius: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);'
+						: 'border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);',
 					formatter: (params: any[]) => {
 						if (!params.length) return '';
 						const dateStr = params[0].axisValueLabel;
@@ -81,7 +110,7 @@
 							html += `<div style="display:flex;align-items:center;gap:6px;margin:2px 0">`;
 							html += `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color}"></span>`;
 							html += `<span>${p.seriesName}</span>`;
-							html += `<span style="margin-left:auto;font-weight:600">${formatYValue(p.value[1])}</span>`;
+							html += `<span style="margin-left:auto;font-weight:600;font-variant-numeric:tabular-nums">${formatYValue(p.value[1])}</span>`;
 							html += `</div>`;
 						}
 						return html;
@@ -91,26 +120,30 @@
 					bottom: 0,
 					itemWidth: 12,
 					itemHeight: 8,
-					textStyle: { fontSize: 11, color: '#6b7280' }
+					itemGap: 16,
+					textStyle: {
+						fontSize: 11,
+						color: isDark ? '#a8a39c' : '#6b6660'
+					}
 				},
 				grid: {
-					left: 12,
-					right: 16,
-					top: title ? 36 : 12,
+					left: 8,
+					right: 8,
+					top: title ? 40 : 12,
 					bottom: 36,
 					containLabel: true
 				},
 				xAxis: {
 					type: 'time',
-					axisLine: { lineStyle: { color: '#e5e7eb' } },
-					axisTick: { show: false },
+					axisLine: { lineStyle: { color: isDark ? '#383c44' : '#d6d2cb' } },
+					axisTick: { lineStyle: { color: isDark ? '#383c44' : '#d6d2cb' } },
 					axisLabel: {
-						color: '#9ca3af',
+						color: isDark ? '#7a7e86' : '#948f88',
 						fontSize: 11,
+						fontFamily: "'Inter', system-ui, sans-serif",
 						formatter: (value: number) => {
 							const d = new Date(value);
 							const month = d.getMonth();
-							// Show Q1/Q2/Q3/Q4 YYYY or just YYYY for Jan
 							if (month === 0) return String(d.getFullYear());
 							const quarters: Record<number, string> = { 2: 'Q1', 5: 'Q2', 8: 'Q3', 11: 'Q4' };
 							return quarters[month] || '';
@@ -123,19 +156,21 @@
 					axisLine: { show: false },
 					axisTick: { show: false },
 					axisLabel: {
-						color: '#9ca3af',
+						color: isDark ? '#7a7e86' : '#948f88',
 						fontSize: 11,
+						fontFamily: "'Inter', system-ui, sans-serif",
 						formatter: (value: number) => formatYValue(value)
 					},
-					splitLine: { lineStyle: { color: '#f3f4f6', type: 'dashed' } }
+					splitLine: { lineStyle: { color: isDark ? '#282c33' : '#e8e5df', type: 'dashed' } }
 				},
-				series: currentSeries.map((s) => ({
+				series: currentSeries.map((s, i) => ({
 					name: s.label,
 					type: 'line',
+					symbolSize: 4,
 					symbol: 'none',
 					smooth: false,
-					lineStyle: { width: 2, color: s.color },
-					itemStyle: { color: s.color },
+					lineStyle: { width: 2, color: s.color || colors[i % colors.length] },
+					itemStyle: { color: s.color || colors[i % colors.length] },
 					data: s.data
 						.filter((d) => d.value !== null)
 						.map((d) => [parseDate(d.date), d.value])

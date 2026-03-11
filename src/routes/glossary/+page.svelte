@@ -38,11 +38,11 @@
 	<title>Glossary | Bank Data Explorer</title>
 </svelte:head>
 
-<div class="space-y-6">
+<div class="space-y-5">
 	<!-- Header -->
 	<div>
-		<h1 class="text-2xl font-bold text-gray-900">Field Glossary</h1>
-		<p class="mt-1 text-sm text-gray-500">
+		<h1 class="text-2xl font-semibold text-[--text-primary]">Field Glossary</h1>
+		<p class="mt-1 text-[13px] text-[--text-secondary]">
 			Definitions for all financial fields, ratios, and metrics used across the application.
 		</p>
 	</div>
@@ -53,10 +53,13 @@
 			type="text"
 			bind:value={query}
 			placeholder="Search fields..."
-			class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 pl-10 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+			class="w-full rounded border border-[--border] bg-[--surface-1] px-4 py-2 pl-9
+				text-[14px] text-[--text-primary] placeholder:text-[--text-disabled]
+				focus:border-[--accent] focus:outline-none focus:ring-1 focus:ring-[--accent]/30
+				transition-colors"
 		/>
 		<svg
-			class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+			class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[--text-disabled]"
 			fill="none"
 			stroke="currentColor"
 			viewBox="0 0 24 24"
@@ -72,43 +75,44 @@
 
 	<!-- Results count -->
 	{#if query.trim()}
-		<p class="text-xs text-gray-400">
+		<p class="text-[11px] text-[--text-tertiary]">
 			{filtered.length} field{filtered.length === 1 ? '' : 's'} matching "{query.trim()}"
 		</p>
 	{/if}
 
 	<!-- Grouped fields -->
 	{#if grouped.size === 0}
-		<div class="rounded-lg border border-gray-200 bg-white py-16 text-center">
-			<p class="text-gray-500">No fields match your search.</p>
+		<div class="rounded border border-[--border] bg-[--surface-1] py-16 text-center">
+			<p class="text-[--text-tertiary]">No fields match your search.</p>
 		</div>
 	{:else}
 		{#each categoryOrder as cat}
 			{@const items = grouped.get(cat)}
 			{#if items}
 				<section>
-					<h2 class="mb-3 text-lg font-semibold text-gray-800">{categoryLabels[cat]}</h2>
-					<div class="space-y-2">
+					<div class="flex items-center gap-2 mb-3">
+						<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+						<h2 class="text-[15px] font-semibold text-[--text-primary]">{categoryLabels[cat]}</h2>
+					</div>
+					<div class="space-y-1">
 						{#each items as { key, def }}
-							<div
-								class="rounded-lg border border-gray-200 bg-white px-4 py-3"
-							>
+							<div class="rounded border border-[--border] bg-[--surface-1] px-3 py-2.5">
 								<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-									<h3 class="font-medium text-gray-900">{def.label}</h3>
-									<code class="text-xs text-gray-400">{key}</code>
+									<h3 class="font-medium text-[--text-primary] text-[14px]">{def.label}</h3>
+									<code class="text-[11px] text-[--text-tertiary] font-mono">{key}</code>
 									{#if def.mdrm}
 										<span
-											class="rounded bg-blue-50 px-1.5 py-0.5 text-[11px] font-medium text-blue-700"
+											class="rounded-sm bg-[--accent-muted] px-1.5 py-0.5 text-[11px] font-medium text-[--accent-text]"
 										>
 											MDRM {def.mdrm}
 										</span>
 									{/if}
 								</div>
-								<p class="mt-1 text-sm leading-relaxed text-gray-600">
+								<p class="mt-1 text-[13px] leading-relaxed text-[--text-secondary]">
 									{def.description}
 								</p>
 								{#if def.formula}
-									<p class="mt-1.5 font-mono text-xs text-gray-500">
+									<p class="mt-1.5 font-mono text-[11px] text-[--text-tertiary]">
 										= {def.formula}
 									</p>
 								{/if}

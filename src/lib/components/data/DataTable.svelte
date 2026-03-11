@@ -1,6 +1,4 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
-
 	export interface Column {
 		key: string;
 		label: string;
@@ -34,46 +32,47 @@
 	function getCellValue(row: Record<string, any>, col: Column): string {
 		const val = row[col.key];
 		if (col.format) return col.format(val);
-		if (val === null || val === undefined) return '—';
+		if (val === null || val === undefined) return '\u2014';
 		return String(val);
 	}
 </script>
 
-<div class="overflow-x-auto rounded-lg border border-gray-200">
-	<table class="min-w-full divide-y divide-gray-200">
-		<thead class="bg-gray-50">
-			<tr>
+<div class="overflow-x-auto rounded border border-[--border]">
+	<table class="min-w-full text-[13px]">
+		<thead>
+			<tr class="bg-[--surface-2] border-b border-[--border]">
 				{#each columns as col}
 					<th
-						class="px-4 py-3 text-xs font-medium tracking-wider text-gray-500 uppercase
+						class="px-3 py-2 text-[11px] font-medium tracking-wider text-[--text-tertiary] uppercase
 							{col.align === 'right' ? 'text-right' : 'text-left'}
-							{col.sortable ? 'cursor-pointer select-none hover:bg-gray-100' : ''}"
+							{col.sortable ? 'cursor-pointer select-none hover:text-[--text-secondary] transition-colors' : ''}"
 						onclick={() => handleHeaderClick(col)}
 					>
 						<span class="inline-flex items-center gap-1">
 							{col.label}
 							{#if col.sortable && currentSort === col.key}
-								<span class="text-gray-900">
-									{currentOrder === 'asc' ? '▲' : '▼'}
+								<span class="text-[--accent]">
+									{currentOrder === 'asc' ? '\u25B2' : '\u25BC'}
 								</span>
 							{:else if col.sortable}
-								<span class="text-gray-300">▲</span>
+								<span class="text-[--text-disabled]">\u25B2</span>
 							{/if}
 						</span>
 					</th>
 				{/each}
 			</tr>
 		</thead>
-		<tbody class="divide-y divide-gray-200 bg-white">
+		<tbody class="divide-y divide-[--border-muted] bg-[--surface-1]">
 			{#each data as row}
 				<tr
-					class="{onrowclick ? 'cursor-pointer hover:bg-gray-50' : ''}"
+					class="{onrowclick ? 'cursor-pointer hover:bg-[--surface-2] transition-colors duration-75' : ''}"
 					onclick={() => onrowclick?.(row)}
 				>
-					{#each columns as col}
+					{#each columns as col, i}
 						<td
-							class="whitespace-nowrap px-4 py-3 text-sm text-gray-700
-								{col.align === 'right' ? 'text-right' : 'text-left'}"
+							class="whitespace-nowrap px-3 py-1.5
+								{col.align === 'right' ? 'text-right tabular-nums' : 'text-left'}
+								{i === 0 ? 'font-medium text-[--text-primary]' : 'text-[--text-secondary]'}"
 						>
 							{getCellValue(row, col)}
 						</td>

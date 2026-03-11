@@ -27,9 +27,9 @@
 	function buildSeries(
 		key: string,
 		label: string,
-		color: string,
+		color: string | undefined,
 		field: keyof Financial
-	): { key: string; label: string; color: string; data: Array<{ date: string; value: number | null }> } {
+	): { key: string; label: string; color?: string; data: Array<{ date: string; value: number | null }> } {
 		return {
 			key,
 			label,
@@ -41,81 +41,81 @@
 		};
 	}
 
-	// Chart configurations
+	// Chart configurations (colors removed, let chart component use design system palette)
 	let keyRatiosSeries = $derived([
-		buildSeries('roa', 'ROA', '#3b82f6', 'roa'),
-		buildSeries('roe', 'ROE', '#22c55e', 'roe'),
-		buildSeries('nim', 'NIM', '#f97316', 'nimy')
+		buildSeries('roa', 'ROA', undefined, 'roa'),
+		buildSeries('roe', 'ROE', undefined, 'roe'),
+		buildSeries('nim', 'NIM', undefined, 'nimy')
 	]);
 
 	let balanceSheetSeries = $derived([
-		buildSeries('assets', 'Total Assets', '#6366f1', 'asset'),
-		buildSeries('deposits', 'Total Deposits', '#14b8a6', 'dep'),
-		buildSeries('equity', 'Equity Capital', '#f59e0b', 'eq')
+		buildSeries('assets', 'Total Assets', undefined, 'asset'),
+		buildSeries('deposits', 'Total Deposits', undefined, 'dep'),
+		buildSeries('equity', 'Equity Capital', undefined, 'eq')
 	]);
 
 	let assetQualitySeries = $derived([
-		buildSeries('npl', 'NPL Ratio', '#ef4444', 'nclnlsr'),
-		buildSeries('reserve', 'Reserve Coverage', '#22c55e', 'lnatresr')
+		buildSeries('npl', 'NPL Ratio', undefined, 'nclnlsr'),
+		buildSeries('reserve', 'Reserve Coverage', undefined, 'lnatresr')
 	]);
 
 	let capitalSeries = $derived([
-		buildSeries('total_rbc', 'Total RBC', '#3b82f6', 'rbcrwaj'),
-		buildSeries('tier1_rbc', 'Tier 1 RBC', '#a855f7', 'rbc1rwaj'),
-		buildSeries('leverage', 'Leverage Ratio', '#06b6d4', 'rbc1aaj')
+		buildSeries('total_rbc', 'Total RBC', undefined, 'rbcrwaj'),
+		buildSeries('tier1_rbc', 'Tier 1 RBC', undefined, 'rbc1rwaj'),
+		buildSeries('leverage', 'Leverage Ratio', undefined, 'rbc1aaj')
 	]);
 </script>
 
-<div class="space-y-6 pt-4">
+<div class="space-y-5 pt-3">
 	{#if financials.length === 0}
-		<div class="rounded-lg border border-gray-200 bg-white py-24 text-center">
-			<p class="text-gray-500 text-lg">No financial data available</p>
+		<div class="rounded border border-[--border] bg-[--surface-1] py-24 text-center">
+			<p class="text-[--text-tertiary] text-[15px]">No financial data available</p>
 		</div>
 	{:else}
 		<!-- Date range selector -->
 		<div class="flex items-center gap-2">
-			<span class="text-sm text-gray-500">Period:</span>
+			<span class="text-[13px] text-[--text-tertiary]">Period:</span>
 			<div class="flex gap-1">
 				{#each rangeButtons as range}
 					<button
-						class="px-3 py-1 text-sm rounded-md font-medium transition-colors
+						class="px-3 py-1 text-[13px] rounded font-medium transition-colors
 							{selectedRange === range
-								? 'bg-blue-600 text-white'
-								: 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
+								? 'bg-[--accent] text-white'
+								: 'bg-[--surface-2] text-[--text-secondary] hover:bg-[--surface-3]'}"
 						onclick={() => (selectedRange = range)}
 					>
 						{range}
 					</button>
 				{/each}
 			</div>
-			<span class="text-xs text-gray-400 ml-2">
+			<span class="text-[11px] text-[--text-tertiary] ml-2 tabular-nums">
 				{filtered.length} quarters
 			</span>
 		</div>
 
 		<!-- Charts grid -->
-		<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+		<div class="grid grid-cols-1 lg:grid-cols-2 gap-2">
 			<!-- Key Ratios -->
-			<section class="rounded-lg border border-gray-200 bg-white p-4">
-				<h3 class="text-sm font-semibold text-gray-900 mb-2">Key Ratios</h3>
+			<section class="rounded border border-[--border] bg-[--surface-1] p-3">
+				<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Key Ratios</h3>
 				<TimeSeriesChart series={keyRatiosSeries} yAxisFormat="percent" />
 			</section>
 
 			<!-- Balance Sheet -->
-			<section class="rounded-lg border border-gray-200 bg-white p-4">
-				<h3 class="text-sm font-semibold text-gray-900 mb-2">Balance Sheet</h3>
+			<section class="rounded border border-[--border] bg-[--surface-1] p-3">
+				<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Balance Sheet</h3>
 				<TimeSeriesChart series={balanceSheetSeries} yAxisFormat="currency" />
 			</section>
 
 			<!-- Asset Quality -->
-			<section class="rounded-lg border border-gray-200 bg-white p-4">
-				<h3 class="text-sm font-semibold text-gray-900 mb-2">Asset Quality</h3>
+			<section class="rounded border border-[--border] bg-[--surface-1] p-3">
+				<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Asset Quality</h3>
 				<TimeSeriesChart series={assetQualitySeries} yAxisFormat="percent" />
 			</section>
 
 			<!-- Capital Adequacy -->
-			<section class="rounded-lg border border-gray-200 bg-white p-4">
-				<h3 class="text-sm font-semibold text-gray-900 mb-2">Capital Adequacy</h3>
+			<section class="rounded border border-[--border] bg-[--surface-1] p-3">
+				<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Capital Adequacy</h3>
 				<TimeSeriesChart series={capitalSeries} yAxisFormat="percent" />
 			</section>
 		</div>
