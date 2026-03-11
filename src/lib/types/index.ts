@@ -168,3 +168,50 @@ export interface FinancialsResponse {
   from: string | null;
   to: string | null;
 }
+
+/** Peer group statistics for a single metric */
+export interface PeerStats {
+  peer_group: string;
+  repdte: string;
+  metric: string;
+  count: number | null;
+  mean: number | null;
+  median: number | null;
+  stddev: number | null;
+  p10: number | null;
+  p25: number | null;
+  p75: number | null;
+  p90: number | null;
+  min_val: number | null;
+  max_val: number | null;
+}
+
+/** Single metric comparison between a bank and its peer group */
+export interface PeerMetricComparison {
+  metric: string;
+  bank_value: number | null;
+  peer_median: number | null;
+  peer_mean: number | null;
+  percentile: number | null;
+  p10: number | null;
+  p25: number | null;
+  p75: number | null;
+  p90: number | null;
+}
+
+/** Full peer comparison API response */
+export interface PeerComparison {
+  cert: number;
+  repdte: string;
+  peer_group: string;
+  metrics: PeerMetricComparison[];
+}
+
+/** Industry aggregate row from agg_industry table */
+export interface IndustryAggregate {
+  repdte: string;
+  segment: string;
+  metric: string;
+  value: number | null;
+  count: number | null;
+}

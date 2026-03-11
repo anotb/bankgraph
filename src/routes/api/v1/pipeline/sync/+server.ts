@@ -6,14 +6,17 @@
  *   ?stage=institutions  - run only institution sync
  *   ?stage=financials    - run only financials backfill
  *   ?stage=snapshot      - run only latest-quarter snapshot
+ *   ?stage=analytics     - run peer stats and industry aggregates
  *   (no stage)           - run all stages in order
  */
 
 import type { RequestHandler } from './$types';
-import { getDB } from '$lib/server/db';
+import { getDB, queryOne } from '$lib/server/db';
 import { syncInstitutions } from '$lib/server/pipeline/fdic-institutions';
 import { syncLatestFinancials } from '$lib/server/pipeline/fdic-financials-snapshot';
 import { syncFinancials } from '$lib/server/pipeline/fdic-financials';
+import { computePeerStats } from '$lib/server/analytics/peer-stats';
+import { computeIndustryAggregates } from '$lib/server/analytics/industry-agg';
 
 function corsJson(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -64,6 +67,35 @@ export const POST: RequestHandler = async ({ platform, url }) => {
         updated: snapshotUpdated,
         elapsed_seconds: Number(((Date.now() - t0) / 1000).toFixed(1))
       };
+    }
+
+    // Stage: analytics (peer stats and industry aggregates)
+    if (!stage || stage === 'analytics') {
+      console.log('=== Stage: analytics ===');
+      const t0 = Date.now();
+
+      // Find the latest quarter with financial data
+      const latestQ = await queryOne<{ repdte: string }>(
+        db,
+        'SELECT repdte FROM financials ORDER BY repdte DESC LIMIT 1'
+      );
+
+      if (latestQ) {
+        const peerRows = await computePeerStats(db, latestQ.repdte);
+        const industryRows = await computeIndustryAggregates(db, latestQ.repdte);
+        results.analytics = {
+          repdte: latestQ.repdte,
+          peer_stats_rows: peerRows,
+          industry_agg_rows: industryRows,
+          elapsed_seconds: Number(((Date.now() - t0) / 1000).toFixed(1))
+        };
+      } else {
+        results.analytics = {
+          skipped: true,
+          reason: 'No financial data found',
+          elapsed_seconds: Number(((Date.now() - t0) / 1000).toFixed(1))
+        };
+      }
     }
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
