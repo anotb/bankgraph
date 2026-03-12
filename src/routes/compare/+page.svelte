@@ -67,9 +67,9 @@
 		try {
 			const res = await fetch(`/api/v1/banks?q=${encodeURIComponent(query)}&limit=10`);
 			if (res.ok) {
-				const data = await res.json();
+				const json = await res.json() as { data?: Institution[] };
 				const selectedCerts = new Set(selectedBanks.map((b) => b.cert));
-				searchResults = (data.data || []).filter((b: Institution) => !selectedCerts.has(b.cert));
+				searchResults = (json.data || []).filter((b) => !selectedCerts.has(b.cert));
 				showDropdown = searchResults.length > 0;
 			}
 		} catch {
@@ -115,12 +115,12 @@
 		fetch(`/api/v1/compare?certs=${certs.join(',')}&metrics=${metrics.join(',')}`)
 			.then(async (res) => {
 				if (!res.ok) {
-					const body = await res.json().catch(() => null);
+					const body = await res.json().catch(() => null) as { error?: string } | null;
 					throw new Error(body?.error || `HTTP ${res.status}`);
 				}
-				return res.json();
+				return res.json() as Promise<CompareResponse>;
 			})
-			.then((data: CompareResponse) => {
+			.then((data) => {
 				compareData = data;
 			})
 			.catch((e) => {
