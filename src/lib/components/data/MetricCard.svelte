@@ -6,6 +6,7 @@
 		trend,
 		trendLabel,
 		compact = false,
+		borderless = false,
 		semantic
 	}: {
 		label: string;
@@ -14,6 +15,7 @@
 		trend?: number | null;
 		trendLabel?: string;
 		compact?: boolean;
+		borderless?: boolean;
 		semantic?: 'positive' | 'negative' | 'warning' | 'neutral';
 	} = $props();
 
@@ -31,15 +33,22 @@
 		: semantic === 'warning' ? 'text-[--warning]'
 		: 'text-[--text-primary]'
 	);
+
+	let semanticBarColor = $derived(
+		semantic === 'positive' ? 'bg-[--positive]'
+		: semantic === 'negative' ? 'bg-[--negative]'
+		: semantic === 'warning' ? 'bg-[--warning]'
+		: 'bg-[--accent]'
+	);
 </script>
 
 {#if compact}
 <div class="bg-[--surface-1] px-2.5 py-2">
 	<p class="text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">{label}</p>
 	<div class="mt-0.5 flex items-baseline gap-1.5">
-		<p class="text-[20px] font-semibold tracking-tight {valueColor} tabular-nums">{value}</p>
+		<p class="text-[20px] font-semibold tracking-tight {valueColor} data-mono">{value}</p>
 		{#if trendFormatted}
-			<span class="inline-flex items-center gap-0.5 text-xs font-medium tabular-nums rounded-sm px-1 py-0.5
+			<span class="inline-flex items-center gap-0.5 text-xs font-medium data-mono rounded-sm px-1 py-0.5
 				{trendDirection === 'positive' ? 'text-[--positive] bg-[--positive-muted]' : trendDirection === 'negative' ? 'text-[--negative] bg-[--negative-muted]' : 'text-[--neutral] bg-[--surface-2]'}">
 				{#if trendDirection === 'positive'}
 					<svg class="w-3 h-3" viewBox="0 0 12 12" fill="currentColor">
@@ -63,13 +72,17 @@
 	{/if}
 </div>
 {:else}
-<div class="group relative overflow-hidden rounded-[5px] border border-[--border-muted] bg-[--surface-1] px-3 py-3 card-shadow hover:border-[--accent]/30 hover:-translate-y-px">
-	<div class="absolute top-0 left-0 right-0 h-[2px] bg-[--accent] rounded-t-[5px] opacity-0 group-hover:opacity-100 transition-opacity duration-150"></div>
-	<p class="text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">{label}</p>
-	<div class="mt-0.5 flex items-baseline gap-1.5">
-		<p class="text-[22px] font-semibold tracking-tight {valueColor} tabular-nums">{value}</p>
+<div class="group relative overflow-hidden rounded-md {borderless ? 'borderless-card' : 'border border-[--border-muted] bg-[--surface-1] card-shadow'} px-3 py-3 hover:-translate-y-px">
+	{#if semantic}
+		<div class="absolute top-0 left-0 bottom-0 w-[3px] {semanticBarColor} rounded-l-md"></div>
+	{:else}
+		<div class="absolute top-0 left-0 right-0 h-[2px] bg-[--accent] rounded-t-md opacity-0 group-hover:opacity-100 transition-opacity duration-150"></div>
+	{/if}
+	<p class="text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider {semantic ? 'ml-1' : ''}">{label}</p>
+	<div class="mt-0.5 flex items-baseline gap-1.5 {semantic ? 'ml-1' : ''}">
+		<p class="text-[22px] font-semibold tracking-tight {valueColor} data-mono">{value}</p>
 		{#if trendFormatted}
-			<span class="inline-flex items-center gap-0.5 text-xs font-medium tabular-nums rounded-sm px-1 py-0.5
+			<span class="inline-flex items-center gap-0.5 text-xs font-medium data-mono rounded-sm px-1 py-0.5
 				{trendDirection === 'positive' ? 'text-[--positive] bg-[--positive-muted]' : trendDirection === 'negative' ? 'text-[--negative] bg-[--negative-muted]' : 'text-[--neutral] bg-[--surface-2]'}">
 				{#if trendDirection === 'positive'}
 					<svg class="w-3 h-3" viewBox="0 0 12 12" fill="currentColor">
@@ -89,11 +102,11 @@
 		{/if}
 	</div>
 	{#if sublabel}
-		<p class="mt-0.5 text-[11px] text-[--text-tertiary]">{sublabel}</p>
+		<p class="mt-0.5 text-[11px] text-[--text-tertiary] {semantic ? 'ml-1' : ''}">{sublabel}</p>
 	{/if}
 	{#if trendLabel}
 		<div class="mt-1 max-h-0 overflow-hidden opacity-0 transition-all duration-200
-					group-hover:max-h-8 group-hover:opacity-100">
+					group-hover:max-h-8 group-hover:opacity-100 {semantic ? 'ml-1' : ''}">
 			<p class="text-[11px] text-[--text-tertiary]">{trendLabel}</p>
 		</div>
 	{/if}

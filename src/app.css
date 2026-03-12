@@ -28,6 +28,12 @@
 @theme {
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+
+  /* Override Tailwind's default shadows with warm-tinted financial-grade shadows */
+  --shadow-xs: 0 1px 2px hsl(40deg 8% 40% / 0.14), 0 0 1px hsl(40deg 8% 40% / 0.10);
+  --shadow-sm: 0 2px 4px hsl(40deg 8% 40% / 0.14), 0 1px 2px hsl(40deg 8% 40% / 0.10);
+  --shadow-md: 0 4px 12px -2px hsl(40deg 8% 40% / 0.18), 0 2px 4px hsl(40deg 8% 40% / 0.10);
+  --shadow-lg: 0 12px 24px -4px hsl(40deg 8% 40% / 0.18), 0 4px 8px hsl(40deg 8% 40% / 0.10);
 }
 
 /* ============================================================
@@ -35,15 +41,15 @@
    ============================================================ */
 
 :root {
-  /* Surfaces */
-  --surface-0: #faf9f7;
+  /* Surfaces - increased contrast between levels */
+  --surface-0: #f5f3f0;
   --surface-1: #ffffff;
-  --surface-2: #f3f1ee;
-  --surface-3: #e8e5df;
+  --surface-2: #edeae5;
+  --surface-3: #e2dfd8;
 
-  /* Borders */
+  /* Borders - lighter since we rely less on borders */
   --border: #d6d2cb;
-  --border-muted: #e2dfda;
+  --border-muted: #e8e5e0;
 
   /* Text */
   --text-primary: #1c1a17;
@@ -66,14 +72,8 @@
   --warning-muted: #fef3d6;
   --neutral: #918c85;
 
-  /* Shadows (warm-tinted) */
-  --shadow-xs: 0 1px 2px hsl(40deg 6% 50% / 0.06);
-  --shadow-sm: 0 1px 3px hsl(40deg 6% 50% / 0.08), 0 1px 2px hsl(40deg 6% 50% / 0.04);
-  --shadow-md: 0 4px 6px -1px hsl(40deg 6% 50% / 0.08), 0 2px 4px -2px hsl(40deg 6% 50% / 0.04);
-  --shadow-lg: 0 10px 15px -3px hsl(40deg 6% 50% / 0.08), 0 4px 6px -4px hsl(40deg 6% 50% / 0.04);
-
-  /* Surface stripe (alternating rows) */
-  --surface-stripe: hsl(40deg 6% 50% / 0.03);
+  /* Surface stripe (alternating rows) - more visible */
+  --surface-stripe: hsl(36deg 10% 50% / 0.07);
 
   /* Accent glow */
   --accent-glow: 0 0 8px hsl(175deg 40% 50% / 0.1);
@@ -98,11 +98,11 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 .dark {
-  /* Surfaces */
-  --surface-0: #0e1015;
-  --surface-1: #191c23;
-  --surface-2: #242830;
-  --surface-3: #2f343d;
+  /* Surfaces - deeper, more dramatic contrast */
+  --surface-0: #0c0e12;
+  --surface-1: #171a21;
+  --surface-2: #1e222b;
+  --surface-3: #282d37;
 
   /* Borders */
   --border: #383c44;
@@ -129,14 +129,14 @@
   --warning-muted: #302810;
   --neutral: #7a7e86;
 
-  /* Shadows (deeper, cooler) */
-  --shadow-xs: 0 1px 2px hsl(220deg 10% 4% / 0.3);
-  --shadow-sm: 0 1px 3px hsl(220deg 10% 4% / 0.4), 0 1px 2px hsl(220deg 10% 4% / 0.2);
-  --shadow-md: 0 4px 6px -1px hsl(220deg 10% 4% / 0.4), 0 2px 4px -2px hsl(220deg 10% 4% / 0.2);
-  --shadow-lg: 0 10px 15px -3px hsl(220deg 10% 4% / 0.4), 0 4px 6px -4px hsl(220deg 10% 4% / 0.2);
+  /* Shadows (deeper, cooler) - override @theme defaults for dark mode */
+  --shadow-xs: 0 1px 3px hsl(220deg 10% 4% / 0.5), 0 0 1px hsl(220deg 10% 4% / 0.3);
+  --shadow-sm: 0 2px 6px hsl(220deg 10% 4% / 0.5), 0 1px 2px hsl(220deg 10% 4% / 0.3);
+  --shadow-md: 0 4px 12px -2px hsl(220deg 10% 4% / 0.6), 0 2px 4px hsl(220deg 10% 4% / 0.3);
+  --shadow-lg: 0 12px 24px -4px hsl(220deg 10% 4% / 0.6), 0 4px 8px hsl(220deg 10% 4% / 0.3);
 
   /* Surface stripe (alternating rows) */
-  --surface-stripe: hsl(220deg 10% 80% / 0.03);
+  --surface-stripe: hsl(220deg 10% 80% / 0.06);
 
   /* Accent glow */
   --accent-glow: 0 0 12px hsl(175deg 60% 45% / 0.15);
@@ -176,6 +176,14 @@ body {
 .tabular-nums {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
+}
+
+/* Monospace data utility - for financial numbers that need authority */
+.data-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.01em;
 }
 
 /* All table cells with numbers should be tabular by default */
@@ -227,18 +235,34 @@ th[class*="text-right"] {
   gap: 1px;
 }
 
+/* ============================================================
+   CARD STYLES
+   ============================================================ */
+
 /* Card hover transitions */
 .card-shadow {
-  box-shadow: var(--shadow-xs);
-  transition: box-shadow 0.15s, border-color 0.15s, transform 0.15s;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 .card-shadow:hover {
+  box-shadow: var(--shadow-md);
+}
+
+/* Borderless card - relies on surface color + shadow for elevation, no border */
+.borderless-card {
+  border: none;
+  background-color: var(--surface-1);
   box-shadow: var(--shadow-sm);
+  border-radius: 6px;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.borderless-card:hover {
+  box-shadow: var(--shadow-md);
 }
 
 /* Table shadow */
 .table-shadow {
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
 }
 
 /* Alternating row stripe */

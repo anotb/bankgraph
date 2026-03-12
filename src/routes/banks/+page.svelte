@@ -173,10 +173,11 @@
 		<select
 			value={data.params.state}
 			onchange={handleStateChange}
-			class="rounded border border-[--border] bg-[--surface-1] pl-3 pr-8 py-1.5
+			class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] pl-3 pr-8 py-1.5
 				text-[13px] font-medium text-[--text-secondary]
-				focus:border-[--accent] focus:ring-1 focus:ring-[--accent]/30 focus:outline-none
-				transition-colors cursor-pointer"
+				focus:border-[--accent] focus:ring-2 focus:ring-[--accent]/20 focus:outline-none
+				transition-all duration-150 cursor-pointer"
+			style="box-shadow: var(--shadow-xs)"
 		>
 			<option value="">All states</option>
 			{#each states.slice(1) as st}
@@ -187,10 +188,11 @@
 		<select
 			value={selectedBucketIndex}
 			onchange={handleAssetBucketChange}
-			class="rounded border border-[--border] bg-[--surface-1] pl-3 pr-8 py-1.5
+			class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] pl-3 pr-8 py-1.5
 				text-[13px] font-medium text-[--text-secondary]
-				focus:border-[--accent] focus:ring-1 focus:ring-[--accent]/30 focus:outline-none
-				transition-colors cursor-pointer"
+				focus:border-[--accent] focus:ring-2 focus:ring-[--accent]/20 focus:outline-none
+				transition-all duration-150 cursor-pointer"
+			style="box-shadow: var(--shadow-xs)"
 		>
 			{#each assetBuckets as bucket, i}
 				<option value={i}>{bucket.label}</option>
@@ -200,10 +202,11 @@
 		<select
 			value={data.params.active}
 			onchange={handleActiveToggle}
-			class="rounded border border-[--border] bg-[--surface-1] pl-3 pr-8 py-1.5
+			class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] pl-3 pr-8 py-1.5
 				text-[13px] font-medium text-[--text-secondary]
-				focus:border-[--accent] focus:ring-1 focus:ring-[--accent]/30 focus:outline-none
-				transition-colors cursor-pointer"
+				focus:border-[--accent] focus:ring-2 focus:ring-[--accent]/20 focus:outline-none
+				transition-all duration-150 cursor-pointer"
+			style="box-shadow: var(--shadow-xs)"
 		>
 			<option value="1">Active only</option>
 			<option value="0">Inactive only</option>
@@ -213,7 +216,7 @@
 
 	<!-- Results -->
 	{#if data.banks.length === 0}
-		<div class="rounded border border-[--border] bg-[--surface-1] py-12 text-center">
+		<div class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] py-12 text-center card-shadow">
 			<p class="text-[--text-tertiary]">No banks found matching your criteria.</p>
 		</div>
 	{:else}

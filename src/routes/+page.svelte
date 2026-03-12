@@ -35,32 +35,37 @@
 	</p>
 </div>
 
-<!-- Search -->
-<div class="mb-6">
-	<SearchBar
-		placeholder="Search by name, city, or state..."
-		onsearch={handleSearch}
-		autocomplete={true}
-		onselect={handleSelect}
-	/>
+<!-- Search - command bar style -->
+<div class="mb-6 -mx-4 px-4 py-3 bg-[--surface-2]" style="box-shadow: inset 0 1px 0 var(--border-muted), inset 0 -1px 0 var(--border-muted)">
+	<div class="max-w-2xl">
+		<SearchBar
+			placeholder="Search by name, city, or state..."
+			onsearch={handleSearch}
+			autocomplete={true}
+			onselect={handleSelect}
+		/>
+	</div>
 </div>
 
 <!-- Overview stats -->
-<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+<div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
 	<MetricCard
 		label="Total Banks"
 		value={data.meta.bank_count ? formatNumber(data.meta.bank_count) : '...'}
 		sublabel="All FDIC-insured"
+		borderless={true}
 	/>
 	<MetricCard
 		label="Active Banks"
 		value={data.meta.active_count ? formatNumber(data.meta.active_count) : '...'}
 		sublabel="Currently operating"
+		borderless={true}
 	/>
 	<MetricCard
 		label="Latest Data"
 		value={data.meta.latest_quarter ? formatDate(data.meta.latest_quarter) : '...'}
 		sublabel="Most recent quarter"
+		borderless={true}
 	/>
 </div>
 
@@ -72,12 +77,13 @@
 			<h2 class="text-[15px] font-semibold text-[--text-primary]">Industry Health</h2>
 			<span class="text-[11px] text-[--text-tertiary] ml-1">all FDIC-insured banks</span>
 		</div>
-		<div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+		<div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
 			{#if data.industryMetrics.total_assets !== null}
 				<MetricCard
 					label="Total Assets"
 					value={formatCurrency(data.industryMetrics.total_assets)}
 					sublabel="Industry-wide"
+					borderless={true}
 				/>
 			{/if}
 			{#if data.industryMetrics.median_roa !== null}
@@ -85,6 +91,7 @@
 					label="Median ROA"
 					value={formatPercent(data.industryMetrics.median_roa)}
 					sublabel="Return on Assets"
+					borderless={true}
 				/>
 			{/if}
 			{#if data.industryMetrics.median_roe !== null}
@@ -92,6 +99,7 @@
 					label="Median ROE"
 					value={formatPercent(data.industryMetrics.median_roe)}
 					sublabel="Return on Equity"
+					borderless={true}
 				/>
 			{/if}
 			{#if data.industryMetrics.median_nim !== null}
@@ -99,6 +107,7 @@
 					label="Median NIM"
 					value={formatPercent(data.industryMetrics.median_nim)}
 					sublabel="Net Interest Margin"
+					borderless={true}
 				/>
 			{/if}
 		</div>
@@ -115,7 +124,7 @@
 					<div class="w-0.5 h-4 bg-[--negative] rounded-full"></div>
 					<h2 class="text-[15px] font-semibold text-[--text-primary]">Recent Anomalies</h2>
 				</div>
-				<div class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] divide-y divide-[--border-muted]" style="box-shadow: var(--shadow-sm)">
+				<div class="rounded-md bg-[--surface-1] divide-y divide-[--surface-2]" style="box-shadow: var(--shadow-sm)">
 					{#each data.recentAnomalies as anomaly}
 						<a href="/banks/{anomaly.cert}/risk" class="flex items-center justify-between px-3 py-2.5 hover:bg-[--accent-muted] transition-colors">
 							<div class="flex items-center gap-2 min-w-0">
@@ -125,7 +134,7 @@
 								</span>
 								<span class="text-[13px] font-medium text-[--text-primary] truncate">{anomaly.name ?? `CERT ${anomaly.cert}`}</span>
 							</div>
-							<span class="text-[12px] text-[--text-tertiary] shrink-0 ml-2">{anomaly.metric}</span>
+							<span class="text-[12px] text-[--text-tertiary] shrink-0 ml-2 data-mono">{anomaly.metric}</span>
 						</a>
 					{/each}
 				</div>
@@ -140,7 +149,7 @@
 					<h2 class="text-[15px] font-semibold text-[--text-primary]">Bank Failures</h2>
 					<span class="text-[11px] text-[--text-tertiary]">{formatNumber(data.failureSummary.total_failures)} total</span>
 				</div>
-				<div class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] divide-y divide-[--border-muted]" style="box-shadow: var(--shadow-sm)">
+				<div class="rounded-md bg-[--surface-1] divide-y divide-[--surface-2]" style="box-shadow: var(--shadow-sm)">
 					{#each data.failureSummary.recent_failures as failure}
 						<div class="flex items-center justify-between px-3 py-2.5">
 							<span class="text-[13px] font-medium text-[--text-primary] truncate">{failure.name ?? 'Unknown'}</span>
@@ -148,7 +157,7 @@
 								{#if failure.state}
 									<span class="text-[12px] text-[--text-tertiary]">{failure.state}</span>
 								{/if}
-								<span class="text-[12px] text-[--text-tertiary] tabular-nums">{formatDate(failure.fail_date)}</span>
+								<span class="text-[12px] text-[--text-tertiary] data-mono">{formatDate(failure.fail_date)}</span>
 							</div>
 						</div>
 					{/each}
@@ -161,11 +170,12 @@
 	</div>
 {/if}
 
-<!-- Browse link -->
+<!-- Browse link - proper button -->
 <div class="mt-6 text-center">
 	<a
 		href="/banks"
-		class="inline-flex items-center gap-1 text-[13px] font-medium text-[--accent] hover:text-[--accent-hover]"
+		class="inline-flex items-center gap-1.5 px-5 py-2 text-[13px] font-medium text-white bg-[--accent] hover:bg-[--accent-hover] rounded-md transition-colors duration-150"
+		style="box-shadow: var(--shadow-xs)"
 	>
 		Browse all banks
 		<span aria-hidden="true">&rarr;</span>

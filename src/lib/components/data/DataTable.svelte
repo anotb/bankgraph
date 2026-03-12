@@ -44,15 +44,15 @@
 	}
 </script>
 
-<div class="overflow-x-auto rounded-[5px] border border-[--border-muted] table-shadow">
+<div class="overflow-x-auto rounded-md bg-[--surface-1] table-shadow">
 	<table class="min-w-full text-[13px]">
 		<thead>
-			<tr class="bg-[--surface-2] border-b border-[--border]">
+			<tr class="bg-[--surface-3] border-b border-[--border]">
 				{#each columns as col}
 					<th
-						class="px-3 py-2 text-[11px] font-medium tracking-wider text-[--text-tertiary] uppercase
+						class="px-3 py-2.5 text-[11px] font-semibold tracking-wider text-[--text-secondary] uppercase
 							{col.align === 'right' ? 'text-right' : 'text-left'}
-							{col.sortable ? 'cursor-pointer select-none hover:text-[--text-secondary] transition-colors' : ''}"
+							{col.sortable ? 'cursor-pointer select-none hover:text-[--text-primary] transition-colors' : ''}"
 						onclick={() => handleHeaderClick(col)}
 					>
 						<span class="inline-flex items-center gap-1">
@@ -62,7 +62,7 @@
 									{currentOrder === 'asc' ? '\u25B2' : '\u25BC'}
 								</span>
 							{:else if col.sortable}
-								<span class="text-[--text-disabled]">\u25B2</span>
+								<span class="text-[--text-disabled]">{'\u25B2'}</span>
 							{/if}
 						</span>
 					</th>
@@ -72,13 +72,14 @@
 		<tbody class="data-table-body bg-[--surface-1]">
 			{#each data as row, rowIdx}
 				<tr
-					class="{onrowclick ? 'cursor-pointer hover:bg-[--accent-muted] transition-colors duration-75' : ''}"
+					class="relative {onrowclick ? 'cursor-pointer group transition-colors duration-75' : ''}"
+					class:hover-row={!!onrowclick}
 					onclick={() => onrowclick?.(row)}
 				>
 					{#each columns as col, i}
 						<td
 							class="whitespace-nowrap {mode === 'power' ? 'px-2 py-0.5 text-[12px]' : 'px-3 py-1.5'}
-								{col.align === 'right' ? 'text-right tabular-nums' : 'text-left'}
+								{col.align === 'right' ? 'text-right data-mono' : 'text-left'}
 								{i === 0 ? 'font-medium text-[--text-primary]' : 'text-[--text-secondary]'}"
 						>
 							{#if customColumns?.[col.key]}
@@ -93,3 +94,10 @@
 		</tbody>
 	</table>
 </div>
+
+<style>
+	tr.hover-row:hover {
+		background-color: var(--accent-muted);
+		box-shadow: inset 3px 0 0 var(--accent);
+	}
+</style>

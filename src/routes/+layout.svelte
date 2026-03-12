@@ -14,7 +14,7 @@
 
 <div class="min-h-screen bg-[--surface-0] flex flex-col">
 	<!-- Nav -->
-	<nav class="bg-[--surface-1] border-b border-[--border]">
+	<nav class="bg-[--surface-1] sticky top-0 z-50" style="box-shadow: var(--shadow-md)">
 		<div class="max-w-[1400px] mx-auto px-4 h-11 flex items-center gap-6">
 			<a href="/" class="text-[15px] font-semibold tracking-tight text-[--text-primary] flex items-center gap-1.5">
 				<span class="text-[--accent] font-bold">BDE</span>
@@ -32,11 +32,11 @@
 					<a
 						href={link.href}
 						class="relative pb-[9px] -mb-[9px] transition-colors duration-150
-							{isActive(link.href) ? 'text-[--text-primary] font-medium' : 'text-[--text-secondary] hover:text-[--text-primary] font-medium'}"
+							{isActive(link.href) ? 'text-[--accent-text] font-semibold' : 'text-[--text-secondary] hover:text-[--text-primary] font-medium'}"
 					>
 						{link.label}
 						{#if isActive(link.href)}
-							<span class="absolute bottom-0 left-0 right-0 h-[2px] bg-[--accent]"></span>
+							<span class="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[--accent] rounded-full"></span>
 						{/if}
 					</a>
 				{/each}

@@ -31,10 +31,11 @@
 			type="button"
 			disabled={!hasPrev}
 			onclick={() => onpage(page - 1)}
-			class="rounded border border-[--border] bg-[--surface-1] px-2.5 py-1
+			class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] px-2.5 py-1
 				text-[13px] font-medium text-[--text-secondary]
 				hover:bg-[--surface-2] hover:text-[--text-primary]
-				disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
+				disabled:cursor-not-allowed disabled:opacity-40 transition-all duration-150"
+			style="box-shadow: var(--shadow-xs)"
 		>
 			Previous
 		</button>
@@ -42,10 +43,11 @@
 			type="button"
 			disabled={!hasNext}
 			onclick={() => onpage(page + 1)}
-			class="rounded border border-[--border] bg-[--surface-1] px-2.5 py-1
+			class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] px-2.5 py-1
 				text-[13px] font-medium text-[--text-secondary]
 				hover:bg-[--surface-2] hover:text-[--text-primary]
-				disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
+				disabled:cursor-not-allowed disabled:opacity-40 transition-all duration-150"
+			style="box-shadow: var(--shadow-xs)"
 		>
 			Next
 		</button>

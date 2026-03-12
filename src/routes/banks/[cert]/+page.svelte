@@ -37,21 +37,21 @@
 			<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
 			<h2 class="text-[15px] font-semibold text-[--text-primary]">Institution Details</h2>
 		</div>
-		<div class="rounded border border-[--border] bg-[--surface-1] divide-y divide-[--border-muted]">
-			<div class="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-[--border-muted]">
+		<div class="rounded-md bg-[--surface-1]" style="box-shadow: var(--shadow-sm)">
+			<div class="grid grid-cols-1 md:grid-cols-2">
 				<!-- Left column -->
-				<div class="divide-y divide-[--border-muted]">
+				<div class="divide-y divide-[--surface-2]">
 					<div class="flex justify-between items-center px-3 py-2">
 						<span class="text-[13px] text-[--text-tertiary]">Name</span>
 						<span class="text-[13px] font-medium text-[--text-primary]">{bank.name}</span>
 					</div>
 					<div class="flex justify-between items-center px-3 py-2">
 						<span class="text-[13px] text-[--text-tertiary]">CERT</span>
-						<span class="text-[13px] font-medium text-[--text-primary] font-mono">{bank.cert}</span>
+						<span class="text-[13px] font-medium text-[--text-primary] data-mono">{bank.cert}</span>
 					</div>
 					<div class="flex justify-between items-center px-3 py-2">
 						<span class="text-[13px] text-[--text-tertiary]">RSSD ID</span>
-						<span class="text-[13px] font-medium text-[--text-primary] font-mono">{bank.rssd_id ?? '\u2014'}</span>
+						<span class="text-[13px] font-medium text-[--text-primary] data-mono">{bank.rssd_id ?? '\u2014'}</span>
 					</div>
 					<div class="flex justify-between items-center px-3 py-2">
 						<span class="text-[13px] text-[--text-tertiary]">Location</span>
@@ -74,7 +74,7 @@
 				</div>
 
 				<!-- Right column -->
-				<div class="divide-y divide-[--border-muted]">
+				<div class="divide-y divide-[--surface-2] md:border-l md:border-[--surface-2]">
 					<div class="flex justify-between items-center px-3 py-2">
 						<span class="text-[13px] text-[--text-tertiary]">Regulator</span>
 						<span class="text-[13px] font-medium text-[--text-primary]">
@@ -184,7 +184,7 @@
 				/>
 			</div>
 		{:else}
-			<div class="rounded border border-[--border] bg-[--surface-1] py-12 text-center">
+			<div class="rounded-md bg-[--surface-1] py-12 text-center" style="box-shadow: var(--shadow-sm)">
 				<p class="text-[--text-tertiary]">No financial data available</p>
 			</div>
 		{/if}

@@ -140,10 +140,11 @@
 		onblur={handleBlur}
 		onfocus={handleFocus}
 		{placeholder}
-		class="block w-full rounded border border-[--border] bg-[--surface-1] py-2 pr-9 pl-9
+		class="block w-full rounded-[5px] border border-[--border-muted] bg-[--surface-1] py-2 pr-9 pl-9
 			text-[14px] text-[--text-primary] placeholder:text-[--text-disabled]
-			focus:border-[--accent] focus:ring-1 focus:ring-[--accent]/30 focus:outline-none
-			transition-colors"
+			focus:border-[--accent] focus:ring-2 focus:ring-[--accent]/20 focus:outline-none
+			transition-all duration-150"
+	style="box-shadow: var(--shadow-xs)"
 	/>
 	{#if inputValue}
 		<button

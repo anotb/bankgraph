@@ -49,11 +49,11 @@
 				/>
 			{/if}
 		</div>
-		<p class="text-[13px] text-[--text-tertiary] font-mono">CERT #{data.bank.cert}</p>
+		<p class="text-[13px] text-[--text-tertiary] data-mono">CERT  #{data.bank.cert}</p>
 	</div>
 
 	<!-- Tab navigation -->
-	<nav class="border-b border-[--border] -mx-4 px-4">
+	<nav class="border-b border-[--border-muted] -mx-4 px-4">
 		<div class="flex gap-0 -mb-px">
 			{#each tabs as tab}
 				<a
