@@ -174,7 +174,7 @@
 	</div>
 
 	{#if !hasAnyData}
-		<div class="rounded border border-[--border] bg-[--surface-1] py-24 text-center">
+		<div class="rounded-md bg-[--surface-1] py-24 text-center" style="box-shadow: var(--shadow-sm)">
 			<p class="text-[--text-tertiary] text-[15px]">No macro data available</p>
 			<p class="text-[--text-disabled] text-[13px] mt-1">Run the FRED sync pipeline to populate macro series.</p>
 		</div>
@@ -211,25 +211,25 @@
 			</div>
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-2">
 				{#if fedFundsSeries.length > 0}
-					<div class="rounded border border-[--border] bg-[--surface-1] p-3">
+					<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
 						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Fed Funds Rate</h3>
 						<TimeSeriesChart series={fedFundsSeries} yAxisFormat="percent" height="280px" markAreas={recessionBands} />
 					</div>
 				{/if}
 				{#if treasurySeries.length > 0}
-					<div class="rounded border border-[--border] bg-[--surface-1] p-3">
+					<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
 						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Treasury Yields</h3>
 						<TimeSeriesChart series={treasurySeries} yAxisFormat="percent" height="280px" markAreas={recessionBands} />
 					</div>
 				{/if}
 				{#if yieldSpreadSeries.length > 0}
-					<div class="rounded border border-[--border] bg-[--surface-1] p-3">
+					<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
 						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Yield Curve Spread (10Y-2Y)</h3>
 						<TimeSeriesChart series={yieldSpreadSeries} yAxisFormat="percent" height="280px" markAreas={recessionBands} />
 					</div>
 				{/if}
 				{#if mortgageSeries.length > 0}
-					<div class="rounded border border-[--border] bg-[--surface-1] p-3">
+					<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
 						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">30Y Mortgage Rate</h3>
 						<TimeSeriesChart series={mortgageSeries} yAxisFormat="percent" height="280px" markAreas={recessionBands} />
 					</div>
@@ -245,19 +245,19 @@
 			</div>
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-2">
 				{#if unemploymentSeries.length > 0}
-					<div class="rounded border border-[--border] bg-[--surface-1] p-3">
+					<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
 						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Unemployment Rate</h3>
 						<TimeSeriesChart series={unemploymentSeries} yAxisFormat="percent" height="280px" markAreas={recessionBands} />
 					</div>
 				{/if}
 				{#if gdpSeries.length > 0}
-					<div class="rounded border border-[--border] bg-[--surface-1] p-3">
+					<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
 						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">GDP</h3>
 						<TimeSeriesChart series={gdpSeries} yAxisFormat="number" height="280px" markAreas={recessionBands} />
 					</div>
 				{/if}
 				{#if cpiSeries.length > 0}
-					<div class="rounded border border-[--border] bg-[--surface-1] p-3">
+					<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
 						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Consumer Price Index</h3>
 						<TimeSeriesChart series={cpiSeries} yAxisFormat="number" height="280px" markAreas={recessionBands} />
 					</div>
@@ -273,13 +273,13 @@
 			</div>
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-2">
 				{#if bankCreditSeries.length > 0}
-					<div class="rounded border border-[--border] bg-[--surface-1] p-3">
+					<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
 						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Total Bank Credit</h3>
 						<TimeSeriesChart series={bankCreditSeries} yAxisFormat="number" height="280px" markAreas={recessionBands} />
 					</div>
 				{/if}
 				{#if delinquencySeries.length > 0}
-					<div class="rounded border border-[--border] bg-[--surface-1] p-3">
+					<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
 						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Credit Card Delinquency Rate</h3>
 						<TimeSeriesChart series={delinquencySeries} yAxisFormat="percent" height="280px" markAreas={recessionBands} />
 					</div>

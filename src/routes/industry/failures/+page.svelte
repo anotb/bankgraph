@@ -82,16 +82,16 @@
 				<div class="w-0.5 h-4 bg-[--warning] rounded-full"></div>
 				<h2 class="text-[15px] font-semibold text-[--text-primary]">Failures by Year</h2>
 			</div>
-			<div class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
+			<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
 				<div class="flex items-end gap-px h-32">
 					{#each data.yearlyData as d}
 						<div class="flex-1 flex flex-col items-center gap-0.5 group" title="{d.year}: {d.count} failures">
-							<span class="text-[9px] text-[--text-tertiary] opacity-0 group-hover:opacity-100 transition-opacity tabular-nums">{d.count}</span>
+							<span class="text-[9px] text-[--text-tertiary] opacity-0 group-hover:opacity-100 transition-opacity data-mono">{d.count}</span>
 							<div
 								class="w-full bg-[--warning] rounded-t-sm hover:bg-[--negative] transition-colors"
 								style="height: {(d.count / maxCount) * 100}%"
 							></div>
-							<span class="text-[8px] text-[--text-disabled] tabular-nums">{d.year.slice(2)}</span>
+							<span class="text-[8px] text-[--text-disabled] data-mono">{d.year.slice(2)}</span>
 						</div>
 					{/each}
 				</div>

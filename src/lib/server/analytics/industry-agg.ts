@@ -58,11 +58,12 @@ export async function computeIndustryAggregates(db: D1Database, repdte: string):
     );
     totalInserted++;
 
-    // Median metrics: roa, roe, nimy
+    // Median metrics: roa, roe, nimy, nclnlsr (NPL ratio)
     const medianMetrics = [
       { metric: 'median_roa', column: 'roa' },
       { metric: 'median_roe', column: 'roe' },
-      { metric: 'median_nim', column: 'nimy' }
+      { metric: 'median_nim', column: 'nimy' },
+      { metric: 'median_npl', column: 'nclnlsr' }
     ];
 
     for (const mm of medianMetrics) {

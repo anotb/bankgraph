@@ -66,7 +66,7 @@ export async function syncFredData(
             date: obs.date,
             value: obs.value
           }));
-          await batchInsert(db, 'macro_data', rows);
+          await batchInsert(db, 'macro_data', rows, ['series_id', 'date']);
         }
 
         totalSeries++;

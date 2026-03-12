@@ -36,7 +36,7 @@
 	});
 </script>
 
-<div class="rounded border border-[--border] bg-[--surface-1] p-3 transition-colors hover:border-[--accent]/30">
+<div class="rounded-md bg-[--surface-1] p-3 transition-shadow hover:shadow-md" style="box-shadow: var(--shadow-sm)">
 	<div class="flex items-start justify-between gap-2">
 		<div class="min-w-0 flex-1">
 			<p class="text-[13px] font-semibold text-[--text-primary] leading-tight">{title}</p>
@@ -46,7 +46,7 @@
 		</div>
 		{#if correlation != null}
 			<div class="flex flex-col items-end shrink-0">
-				<span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[13px] font-semibold tabular-nums {corrColor} {corrBg}">
+				<span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[13px] font-semibold {corrColor} {corrBg}" data-mono>
 					{correlation > 0 ? '+' : ''}{correlation.toFixed(2)}
 				</span>
 				<span class="text-[10px] text-[--text-tertiary] mt-0.5">{strengthLabel}</span>

@@ -289,7 +289,7 @@ export async function computeRiskScores(db: D1Database, repdte: string): Promise
     }
 
     if (scoreRows.length > 0) {
-      await batchInsert(db, 'risk_scores', scoreRows);
+      await batchInsert(db, 'risk_scores', scoreRows, ['cert', 'repdte']);
       totalInserted += scoreRows.length;
     }
 

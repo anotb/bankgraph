@@ -163,7 +163,7 @@ export async function computeAllTrends(db: D1Database, repdte: string): Promise<
     }
 
     if (allRows.length > 0) {
-      await batchInsert(db, 'bank_trends', allRows);
+      await batchInsert(db, 'bank_trends', allRows, ['cert', 'metric', 'repdte']);
       totalInserted += allRows.length;
     }
 

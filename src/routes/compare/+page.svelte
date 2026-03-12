@@ -280,9 +280,9 @@
 				onfocus={() => { if (searchResults.length > 0) showDropdown = true; }}
 				placeholder="Search banks by name..."
 				disabled={selectedBanks.length >= 10}
-				class="block w-full rounded border border-[--border] bg-[--surface-1] py-2 pr-9 pl-9
+				class="block w-full rounded-[5px] border border-[--border-muted] bg-[--surface-1] py-2 pr-9 pl-9
 					text-[14px] text-[--text-primary] placeholder:text-[--text-disabled]
-					focus:border-[--accent] focus:ring-1 focus:ring-[--accent]/30 focus:outline-none
+					focus:border-[--accent] focus:ring-2 focus:ring-[--accent]/20 focus:outline-none
 					transition-colors disabled:opacity-50"
 			/>
 			{#if searching}
@@ -293,11 +293,11 @@
 
 			<!-- Dropdown -->
 			{#if showDropdown && searchResults.length > 0}
-				<div class="absolute z-10 mt-1 w-full rounded border border-[--border] bg-[--surface-1] shadow-lg max-h-64 overflow-y-auto">
+				<div class="absolute z-10 mt-1 w-full rounded-md bg-[--surface-1] max-h-64 overflow-y-auto" style="box-shadow: var(--shadow-md)">
 					{#each searchResults as bank (bank.cert)}
 						<button
 							type="button"
-							class="block w-full text-left px-3 py-2 text-[13px] hover:bg-[--surface-2] transition-colors"
+							class="block w-full text-left px-3 py-2 text-[13px] hover:bg-[--accent-muted] transition-colors"
 							onmousedown={(e) => { e.preventDefault(); addBank(bank); }}
 						>
 							<span class="font-medium text-[--text-primary]">{bank.name}</span>
@@ -357,17 +357,17 @@
 	</section>
 
 	{#if selectedBanks.length < 2}
-		<div class="rounded border border-[--border] bg-[--surface-1] py-16 text-center">
+		<div class="rounded-md bg-[--surface-1] py-16 text-center" style="box-shadow: var(--shadow-sm)">
 			<p class="text-[--text-tertiary] text-[15px]">Select at least 2 banks to compare</p>
 			<p class="text-[--text-disabled] text-[13px] mt-1">Use the search above to find and add banks.</p>
 		</div>
 	{:else if loading}
-		<div class="rounded border border-[--border] bg-[--surface-1] py-16 text-center">
-			<div class="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[--border] border-t-[--accent]"></div>
+		<div class="rounded-md bg-[--surface-1] py-16 text-center" style="box-shadow: var(--shadow-sm)">
+			<div class="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[--border-muted] border-t-[--accent]"></div>
 			<p class="text-[--text-tertiary] text-[13px] mt-2">Loading comparison data...</p>
 		</div>
 	{:else if error}
-		<div class="rounded border border-[--negative]/20 bg-[--negative-muted] py-8 text-center">
+		<div class="rounded-md bg-[--negative-muted] py-8 text-center" style="box-shadow: var(--shadow-sm)">
 			<p class="text-[--negative] text-[14px]">Failed to load: {error}</p>
 		</div>
 	{:else if compareData}
@@ -399,7 +399,7 @@
 				{#each selectedMetrics as metric (metric.key)}
 					{@const chartSeries = buildChartSeries(metric)}
 					{#if chartSeries.length > 0}
-						<div class="rounded border border-[--border] bg-[--surface-1] p-3">
+						<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
 							<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">{metric.label}</h3>
 							<TimeSeriesChart
 								series={chartSeries}
@@ -419,11 +419,11 @@
 					<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
 					<h2 class="text-[15px] font-semibold text-[--text-primary]">Latest Quarter Comparison</h2>
 				</div>
-				<div class="rounded border border-[--border] bg-[--surface-1] overflow-x-auto">
+				<div class="rounded-md bg-[--surface-1] overflow-x-auto" style="box-shadow: var(--shadow-sm)">
 					<table class="w-full text-[13px]">
 						<thead>
-							<tr class="border-b border-[--border]">
-								<th class="text-left px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider sticky left-0 bg-[--surface-1]">Metric</th>
+							<tr class="bg-[--surface-3]">
+								<th class="text-left px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider sticky left-0 bg-[--surface-3]">Metric</th>
 								{#each selectedBanks as bank (bank.cert)}
 									<th class="text-right px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider whitespace-nowrap">
 										{bank.name.length > 18 ? bank.name.slice(0, 18) + '...' : bank.name}
@@ -431,16 +431,16 @@
 								{/each}
 							</tr>
 						</thead>
-						<tbody class="divide-y divide-[--border-muted]">
+						<tbody class="divide-y divide-[--surface-2]">
 							{#each tableRows as row (row.metric.key)}
-								<tr class="hover:bg-[--surface-2] transition-colors">
+								<tr class="hover:bg-[--accent-muted] transition-colors">
 									<td class="px-3 py-2 font-medium text-[--text-primary] sticky left-0 bg-[--surface-1]">{row.metric.label}</td>
 									{#each selectedBanks as bank (bank.cert)}
 										{@const val = row.values.get(bank.cert) ?? null}
-										<td class="px-3 py-2 text-right tabular-nums whitespace-nowrap
+										<td class="px-3 py-2 text-right whitespace-nowrap
 											{bank.cert === row.best ? 'text-[--positive] font-semibold' : ''}
 											{bank.cert === row.worst ? 'text-[--negative]' : ''}
-											{bank.cert !== row.best && bank.cert !== row.worst ? 'text-[--text-primary]' : ''}">
+											{bank.cert !== row.best && bank.cert !== row.worst ? 'text-[--text-primary]' : ''}" data-mono>
 											{formatValue(val, row.metric.format)}
 										</td>
 									{/each}

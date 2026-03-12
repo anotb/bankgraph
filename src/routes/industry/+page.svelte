@@ -112,7 +112,7 @@
 				<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
 				<h2 class="text-[15px] font-semibold text-[--text-primary]">Industry Snapshot</h2>
 			</div>
-			<div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-[--border-muted] rounded-[5px] overflow-hidden border border-[--border-muted]" style="box-shadow: var(--shadow-sm)">
+			<div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-[--border-muted] rounded-md overflow-hidden" style="box-shadow: var(--shadow-sm)">
 				<MetricCard
 					compact
 					label="Total Banks"
@@ -140,7 +140,7 @@
 			</div>
 		</section>
 	{:else}
-		<div class="rounded border border-[--border] bg-[--surface-1] py-24 text-center">
+		<div class="rounded-md bg-[--surface-1] py-24 text-center" style="box-shadow: var(--shadow-sm)">
 			<p class="text-[--text-tertiary] text-[15px]">No metadata available</p>
 		</div>
 	{/if}
@@ -153,22 +153,22 @@
 		</div>
 
 		{#if segments.some((s) => s.metrics !== null)}
-			<div class="rounded border border-[--border] bg-[--surface-1] overflow-x-auto">
+			<div class="rounded-md bg-[--surface-1] overflow-x-auto" style="box-shadow: var(--shadow-sm)">
 				<table class="w-full text-[13px]">
 					<thead>
-						<tr class="border-b border-[--border]">
+						<tr class="bg-[--surface-3]">
 							<th class="text-left px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Segment</th>
 							{#each columns as col (col.key)}
 								<th class="text-right px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">{col.label}</th>
 							{/each}
 						</tr>
 					</thead>
-					<tbody class="divide-y divide-[--border-muted]">
+					<tbody class="divide-y divide-[--surface-2]">
 						{#each segments as seg (seg.label)}
-							<tr class="hover:bg-[--surface-2] transition-colors">
+							<tr class="hover:bg-[--accent-muted] transition-colors">
 								<td class="px-3 py-2 font-medium text-[--text-primary]">{seg.label}</td>
 								{#each columns as col (col.key)}
-									<td class="px-3 py-2 text-right tabular-nums text-[--text-primary]">
+									<td class="px-3 py-2 text-right text-[--text-primary]" data-mono>
 										{col.fmt(getVal(seg.metrics, col.key))}
 									</td>
 								{/each}
@@ -178,7 +178,7 @@
 				</table>
 			</div>
 		{:else}
-			<div class="rounded border border-[--border] bg-[--surface-1] py-16 text-center">
+			<div class="rounded-md bg-[--surface-1] py-16 text-center" style="box-shadow: var(--shadow-sm)">
 				<p class="text-[--text-tertiary] text-[15px]">No industry data available yet</p>
 				<p class="text-[--text-disabled] text-[13px] mt-1">Run the aggregation pipeline to populate industry stats.</p>
 			</div>
@@ -193,7 +193,7 @@
 				<h2 class="text-[15px] font-semibold text-[--text-primary]">Industry Trends</h2>
 			</div>
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-2">
-				<div class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
+				<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
 					<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Key Ratios</h3>
 					<TimeSeriesChart
 						series={[

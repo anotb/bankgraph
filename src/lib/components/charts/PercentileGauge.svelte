@@ -121,7 +121,7 @@
 				fill={markerColor}
 				font-size="11"
 				font-weight="600"
-				class="tabular-nums"
+				class="data-mono"
 			>
 				{fmt(bankValue)}
 			</text>
@@ -134,7 +134,7 @@
 			text-anchor="middle"
 			fill="var(--text-disabled)"
 			font-size="9"
-			class="tabular-nums"
+			class="data-mono"
 		>
 			{fmt(p10)}
 		</text>
@@ -146,7 +146,7 @@
 			text-anchor="middle"
 			fill="var(--text-tertiary)"
 			font-size="9"
-			class="tabular-nums"
+			class="data-mono"
 		>
 			{fmt(median)}
 		</text>
@@ -158,7 +158,7 @@
 			text-anchor="middle"
 			fill="var(--text-disabled)"
 			font-size="9"
-			class="tabular-nums"
+			class="data-mono"
 		>
 			{fmt(p90)}
 		</text>

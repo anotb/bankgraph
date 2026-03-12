@@ -17,11 +17,42 @@ export interface FDICResponse {
 /** Financial snapshot fields we care about */
 export interface FinancialSnapshot {
   repdte: string;
+  // Balance sheet
+  asset: number | null;
+  dep: number | null;
+  eq: number | null;
+  lnlsnet: number | null;
+  lnre: number | null;
+  lnci: number | null;
+  lncon: number | null;
+  sec: number | null;
+  // Income
+  netinc: number | null;
+  intinc: number | null;
+  eintexp: number | null;
+  nim: number | null;
+  nonii: number | null;
+  nonix: number | null;
+  elnatr: number | null;
+  // Ratios
   roa: number | null;
   roe: number | null;
-  nim: number | null;
-  npl_ratio: number | null;
-  tier1_ratio: number | null;
+  nimy: number | null;
+  eeffr: number | null;
+  // Capital
+  rbcrwaj: number | null;
+  rbc1rwaj: number | null;
+  rbc1aaj: number | null;
+  eqv: number | null;
+  // Asset quality
+  nclnlsr: number | null;
+  lnatresr: number | null;
+  nco_ratio: number | null;
+  // Liquidity
+  lnlsdepr: number | null;
+  othbfhlb: number | null;
+  // General
+  numemp: number | null;
 }
 
 /** Fetch wrapper with retry + exponential backoff */
@@ -59,7 +90,22 @@ const INSTITUTION_FIELDS = [
 ].join(',');
 
 const FINANCIAL_FIELDS = [
-  'CERT', 'REPDTE', 'ROA', 'ROE', 'NIMY', 'NCLNLSR', 'RBCRWAJ'
+  // Core
+  'CERT', 'REPDTE',
+  // Balance sheet
+  'ASSET', 'DEP', 'EQ', 'LNLSNET', 'LNRE', 'LNCI', 'LNCON', 'SC',
+  // Income
+  'NETINC', 'INTINC', 'EINTEXP', 'NIM', 'NONII', 'NONIX', 'ELNATR',
+  // Ratios
+  'ROA', 'ROE', 'NIMY', 'EEFFR',
+  // Capital
+  'RBCRWAJ', 'RBC1RWAJ', 'RBC1AAJ', 'EQV',
+  // Asset quality
+  'NCLNLSR', 'LNATRESR', 'NTLNLSR',
+  // Liquidity
+  'LNLSDEPR', 'OTHBFHLB',
+  // General
+  'NUMEMP'
 ].join(',');
 
 /** Fetch a page of institutions sorted by CERT ASC */
@@ -116,13 +162,38 @@ export async function fetchLatestFinancials(
 
       if (json.data.length > 0) {
         const d = json.data[0].data;
+        const toNum = (v: unknown): number | null => (v != null ? Number(v) : null);
         results.set(cert, {
           repdte: String(d.REPDTE ?? ''),
-          roa: d.ROA != null ? Number(d.ROA) : null,
-          roe: d.ROE != null ? Number(d.ROE) : null,
-          nim: d.NIMY != null ? Number(d.NIMY) : null,
-          npl_ratio: d.NCLNLSR != null ? Number(d.NCLNLSR) : null,
-          tier1_ratio: d.RBCRWAJ != null ? Number(d.RBCRWAJ) : null
+          asset: toNum(d.ASSET),
+          dep: toNum(d.DEP),
+          eq: toNum(d.EQ),
+          lnlsnet: toNum(d.LNLSNET),
+          lnre: toNum(d.LNRE),
+          lnci: toNum(d.LNCI),
+          lncon: toNum(d.LNCON),
+          sec: toNum(d.SC),
+          netinc: toNum(d.NETINC),
+          intinc: toNum(d.INTINC),
+          eintexp: toNum(d.EINTEXP),
+          nim: toNum(d.NIM),
+          nonii: toNum(d.NONII),
+          nonix: toNum(d.NONIX),
+          elnatr: toNum(d.ELNATR),
+          roa: toNum(d.ROA),
+          roe: toNum(d.ROE),
+          nimy: toNum(d.NIMY),
+          eeffr: toNum(d.EEFFR),
+          rbcrwaj: toNum(d.RBCRWAJ),
+          rbc1rwaj: toNum(d.RBC1RWAJ),
+          rbc1aaj: toNum(d.RBC1AAJ),
+          eqv: toNum(d.EQV),
+          nclnlsr: toNum(d.NCLNLSR),
+          lnatresr: toNum(d.LNATRESR),
+          nco_ratio: toNum(d.NTLNLSR),
+          lnlsdepr: toNum(d.LNLSDEPR),
+          othbfhlb: toNum(d.OTHBFHLB),
+          numemp: toNum(d.NUMEMP)
         });
       }
     } catch (err) {

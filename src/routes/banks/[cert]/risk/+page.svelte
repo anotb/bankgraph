@@ -60,7 +60,7 @@
 
 <div class="space-y-5 pt-3">
 	{#if !risk}
-		<div class="rounded border border-[--border] bg-[--surface-1] py-24 text-center">
+		<div class="rounded-md bg-[--surface-1] py-24 text-center" style="box-shadow: var(--shadow-sm)">
 			<p class="text-[--text-tertiary] text-[15px]">No risk analysis data available</p>
 			<p class="text-[--text-disabled] text-[13px] mt-1">This bank may not have financials for the latest quarter.</p>
 		</div>
@@ -73,7 +73,7 @@
 				<span class="text-[11px] text-[--text-tertiary] ml-1">as of {formatDate(risk.repdte)}</span>
 			</div>
 
-			<div class="rounded border border-[--border] bg-[--surface-1] p-3 space-y-4">
+			<div class="rounded-md bg-[--surface-1] p-3 space-y-4" style="box-shadow: var(--shadow-sm)">
 				<!-- Composite score + PCA badge -->
 				<div class="flex items-center gap-4 flex-wrap">
 					<div class="flex-1 min-w-[200px]">
@@ -130,14 +130,14 @@
 				</div>
 
 				{#if sortedAnomalies.length === 0}
-					<div class="rounded border border-[--border] bg-[--surface-1] py-12 text-center">
+					<div class="rounded-md bg-[--surface-1] py-12 text-center" style="box-shadow: var(--shadow-sm)">
 						<p class="text-[--text-tertiary] text-[13px]">No anomalies detected for this quarter</p>
 					</div>
 				{:else}
-					<div class="rounded border border-[--border] bg-[--surface-1] overflow-x-auto">
+					<div class="rounded-md bg-[--surface-1] overflow-x-auto" style="box-shadow: var(--shadow-sm)">
 						<table class="w-full text-[13px]">
 							<thead>
-								<tr class="border-b border-[--border]">
+								<tr class="bg-[--surface-3]">
 									<th class="text-left px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Severity</th>
 									<th class="text-left px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Metric</th>
 									<th class="text-left px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Type</th>
@@ -146,9 +146,9 @@
 									<th class="text-left px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Description</th>
 								</tr>
 							</thead>
-							<tbody class="divide-y divide-[--border-muted]">
+							<tbody class="divide-y divide-[--surface-2]">
 								{#each sortedAnomalies as anomaly}
-									<tr class="hover:bg-[--surface-2] transition-colors">
+									<tr class="hover:bg-[--accent-muted] transition-colors">
 										<td class="px-3 py-2">
 											<span class="inline-flex items-center rounded-sm px-1.5 py-0.5 text-[11px] font-medium tracking-wide {severityBadgeClass(anomaly.severity)}">
 												{anomaly.severity}
@@ -156,8 +156,8 @@
 										</td>
 										<td class="px-3 py-2 font-medium text-[--text-primary]">{anomaly.metric}</td>
 										<td class="px-3 py-2 text-[--text-secondary]">{anomaly.anomaly_type}</td>
-										<td class="px-3 py-2 text-right tabular-nums text-[--text-primary]">{formatValue(anomaly.value)}</td>
-										<td class="px-3 py-2 text-right tabular-nums text-[--text-secondary]">{formatValue(anomaly.reference_value)}</td>
+										<td class="px-3 py-2 text-right data-mono text-[--text-primary]">{formatValue(anomaly.value)}</td>
+										<td class="px-3 py-2 text-right data-mono text-[--text-secondary]">{formatValue(anomaly.reference_value)}</td>
 										<td class="px-3 py-2 text-[--text-secondary] max-w-[300px] truncate">{anomaly.description ?? '\u2014'}</td>
 									</tr>
 								{/each}

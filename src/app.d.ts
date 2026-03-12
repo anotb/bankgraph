@@ -9,6 +9,7 @@ declare global {
 				CACHE: KVNamespace;
 				EXPORTS: R2Bucket;
 				PIPELINE_SECRET: string;
+				FRED_API_KEY?: string;
 			};
 			context: {
 				waitUntil(promise: Promise<unknown>): void;

@@ -54,7 +54,7 @@
 				></div>
 			</div>
 			<span
-				class="text-[13px] font-semibold tabular-nums min-w-[28px] text-right"
+				class="text-[13px] font-semibold data-mono min-w-[28px] text-right"
 				style="color: {color}"
 			>
 				{clampedScore.toFixed(0)}

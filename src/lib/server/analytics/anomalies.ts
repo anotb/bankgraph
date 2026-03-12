@@ -406,6 +406,8 @@ export async function detectAnomalies(db: D1Database, repdte: string): Promise<n
   const allAnomalies = [...spikes, ...peerOutliers, ...pcaBreaches, ...reversals];
 
   if (allAnomalies.length > 0) {
+    // anomalies table uses AUTOINCREMENT id; we already DELETE for this quarter above,
+    // so plain INSERT is fine (no upsert needed)
     await batchInsert(db, 'anomalies', allAnomalies);
   }
 

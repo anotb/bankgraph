@@ -20,7 +20,9 @@
 	let suggestions = $state<Institution[]>([]);
 	let highlightedIndex = $state(-1);
 	let showDropdown = $state(false);
+	let loading = $state(false);
 	let fetchTimer: ReturnType<typeof setTimeout> | undefined;
+	let lastQuery = $state('');
 
 	// Sync external value changes into local state
 	$effect(() => {
@@ -35,22 +37,32 @@
 		if (q.length < 2) {
 			suggestions = [];
 			showDropdown = false;
+			loading = false;
+			lastQuery = '';
 			return;
 		}
 
 		clearTimeout(fetchTimer);
+		loading = true;
+		showDropdown = true;
 		fetchTimer = setTimeout(async () => {
 			try {
 				const res = await fetch(`/api/v1/banks?q=${encodeURIComponent(q)}&limit=8&active=1`);
-				if (!res.ok) return;
+				if (!res.ok) {
+					loading = false;
+					return;
+				}
 				const json = (await res.json()) as { data?: Institution[] };
 				suggestions = json.data ?? [];
 				highlightedIndex = -1;
-				showDropdown = suggestions.length > 0;
+				lastQuery = q;
+				showDropdown = true;
 			} catch {
 				// Silently ignore fetch errors
+			} finally {
+				loading = false;
 			}
-		}, 200);
+		}, 300);
 	});
 
 	function handleInput(e: Event) {
@@ -67,7 +79,10 @@
 		inputValue = '';
 		suggestions = [];
 		showDropdown = false;
+		loading = false;
+		lastQuery = '';
 		clearTimeout(debounceTimer);
+		clearTimeout(fetchTimer);
 		onsearch('');
 	}
 
@@ -115,7 +130,7 @@
 	}
 
 	function handleFocus() {
-		if (autocomplete && suggestions.length > 0) {
+		if (autocomplete && (suggestions.length > 0 || lastQuery.length >= 2)) {
 			showDropdown = true;
 		}
 	}
@@ -164,24 +179,33 @@
 		</button>
 	{/if}
 
-	{#if autocomplete && showDropdown && suggestions.length > 0}
+	{#if autocomplete && showDropdown}
 		<div
-			class="absolute z-50 mt-1 w-full overflow-hidden rounded-[5px] border border-[--border-muted] bg-[--surface-1]"
+			class="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-[--border-muted] bg-[--surface-1] max-h-[320px] overflow-y-auto"
 			style="box-shadow: var(--shadow-md)"
+			role="listbox"
 		>
-			{#each suggestions as suggestion, i}
-				<button
-					type="button"
-					class="flex w-full items-center justify-between px-3 py-2 text-left cursor-pointer transition-colors
-						{i === highlightedIndex ? 'bg-[--accent-muted]' : 'hover:bg-[--accent-muted]'}"
-					onmousedown={() => selectSuggestion(suggestion.cert)}
-				>
-					<span class="font-medium text-[--text-primary] text-[13px] truncate">{suggestion.name}</span>
-					<span class="ml-2 shrink-0 text-[12px] text-[--text-tertiary]">
-						{suggestion.city ? `${suggestion.city}, ` : ''}{suggestion.state ?? ''}
-					</span>
-				</button>
-			{/each}
+			{#if loading && suggestions.length === 0}
+				<div class="px-3 py-2.5 text-[13px] text-[--text-tertiary]">Searching...</div>
+			{:else if !loading && suggestions.length === 0 && lastQuery.length >= 2}
+				<div class="px-3 py-2.5 text-[13px] text-[--text-tertiary]">No results</div>
+			{:else}
+				{#each suggestions as suggestion, i}
+					<button
+						type="button"
+						role="option"
+						aria-selected={i === highlightedIndex}
+						class="flex w-full items-center justify-between px-3 py-2 text-left cursor-pointer transition-colors
+							{i === highlightedIndex ? 'bg-[--accent-muted]' : 'hover:bg-[--accent-muted]'}"
+						onmousedown={() => selectSuggestion(suggestion.cert)}
+					>
+						<span class="font-medium text-[--text-primary] text-[13px] truncate">{suggestion.name}</span>
+						<span class="ml-2 shrink-0 text-[12px] text-[--text-tertiary] data-mono">
+							{suggestion.state ?? ''} &middot; {suggestion.cert}
+						</span>
+					</button>
+				{/each}
+			{/if}
 		</div>
 	{/if}
 </div>

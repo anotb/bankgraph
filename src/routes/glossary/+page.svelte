@@ -53,9 +53,9 @@
 			type="text"
 			bind:value={query}
 			placeholder="Search fields..."
-			class="w-full rounded border border-[--border] bg-[--surface-1] px-4 py-2 pl-9
+			class="w-full rounded-[5px] border border-[--border-muted] bg-[--surface-1] px-4 py-2 pl-9
 				text-[14px] text-[--text-primary] placeholder:text-[--text-disabled]
-				focus:border-[--accent] focus:outline-none focus:ring-1 focus:ring-[--accent]/30
+				focus:border-[--accent] focus:outline-none focus:ring-2 focus:ring-[--accent]/20
 				transition-colors"
 		/>
 		<svg
@@ -82,7 +82,7 @@
 
 	<!-- Grouped fields -->
 	{#if grouped.size === 0}
-		<div class="rounded border border-[--border] bg-[--surface-1] py-16 text-center">
+		<div class="rounded-md bg-[--surface-1] py-16 text-center" style="box-shadow: var(--shadow-sm)">
 			<p class="text-[--text-tertiary]">No fields match your search.</p>
 		</div>
 	{:else}
@@ -96,7 +96,7 @@
 					</div>
 					<div class="space-y-1">
 						{#each items as { key, def }}
-							<div class="rounded border border-[--border] bg-[--surface-1] px-3 py-2.5">
+							<div class="rounded-md bg-[--surface-1] px-3 py-2.5" style="box-shadow: var(--shadow-xs)">
 								<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
 									<h3 class="font-medium text-[--text-primary] text-[14px]">{def.label}</h3>
 									<code class="text-[11px] text-[--text-tertiary] font-mono">{key}</code>

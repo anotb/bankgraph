@@ -40,7 +40,7 @@ function pipelineJson(body: unknown, status = 200): Response {
 
 export const POST: RequestHandler = async ({ platform, url, request }) => {
   // --- Auth: require Bearer token matching PIPELINE_SECRET ---
-  const secret = (platform?.env as Record<string, unknown>)?.PIPELINE_SECRET as string | undefined;
+  const secret = platform?.env?.PIPELINE_SECRET;
   if (!secret) {
     return pipelineJson({ ok: false, error: 'PIPELINE_SECRET not configured on server' }, 500);
   }
@@ -212,7 +212,7 @@ export const POST: RequestHandler = async ({ platform, url, request }) => {
       console.log('=== Stage: fred ===');
       const t0 = Date.now();
 
-      const fredApiKey = (platform?.env as Record<string, unknown>)?.FRED_API_KEY as string | undefined;
+      const fredApiKey = platform?.env?.FRED_API_KEY;
       if (fredApiKey) {
         const fredResult = await syncFredData(db, fredApiKey);
         results.fred = {

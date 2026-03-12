@@ -103,14 +103,14 @@
 
 <div class="space-y-5 pt-3">
 	{#if financials.length === 0}
-		<div class="rounded border border-[--border] bg-[--surface-1] py-24 text-center">
+		<div class="rounded-md bg-[--surface-1] py-24 text-center" style="box-shadow: var(--shadow-sm)">
 			<p class="text-[--text-tertiary] text-[15px]">No financial data available</p>
 		</div>
 	{:else}
 		<!-- Controls row: DateRangePicker + ExportButton + FieldPicker -->
 		<div class="flex items-center gap-3 flex-wrap">
 			<DateRangePicker bind:selected={selectedRange} />
-			<span class="text-[11px] text-[--text-tertiary] tabular-nums">
+			<span class="text-[11px] text-[--text-tertiary] data-mono">
 				{filtered.length} quarters
 			</span>
 			<div class="ml-auto flex items-center gap-2">
@@ -122,26 +122,38 @@
 		<!-- Charts grid -->
 		<div class="grid grid-cols-1 lg:grid-cols-2 gap-2">
 			<!-- Key Ratios -->
-			<section class="rounded border border-[--border] bg-[--surface-1] p-3">
-				<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Key Ratios</h3>
+			<section class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
+				<div class="flex items-center gap-2 mb-2">
+					<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+					<h3 class="text-[13px] font-semibold text-[--text-primary]">Key Ratios</h3>
+				</div>
 				<TimeSeriesChart series={keyRatiosSeries} yAxisFormat="percent" />
 			</section>
 
 			<!-- Balance Sheet -->
-			<section class="rounded border border-[--border] bg-[--surface-1] p-3">
-				<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Balance Sheet</h3>
+			<section class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
+				<div class="flex items-center gap-2 mb-2">
+					<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+					<h3 class="text-[13px] font-semibold text-[--text-primary]">Balance Sheet</h3>
+				</div>
 				<TimeSeriesChart series={balanceSheetSeries} yAxisFormat="currency" />
 			</section>
 
 			<!-- Asset Quality -->
-			<section class="rounded border border-[--border] bg-[--surface-1] p-3">
-				<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Asset Quality</h3>
+			<section class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
+				<div class="flex items-center gap-2 mb-2">
+					<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+					<h3 class="text-[13px] font-semibold text-[--text-primary]">Asset Quality</h3>
+				</div>
 				<TimeSeriesChart series={assetQualitySeries} yAxisFormat="percent" />
 			</section>
 
 			<!-- Capital Adequacy -->
-			<section class="rounded border border-[--border] bg-[--surface-1] p-3">
-				<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Capital Adequacy</h3>
+			<section class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
+				<div class="flex items-center gap-2 mb-2">
+					<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+					<h3 class="text-[13px] font-semibold text-[--text-primary]">Capital Adequacy</h3>
+				</div>
 				<TimeSeriesChart series={capitalSeries} yAxisFormat="percent" />
 			</section>
 		</div>
@@ -154,7 +166,7 @@
 					<h3 class="text-[13px] font-semibold text-[--text-primary]">Custom Chart</h3>
 				</div>
 				<div
-					class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] p-3"
+					class="rounded-md bg-[--surface-1] p-3"
 					style="box-shadow: var(--shadow-sm)"
 				>
 					<TimeSeriesChart series={customSeries} yAxisFormat="number" />

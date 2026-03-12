@@ -46,7 +46,7 @@
 
 <div class="space-y-5 pt-3">
 	{#if !peers}
-		<div class="rounded border border-[--border] bg-[--surface-1] py-24 text-center">
+		<div class="rounded-md bg-[--surface-1] py-24 text-center" style="box-shadow: var(--shadow-sm)">
 			<p class="text-[--text-tertiary] text-[15px]">No peer comparison data available</p>
 			<p class="text-[--text-disabled] text-[13px] mt-1">This bank may not have financials for the latest quarter.</p>
 		</div>
@@ -64,12 +64,12 @@
 		<!-- Gauge cards grid -->
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-2">
 			{#each visibleMetrics as m (m.metric)}
-				<section class="rounded border border-[--border] bg-[--surface-1] p-3">
+				<section class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
 					<div class="flex items-center justify-between mb-1">
 						<h3 class="text-[13px] font-semibold text-[--text-primary]">{metricLabel(m.metric)}</h3>
 						{#if m.percentile !== null}
 							<span
-								class="text-[11px] font-medium tabular-nums px-1.5 py-0.5 rounded-sm
+								class="text-[11px] font-medium data-mono px-1.5 py-0.5 rounded-sm
 									{LOWER_IS_BETTER.has(m.metric)
 										? m.percentile <= 40 ? 'bg-[--positive-muted] text-[--positive]' : m.percentile >= 75 ? 'bg-[--negative-muted] text-[--negative]' : 'bg-[--warning-muted] text-[--warning]'
 										: m.percentile >= 60 ? 'bg-[--positive-muted] text-[--positive]' : m.percentile <= 25 ? 'bg-[--negative-muted] text-[--negative]' : 'bg-[--warning-muted] text-[--warning]'}"
@@ -79,8 +79,8 @@
 						{/if}
 					</div>
 					<div class="flex items-baseline gap-3 mb-2">
-						<span class="text-[13px] text-[--text-tertiary]">Bank: <span class="font-medium text-[--text-primary] tabular-nums">{formatPercent(m.bank_value)}</span></span>
-						<span class="text-[13px] text-[--text-tertiary]">Median: <span class="font-medium text-[--text-secondary] tabular-nums">{formatPercent(m.peer_median)}</span></span>
+						<span class="text-[13px] text-[--text-tertiary]">Bank: <span class="font-medium text-[--text-primary] data-mono">{formatPercent(m.bank_value)}</span></span>
+						<span class="text-[13px] text-[--text-tertiary]">Median: <span class="font-medium text-[--text-secondary] data-mono">{formatPercent(m.peer_median)}</span></span>
 					</div>
 					<PercentileGauge
 						metric={m.metric}
@@ -104,10 +104,10 @@
 				<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
 				<h2 class="text-[15px] font-semibold text-[--text-primary]">Detail Table</h2>
 			</div>
-			<div class="rounded border border-[--border] bg-[--surface-1] overflow-x-auto">
+			<div class="rounded-md bg-[--surface-1] overflow-x-auto" style="box-shadow: var(--shadow-sm)">
 				<table class="w-full text-[13px]">
 					<thead>
-						<tr class="border-b border-[--border]">
+						<tr class="bg-[--surface-3]">
 							<th class="text-left px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Metric</th>
 							<th class="text-right px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Bank</th>
 							<th class="text-right px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Peer Median</th>
@@ -115,14 +115,14 @@
 							<th class="text-right px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Percentile</th>
 						</tr>
 					</thead>
-					<tbody class="divide-y divide-[--border-muted]">
+					<tbody class="divide-y divide-[--surface-2]">
 						{#each visibleMetrics as m (m.metric)}
-							<tr class="hover:bg-[--surface-2] transition-colors">
+							<tr class="hover:bg-[--accent-muted] transition-colors">
 								<td class="px-3 py-2 font-medium text-[--text-primary]">{metricLabel(m.metric)}</td>
-								<td class="px-3 py-2 text-right tabular-nums text-[--text-primary]">{formatPercent(m.bank_value)}</td>
-								<td class="px-3 py-2 text-right tabular-nums text-[--text-secondary]">{formatPercent(m.peer_median)}</td>
-								<td class="px-3 py-2 text-right tabular-nums text-[--text-secondary]">{formatPercent(m.peer_mean)}</td>
-								<td class="px-3 py-2 text-right tabular-nums">
+								<td class="px-3 py-2 text-right data-mono text-[--text-primary]">{formatPercent(m.bank_value)}</td>
+								<td class="px-3 py-2 text-right data-mono text-[--text-secondary]">{formatPercent(m.peer_median)}</td>
+								<td class="px-3 py-2 text-right data-mono text-[--text-secondary]">{formatPercent(m.peer_mean)}</td>
+								<td class="px-3 py-2 text-right data-mono">
 									{#if m.percentile !== null}
 										<span
 											class="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[11px] font-medium
