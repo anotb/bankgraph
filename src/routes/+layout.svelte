@@ -16,13 +16,12 @@
 </script>
 
 <div class="min-h-screen bg-[--surface-0] flex flex-col">
-	<!-- Power mode indicator -->
-	{#if currentMode === 'power'}
-		<div class="h-[1px] bg-gradient-to-r from-transparent via-[--accent] to-transparent sticky top-0 z-[51]"></div>
-	{/if}
-
 	<!-- Nav -->
 	<nav class="bg-[--surface-1] sticky top-0 z-50" style="box-shadow: var(--shadow-md)">
+		<!-- Power mode indicator -->
+		{#if currentMode === 'power'}
+			<div class="h-[1px] bg-gradient-to-r from-transparent via-[--accent] to-transparent"></div>
+		{/if}
 		<div class="max-w-[1400px] mx-auto px-4 h-11 flex items-center gap-6">
 			<a href="/" class="text-[15px] font-semibold tracking-tight text-[--text-primary] flex items-center gap-1.5">
 				<span class="text-[--accent] font-bold">BDE</span>
