@@ -1,11 +1,14 @@
 <script lang="ts">
 	import DataTable from '$lib/components/data/DataTable.svelte';
+	import BarChart from '$lib/components/charts/BarChart.svelte';
 	import { formatCurrency } from '$lib/utils/formatters.js';
 	import type { Column } from '$lib/components/data/DataTable.svelte';
 
 	let { data } = $props();
 
-	let maxCount = $derived(Math.max(...data.yearlyData.map((d: { count: number }) => d.count), 1));
+	let barChartData = $derived(
+		data.yearlyData.map((d: { year: string; count: number }) => ({ label: d.year, value: d.count }))
+	);
 
 	/** Format a date string (may be MM/DD/YYYY, YYYY-MM-DD, or YYYYMMDD) for display */
 	function formatFailDate(v: string | null): string {
@@ -76,25 +79,14 @@
 	</div>
 
 	<!-- Failures by year chart -->
-	{#if data.yearlyData.length > 0}
+	{#if barChartData.length > 0}
 		<section>
 			<div class="flex items-center gap-2 mb-3">
 				<div class="w-0.5 h-4 bg-[--warning] rounded-full"></div>
 				<h2 class="text-[15px] font-semibold text-[--text-primary]">Failures by Year</h2>
 			</div>
 			<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
-				<div class="flex items-end gap-px h-32">
-					{#each data.yearlyData as d}
-						<div class="flex-1 flex flex-col items-center gap-0.5 group" title="{d.year}: {d.count} failures">
-							<span class="text-[9px] text-[--text-tertiary] opacity-0 group-hover:opacity-100 transition-opacity data-mono">{d.count}</span>
-							<div
-								class="w-full bg-[--warning] rounded-t-sm hover:bg-[--negative] transition-colors"
-								style="height: {(d.count / maxCount) * 100}%"
-							></div>
-							<span class="text-[8px] text-[--text-disabled] data-mono">{d.year.slice(2)}</span>
-						</div>
-					{/each}
-				</div>
+				<BarChart data={barChartData} height="200px" />
 			</div>
 		</section>
 	{/if}

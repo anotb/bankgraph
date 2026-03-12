@@ -30,6 +30,12 @@
 
 	let mode = $derived(getMode());
 
+	// Check if there's sufficient data to render a meaningful chart
+	let totalDataPoints = $derived(
+		series.reduce((sum, s) => sum + s.data.filter((d) => d.value !== null).length, 0)
+	);
+	let hasEnoughData = $derived(totalDataPoints > 1);
+
 	const lightColors = [
 		'#0d7d7d', '#c53d2f', '#6b5ce7', '#c48a00', '#1a8a4a',
 		'#c44e8a', '#4a82c4', '#7da82e', '#b04e6e', '#3e9a8a'
@@ -65,7 +71,17 @@
 		// Track series and mode reactively
 		const currentSeries = series;
 		const currentMode = mode;
+		const enoughData = hasEnoughData;
 		let disposed = false;
+
+		// If insufficient data, dispose chart and bail
+		if (!enoughData) {
+			if (chart) {
+				chart.dispose();
+				chart = undefined;
+			}
+			return () => { disposed = true; };
+		}
 
 		import('echarts').then((echarts) => {
 			if (disposed || !chartContainer) return;
@@ -79,6 +95,9 @@
 
 			const option: any = {
 				backgroundColor: 'transparent',
+				animation: true,
+				animationDuration: 400,
+				animationEasing: 'cubicOut',
 				title: title
 					? {
 							text: title,
@@ -104,15 +123,31 @@
 					extraCssText: isDark
 						? 'border-radius: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);'
 						: 'border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);',
+					axisPointer: {
+						type: 'cross',
+						crossStyle: {
+							color: isDark ? '#555961' : '#b5b1ab',
+							type: 'dashed',
+							width: 1
+						},
+						lineStyle: {
+							color: isDark ? '#555961' : '#b5b1ab',
+							type: 'dashed',
+							width: 1
+						},
+						label: {
+							show: false
+						}
+					},
 					formatter: (params: any[]) => {
 						if (!params.length) return '';
 						const dateStr = params[0].axisValueLabel;
-						let html = `<div style="font-weight:600;margin-bottom:4px">${dateStr}</div>`;
+						let html = `<div style="font-weight:600;margin-bottom:4px;font-size:12px">${dateStr}</div>`;
 						for (const p of params) {
 							if (p.value == null || p.value[1] == null) continue;
-							html += `<div style="display:flex;align-items:center;gap:6px;margin:2px 0">`;
+							html += `<div style="display:flex;align-items:center;gap:6px;margin:2px 0;font-size:12px">`;
 							html += `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color}"></span>`;
-							html += `<span>${p.seriesName}</span>`;
+							html += `<span style="color:${isDark ? '#a8a39c' : '#6b6660'}">${p.seriesName}</span>`;
 							html += `<span style="margin-left:auto;font-weight:600;font-variant-numeric:tabular-nums">${formatYValue(p.value[1])}</span>`;
 							html += `</div>`;
 						}
@@ -133,9 +168,44 @@
 					left: 8,
 					right: 8,
 					top: title ? 40 : 12,
-					bottom: 36,
+					bottom: 60,
 					containLabel: true
 				},
+				dataZoom: [
+					{
+						type: 'inside',
+						start: 0,
+						end: 100,
+						minValueSpan: 86400000 * 30 // minimum 30 days zoom
+					},
+					{
+						type: 'slider',
+						start: 0,
+						end: 100,
+						height: 16,
+						bottom: 24,
+						borderColor: isDark ? '#383c44' : '#d6d2cb',
+						backgroundColor: isDark ? '#1e222b' : '#f5f3f0',
+						fillerColor: isDark ? 'rgba(45,181,168,0.15)' : 'rgba(13,125,125,0.1)',
+						handleStyle: {
+							color: isDark ? '#2db5a8' : '#0d7d7d',
+							borderColor: isDark ? '#2db5a8' : '#0d7d7d'
+						},
+						moveHandleSize: 4,
+						dataBackground: {
+							lineStyle: { color: isDark ? '#383c44' : '#d6d2cb', width: 0.5 },
+							areaStyle: { color: isDark ? 'rgba(45,181,168,0.08)' : 'rgba(13,125,125,0.06)' }
+						},
+						selectedDataBackground: {
+							lineStyle: { color: isDark ? '#2db5a8' : '#0d7d7d', width: 0.5 },
+							areaStyle: { color: isDark ? 'rgba(45,181,168,0.15)' : 'rgba(13,125,125,0.12)' }
+						},
+						textStyle: {
+							color: isDark ? '#7a7e86' : '#948f88',
+							fontSize: 10
+						}
+					}
+				],
 				xAxis: {
 					type: 'time',
 					axisLine: { lineStyle: { color: isDark ? '#383c44' : '#d6d2cb' } },
@@ -167,14 +237,24 @@
 					splitLine: { lineStyle: { color: isDark ? '#282c33' : '#e8e5df', type: 'dashed' } }
 				},
 				series: currentSeries.map((s, i) => {
+					const seriesColor = s.color || colors[i % colors.length];
 					const base: any = {
 						name: s.label,
 						type: 'line',
 						symbolSize: 4,
 						symbol: 'none',
 						smooth: false,
-						lineStyle: { width: 2, color: s.color || colors[i % colors.length] },
-						itemStyle: { color: s.color || colors[i % colors.length] },
+						lineStyle: { width: 2, color: seriesColor },
+						itemStyle: { color: seriesColor },
+						emphasis: {
+							focus: 'series',
+							lineStyle: { width: 3 },
+							itemStyle: { borderWidth: 2 }
+						},
+						blur: {
+							lineStyle: { width: 1, opacity: 0.2 },
+							itemStyle: { opacity: 0.2 }
+						},
 						data: s.data
 							.filter((d) => d.value !== null)
 							.map((d) => [parseDate(d.date), d.value])
@@ -221,4 +301,13 @@
 	});
 </script>
 
-<div bind:this={chartContainer} style="width:100%;height:{height}"></div>
+{#if hasEnoughData}
+	<div bind:this={chartContainer} style="width:100%;height:{height}"></div>
+{:else}
+	<div
+		class="flex items-center justify-center text-[13px] text-[--text-tertiary]"
+		style="width:100%;height:{height}"
+	>
+		Insufficient data
+	</div>
+{/if}
