@@ -95,6 +95,9 @@
 
 <svelte:head>
 	<title>Industry | Bank Data Explorer</title>
+	<meta name="description" content="Industry-wide banking metrics, segment breakdowns, and trends across all FDIC-insured institutions." />
+	<meta property="og:title" content="Industry | Bank Data Explorer" />
+	<meta property="og:description" content="Industry-wide banking metrics, segment breakdowns, and trends across all FDIC-insured institutions." />
 </svelte:head>
 
 <div class="space-y-5">

@@ -150,6 +150,9 @@
 
 <svelte:head>
 	<title>Banks | Bank Data Explorer</title>
+	<meta name="description" content="Browse, search, and filter every FDIC-insured bank by state, asset size, and status." />
+	<meta property="og:title" content="Banks | Bank Data Explorer" />
+	<meta property="og:description" content="Browse, search, and filter every FDIC-insured bank by state, asset size, and status." />
 </svelte:head>
 
 <div class="space-y-3">

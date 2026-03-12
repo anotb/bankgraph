@@ -3,8 +3,10 @@
 	import { page } from '$app/stores';
 	import ModeToggle from '$lib/components/layout/ModeToggle.svelte';
 	import KeyboardShortcuts from '$lib/components/layout/KeyboardShortcuts.svelte';
+	import { getMode } from '$lib/stores/mode.svelte.js';
 
 	let { children } = $props();
+	let currentMode = $derived(getMode());
 
 	function isActive(href: string): boolean {
 		const path = $page.url.pathname;
@@ -14,6 +16,11 @@
 </script>
 
 <div class="min-h-screen bg-[--surface-0] flex flex-col">
+	<!-- Power mode indicator -->
+	{#if currentMode === 'power'}
+		<div class="h-[1px] bg-gradient-to-r from-transparent via-[--accent] to-transparent sticky top-0 z-[51]"></div>
+	{/if}
+
 	<!-- Nav -->
 	<nav class="bg-[--surface-1] sticky top-0 z-50" style="box-shadow: var(--shadow-md)">
 		<div class="max-w-[1400px] mx-auto px-4 h-11 flex items-center gap-6">
@@ -51,7 +58,11 @@
 
 	<!-- Main content -->
 	<main class="max-w-[1400px] mx-auto w-full px-4 py-5 flex-1">
-		{@render children()}
+		{#key $page.url.pathname}
+			<div class="animate-fade-in">
+				{@render children()}
+			</div>
+		{/key}
 	</main>
 
 	<!-- Footer -->

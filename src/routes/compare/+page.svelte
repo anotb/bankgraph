@@ -1,18 +1,22 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import TimeSeriesChart from '$lib/components/charts/TimeSeriesChart.svelte';
-	import EmptyState from '$lib/components/data/EmptyState.svelte';
+	import ExportButton from '$lib/components/data/ExportButton.svelte';
 	import { formatPercent, formatCurrency, formatNumber } from '$lib/utils/formatters.js';
 	import type { CompareResponse, Financial, Institution } from '$lib/types';
 
-	// Bank selection state
+	// ── Bank search state (matches SearchBar autocomplete pattern) ──
 	let searchQuery = $state('');
 	let searchResults = $state<Institution[]>([]);
 	let selectedBanks = $state<Institution[]>([]);
 	let searching = $state(false);
-	let searchDebounce: ReturnType<typeof setTimeout> | undefined;
 	let showDropdown = $state(false);
+	let highlightedIndex = $state(-1);
+	let fetchTimer: ReturnType<typeof setTimeout> | undefined;
+	let lastQuery = $state('');
 
-	// Metric selection
+	// ── Metric selection ──
 	type MetricOption = {
 		key: string;
 		label: string;
@@ -47,44 +51,141 @@
 		availableMetrics.filter((m) => selectedMetricKeys.has(m.key))
 	);
 
-	// Date range
+	// ── Date range ──
 	type DateRange = '5Y' | '10Y' | '20Y' | 'All';
 	let selectedRange: DateRange = $state('10Y');
 	const rangeButtons: DateRange[] = ['5Y', '10Y', '20Y', 'All'];
 
-	// Compare data
+	// ── Compare data ──
 	let compareData = $state<CompareResponse | null>(null);
 	let loading = $state(false);
 	let error = $state<string | null>(null);
 
-	// Search for banks
-	async function searchBanks(query: string): Promise<void> {
-		if (!query.trim()) {
-			searchResults = [];
-			showDropdown = false;
-			return;
-		}
-		searching = true;
-		try {
-			const res = await fetch(`/api/v1/banks?q=${encodeURIComponent(query)}&limit=10`);
-			if (res.ok) {
-				const json = await res.json() as { data?: Institution[] };
-				const selectedCerts = new Set(selectedBanks.map((b) => b.cert));
-				searchResults = (json.data || []).filter((b) => !selectedCerts.has(b.cert));
-				showDropdown = searchResults.length > 0;
+	// ── URL state: read certs from query params on mount ──
+	let initializedFromUrl = false;
+
+	$effect(() => {
+		if (initializedFromUrl) return;
+		initializedFromUrl = true;
+		const certsParam = $page.url.searchParams.get('certs');
+		if (certsParam) {
+			const certNumbers = certsParam
+				.split(',')
+				.map((c) => parseInt(c.trim(), 10))
+				.filter((c) => !isNaN(c) && c > 0);
+			if (certNumbers.length > 0) {
+				loadBanksFromCerts(certNumbers);
 			}
-		} catch {
-			searchResults = [];
-		} finally {
-			searching = false;
+		}
+	});
+
+	async function loadBanksFromCerts(certs: number[]): Promise<void> {
+		const banks: Institution[] = [];
+		for (const cert of certs.slice(0, 10)) {
+			try {
+				const res = await fetch(`/api/v1/banks/${cert}`);
+				if (res.ok) {
+					const json = (await res.json()) as { data?: Institution };
+					if (json.data) banks.push(json.data);
+				}
+			} catch {
+				// Skip banks that fail to load
+			}
+		}
+		if (banks.length > 0) {
+			selectedBanks = banks;
 		}
 	}
 
+	// ── URL sync: update URL when selectedBanks changes ──
+	$effect(() => {
+		if (!initializedFromUrl) return;
+		const certs = selectedBanks.map((b) => b.cert);
+		const params = new URLSearchParams($page.url.searchParams);
+
+		if (certs.length > 0) {
+			params.set('certs', certs.join(','));
+		} else {
+			params.delete('certs');
+		}
+
+		const newSearch = params.toString() ? `?${params.toString()}` : '';
+		const currentSearch = $page.url.search || '';
+		if (newSearch !== currentSearch) {
+			goto(`${$page.url.pathname}${newSearch}`, {
+				replaceState: true,
+				keepFocus: true,
+				noScroll: true
+			});
+		}
+	});
+
+	// ── Autocomplete search (matches SearchBar pattern: $effect-driven, keyboard nav) ──
+	$effect(() => {
+		const q = searchQuery.trim();
+
+		if (q.length < 2) {
+			searchResults = [];
+			showDropdown = false;
+			searching = false;
+			lastQuery = '';
+			return;
+		}
+
+		clearTimeout(fetchTimer);
+		searching = true;
+		showDropdown = true;
+		fetchTimer = setTimeout(async () => {
+			try {
+				const res = await fetch(
+					`/api/v1/banks?q=${encodeURIComponent(q)}&limit=8&active=1`
+				);
+				if (!res.ok) {
+					searching = false;
+					return;
+				}
+				const json = (await res.json()) as { data?: Institution[] };
+				const selectedCerts = new Set(selectedBanks.map((b) => b.cert));
+				searchResults = (json.data ?? []).filter((b) => !selectedCerts.has(b.cert));
+				highlightedIndex = -1;
+				lastQuery = q;
+				showDropdown = true;
+			} catch {
+				// Silently ignore
+			} finally {
+				searching = false;
+			}
+		}, 300);
+	});
+
 	function handleSearchInput(e: Event): void {
-		const target = e.target as HTMLInputElement;
-		searchQuery = target.value;
-		clearTimeout(searchDebounce);
-		searchDebounce = setTimeout(() => searchBanks(searchQuery), 300);
+		searchQuery = (e.target as HTMLInputElement).value;
+	}
+
+	function handleSearchKeydown(e: KeyboardEvent): void {
+		if (showDropdown && searchResults.length > 0) {
+			if (e.key === 'ArrowDown') {
+				e.preventDefault();
+				highlightedIndex = (highlightedIndex + 1) % searchResults.length;
+				return;
+			}
+			if (e.key === 'ArrowUp') {
+				e.preventDefault();
+				highlightedIndex =
+					highlightedIndex <= 0 ? searchResults.length - 1 : highlightedIndex - 1;
+				return;
+			}
+			if (e.key === 'Enter' && highlightedIndex >= 0) {
+				e.preventDefault();
+				addBank(searchResults[highlightedIndex]);
+				return;
+			}
+			if (e.key === 'Escape') {
+				e.preventDefault();
+				showDropdown = false;
+				return;
+			}
+		}
 	}
 
 	function addBank(bank: Institution): void {
@@ -94,13 +195,47 @@
 		searchQuery = '';
 		searchResults = [];
 		showDropdown = false;
+		highlightedIndex = -1;
 	}
 
 	function removeBank(cert: number): void {
 		selectedBanks = selectedBanks.filter((b) => b.cert !== cert);
 	}
 
-	// Fetch comparison data when banks or metrics change
+	function handleSearchBlur(): void {
+		setTimeout(() => {
+			showDropdown = false;
+		}, 200);
+	}
+
+	function handleSearchFocus(): void {
+		if (searchResults.length > 0 || lastQuery.length >= 2) {
+			showDropdown = true;
+		}
+	}
+
+	function handleSearchClear(): void {
+		searchQuery = '';
+		searchResults = [];
+		showDropdown = false;
+		searching = false;
+		lastQuery = '';
+		highlightedIndex = -1;
+	}
+
+	// ── Popular comparisons ──
+	const popularComparisons = [
+		{ label: 'JPMorgan vs Bank of America', certs: [628, 3510] },
+		{ label: 'Wells Fargo vs Citibank', certs: [3511, 7213] },
+		{ label: 'Top 4 Banks', certs: [628, 3510, 3511, 7213] }
+	];
+
+	async function loadPopularComparison(certs: number[]): Promise<void> {
+		selectedBanks = [];
+		await loadBanksFromCerts(certs);
+	}
+
+	// ── Fetch comparison data when banks or metrics change ──
 	$effect(() => {
 		const certs = selectedBanks.map((b) => b.cert);
 		const metrics = [...selectedMetricKeys];
@@ -116,7 +251,9 @@
 		fetch(`/api/v1/compare?certs=${certs.join(',')}&metrics=${metrics.join(',')}`)
 			.then(async (res) => {
 				if (!res.ok) {
-					const body = await res.json().catch(() => null) as { error?: string } | null;
+					const body = (await res.json().catch(() => null)) as {
+						error?: string;
+					} | null;
 					throw new Error(body?.error || `HTTP ${res.status}`);
 				}
 				return res.json() as Promise<CompareResponse>;
@@ -133,7 +270,15 @@
 			});
 	});
 
-	// Filter data by date range
+	// ── Export URL ──
+	let exportUrl = $derived.by(() => {
+		if (selectedBanks.length < 2) return '';
+		const certs = selectedBanks.map((b) => b.cert).join(',');
+		const metrics = [...selectedMetricKeys].join(',');
+		return `/api/v1/compare?certs=${certs}&metrics=${metrics}`;
+	});
+
+	// ── Filter data by date range ──
 	function getCutoffDate(): string | null {
 		if (selectedRange === 'All') return null;
 		const now = new Date();
@@ -150,8 +295,10 @@
 		return rows.filter((f) => f.repdte >= cutoff);
 	}
 
-	// Build chart series for a specific metric
-	function buildChartSeries(metric: MetricOption): Array<{
+	// ── Chart series ──
+	function buildChartSeries(
+		metric: MetricOption
+	): Array<{
 		key: string;
 		label: string;
 		data: Array<{ date: string; value: number | null }>;
@@ -173,7 +320,9 @@
 			});
 	}
 
-	// Build comparison table data
+	// ── Comparison table ──
+	const lowerIsBetter = new Set(['eeffr', 'nclnlsr']);
+
 	interface TableRow {
 		metric: MetricOption;
 		values: Map<number, number | null>;
@@ -184,9 +333,6 @@
 	let tableRows = $derived.by((): TableRow[] => {
 		if (!compareData) return [];
 
-		// Metrics where lower is better
-		const lowerIsBetter = new Set(['eeffr', 'nclnlsr']);
-
 		return selectedMetrics.map((metric) => {
 			const values = new Map<number, number | null>();
 
@@ -196,12 +342,10 @@
 					values.set(bank.cert, null);
 					continue;
 				}
-				// Get latest quarter value
 				const latest = rows[rows.length - 1];
 				values.set(bank.cert, latest[metric.field] as number | null);
 			}
 
-			// Find best/worst
 			const numericValues = [...values.entries()]
 				.filter(([, v]) => v !== null)
 				.map(([cert, v]) => ({ cert, value: v as number }));
@@ -209,7 +353,7 @@
 			let best: number | null = null;
 			let worst: number | null = null;
 
-			if (numericValues.length > 0) {
+			if (numericValues.length >= 2) {
 				if (lowerIsBetter.has(metric.key)) {
 					best = numericValues.reduce((a, b) => (a.value < b.value ? a : b)).cert;
 					worst = numericValues.reduce((a, b) => (a.value > b.value ? a : b)).cert;
@@ -217,32 +361,86 @@
 					best = numericValues.reduce((a, b) => (a.value > b.value ? a : b)).cert;
 					worst = numericValues.reduce((a, b) => (a.value < b.value ? a : b)).cert;
 				}
-				// Don't highlight if there's only one bank with data
-				if (numericValues.length < 2) {
-					best = null;
-					worst = null;
-				}
 			}
 
 			return { metric, values, best, worst };
 		});
 	});
 
-	function formatValue(value: number | null, format: 'percent' | 'currency' | 'number'): string {
+	// ── Delta row (exactly 2 banks) ──
+	interface DeltaRow {
+		metric: MetricOption;
+		delta: number | null;
+		firstIsBetter: boolean | null;
+	}
+
+	let deltaRows = $derived.by((): DeltaRow[] => {
+		if (selectedBanks.length !== 2 || !compareData) return [];
+
+		const [certA, certB] = [selectedBanks[0].cert, selectedBanks[1].cert];
+
+		return selectedMetrics.map((metric) => {
+			const rowsA = compareData!.data[certA];
+			const rowsB = compareData!.data[certB];
+			const valA = rowsA?.length
+				? (rowsA[rowsA.length - 1][metric.field] as number | null)
+				: null;
+			const valB = rowsB?.length
+				? (rowsB[rowsB.length - 1][metric.field] as number | null)
+				: null;
+
+			if (valA === null || valB === null) {
+				return { metric, delta: null, firstIsBetter: null };
+			}
+
+			const delta = valA - valB;
+			const isLower = lowerIsBetter.has(metric.key);
+			const firstIsBetter = isLower ? delta < 0 : delta > 0;
+
+			return { metric, delta, firstIsBetter };
+		});
+	});
+
+	// ── Formatters ──
+	function formatValue(
+		value: number | null,
+		format: 'percent' | 'currency' | 'number'
+	): string {
 		if (value === null) return '\u2014';
 		switch (format) {
-			case 'percent': return formatPercent(value);
-			case 'currency': return formatCurrency(value);
-			default: return formatNumber(value);
+			case 'percent':
+				return formatPercent(value);
+			case 'currency':
+				return formatCurrency(value);
+			default:
+				return formatNumber(value);
 		}
 	}
 
-	// Close dropdown on outside click
-	function handleBlur(): void {
-		// Delay to allow click on dropdown item
-		setTimeout(() => {
-			showDropdown = false;
-		}, 200);
+	function formatDelta(
+		value: number | null,
+		format: 'percent' | 'currency' | 'number'
+	): string {
+		if (value === null) return '\u2014';
+		const sign = value > 0 ? '+' : '';
+		switch (format) {
+			case 'percent':
+				return `${sign}${value.toFixed(2)}pp`;
+			case 'currency':
+				return `${sign}${formatCurrency(value)}`;
+			default:
+				return `${sign}${formatNumber(value)}`;
+		}
+	}
+
+	function cellBg(
+		cert: number,
+		best: number | null,
+		worst: number | null
+	): string {
+		if (cert === best) return 'bg-[--positive]/8';
+		if (cert === worst) return 'bg-[--negative]/8';
+		return '';
 	}
 </script>
 
@@ -252,9 +450,16 @@
 
 <div class="space-y-5">
 	<!-- Header -->
-	<div>
-		<h1 class="text-2xl font-semibold text-[--text-primary]">Bank Comparison</h1>
-		<p class="text-[13px] text-[--text-tertiary]">Compare financial metrics across multiple banks</p>
+	<div class="flex items-center justify-between">
+		<div>
+			<h1 class="text-2xl font-semibold text-[--text-primary]">Bank Comparison</h1>
+			<p class="text-[13px] text-[--text-tertiary]">
+				Compare financial metrics across multiple banks
+			</p>
+		</div>
+		{#if exportUrl}
+			<ExportButton baseUrl={exportUrl} filename="comparison" />
+		{/if}
 	</div>
 
 	<!-- Bank selector -->
@@ -265,51 +470,106 @@
 			<span class="text-[11px] text-[--text-tertiary]">({selectedBanks.length}/10)</span>
 		</div>
 
-		<!-- Search input -->
+		<!-- Search input (autocomplete with keyboard nav, loading state, dropdown) -->
 		<div class="relative max-w-md">
 			<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-				<svg class="h-4 w-4 text-[--text-disabled]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-						d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+				<svg
+					class="h-4 w-4 text-[--text-disabled]"
+					fill="none"
+					stroke="currentColor"
+					viewBox="0 0 24 24"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+					/>
 				</svg>
 			</div>
 			<input
 				type="text"
 				value={searchQuery}
 				oninput={handleSearchInput}
-				onblur={handleBlur}
-				onfocus={() => { if (searchResults.length > 0) showDropdown = true; }}
-				placeholder="Search banks by name..."
+				onkeydown={handleSearchKeydown}
+				onblur={handleSearchBlur}
+				onfocus={handleSearchFocus}
+				placeholder="Search banks by name or cert..."
 				disabled={selectedBanks.length >= 10}
 				class="block w-full rounded-[5px] border border-[--border-muted] bg-[--surface-1] py-2 pr-9 pl-9
 					text-[14px] text-[--text-primary] placeholder:text-[--text-disabled]
 					focus:border-[--accent] focus:ring-2 focus:ring-[--accent]/20 focus:outline-none
-					transition-colors disabled:opacity-50"
+					transition-all duration-150 disabled:opacity-50"
+				style="box-shadow: var(--shadow-xs)"
 			/>
-			{#if searching}
+			{#if searchQuery}
+				<button
+					type="button"
+					onclick={handleSearchClear}
+					aria-label="Clear search"
+					class="absolute inset-y-0 right-0 flex items-center pr-3 text-[--text-disabled] hover:text-[--text-secondary]"
+				>
+					{#if searching}
+						<div
+							class="h-4 w-4 animate-spin rounded-full border-2 border-[--border] border-t-[--accent]"
+						></div>
+					{:else}
+						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M6 18L18 6M6 6l12 12"
+							/>
+						</svg>
+					{/if}
+				</button>
+			{:else if searching}
 				<div class="absolute inset-y-0 right-0 flex items-center pr-3">
-					<div class="h-4 w-4 animate-spin rounded-full border-2 border-[--border] border-t-[--accent]"></div>
+					<div
+						class="h-4 w-4 animate-spin rounded-full border-2 border-[--border] border-t-[--accent]"
+					></div>
 				</div>
 			{/if}
 
-			<!-- Dropdown -->
-			{#if showDropdown && searchResults.length > 0}
-				<div class="absolute z-10 mt-1 w-full rounded-md bg-[--surface-1] max-h-64 overflow-y-auto" style="box-shadow: var(--shadow-md)">
-					{#each searchResults as bank (bank.cert)}
-						<button
-							type="button"
-							class="block w-full text-left px-3 py-2 text-[13px] hover:bg-[--accent-muted] transition-colors"
-							onmousedown={(e) => { e.preventDefault(); addBank(bank); }}
-						>
-							<span class="font-medium text-[--text-primary]">{bank.name}</span>
-							<span class="text-[--text-tertiary] ml-1">
-								{bank.city ?? ''}{bank.city && bank.state ? ', ' : ''}{bank.state ?? ''}
-							</span>
-							{#if bank.total_assets}
-								<span class="text-[--text-disabled] ml-1">({formatCurrency(bank.total_assets)})</span>
-							{/if}
-						</button>
-					{/each}
+			<!-- Autocomplete dropdown -->
+			{#if showDropdown}
+				<div
+					class="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-[--border-muted] bg-[--surface-1] max-h-[320px] overflow-y-auto"
+					style="box-shadow: var(--shadow-md)"
+					role="listbox"
+				>
+					{#if searching && searchResults.length === 0}
+						<div class="px-3 py-2.5 text-[13px] text-[--text-tertiary]">Searching...</div>
+					{:else if !searching && searchResults.length === 0 && lastQuery.length >= 2}
+						<div class="px-3 py-2.5 text-[13px] text-[--text-tertiary]">No results</div>
+					{:else}
+						{#each searchResults as bank, i (bank.cert)}
+							<button
+								type="button"
+								role="option"
+								aria-selected={i === highlightedIndex}
+								class="flex w-full items-center justify-between px-3 py-2 text-left cursor-pointer transition-colors
+									{i === highlightedIndex
+									? 'bg-[--accent-muted]'
+									: 'hover:bg-[--accent-muted]'}"
+								onmousedown={() => addBank(bank)}
+							>
+								<span class="font-medium text-[--text-primary] text-[13px] truncate">
+									{bank.name}
+								</span>
+								<span class="ml-2 shrink-0 text-[12px] text-[--text-tertiary]" data-mono>
+									{bank.city ?? ''}{bank.city && bank.state ? ', ' : ''}{bank.state ??
+										''}
+									{#if bank.total_assets}
+										<span class="text-[--text-disabled] ml-1"
+											>({formatCurrency(bank.total_assets)})</span
+										>
+									{/if}
+								</span>
+							</button>
+						{/each}
+					{/if}
 				</div>
 			{/if}
 		</div>
@@ -318,7 +578,9 @@
 		{#if selectedBanks.length > 0}
 			<div class="flex flex-wrap gap-1.5 mt-2">
 				{#each selectedBanks as bank (bank.cert)}
-					<span class="inline-flex items-center gap-1 rounded-full bg-[--accent-muted] text-[--accent-text] px-2.5 py-1 text-[12px] font-medium">
+					<span
+						class="inline-flex items-center gap-1 rounded-full bg-[--accent-muted] text-[--accent-text] px-2.5 py-1 text-[12px] font-medium"
+					>
 						{bank.name.length > 25 ? bank.name.slice(0, 25) + '...' : bank.name}
 						<button
 							type="button"
@@ -326,12 +588,29 @@
 							onclick={() => removeBank(bank.cert)}
 							aria-label="Remove {bank.name}"
 						>
-							<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+							<svg
+								class="h-3.5 w-3.5"
+								fill="none"
+								stroke="currentColor"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M6 18L18 6M6 6l12 12"
+								/>
 							</svg>
 						</button>
 					</span>
 				{/each}
+				<button
+					type="button"
+					class="text-[12px] text-[--text-disabled] hover:text-[--negative] transition-colors px-1.5"
+					onclick={() => (selectedBanks = [])}
+				>
+					Clear all
+				</button>
 			</div>
 		{/if}
 	</section>
@@ -347,8 +626,8 @@
 				<button
 					class="px-3 py-1 text-[13px] rounded-full font-medium transition-colors
 						{selectedMetricKeys.has(metric.key)
-							? 'bg-[--accent] text-white'
-							: 'bg-[--surface-2] text-[--text-secondary] hover:bg-[--surface-3]'}"
+						? 'bg-[--accent] text-white'
+						: 'bg-[--surface-2] text-[--text-secondary] hover:bg-[--surface-3]'}"
 					onclick={() => toggleMetric(metric.key)}
 				>
 					{metric.label}
@@ -357,23 +636,81 @@
 		</div>
 	</section>
 
+	<!-- Empty / Loading / Error / Results -->
 	{#if selectedBanks.length < 2}
-		<EmptyState
-			icon="search"
-			title="Select at least 2 banks to compare"
-			message="Search for banks above to start comparing financial metrics side by side."
-		/>
+		<div
+			class="rounded-md bg-[--surface-1] py-12 px-6 text-center"
+			style="box-shadow: var(--shadow-sm)"
+		>
+			<div class="max-w-md mx-auto space-y-4">
+				<div>
+					<!-- Scale/balance icon -->
+					<svg
+						class="w-10 h-10 mx-auto text-[--text-disabled] mb-3"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="1.5"
+							d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"
+						/>
+					</svg>
+					<p class="text-[--text-secondary] text-[15px] font-medium">
+						Compare up to 10 banks side-by-side
+					</p>
+					<p class="text-[--text-tertiary] text-[13px] mt-1">
+						{#if selectedBanks.length === 0}
+							Start by searching for a bank above, or try a popular comparison
+						{:else}
+							Add one more bank to start comparing
+						{/if}
+					</p>
+				</div>
+
+				<!-- Popular comparisons -->
+				{#if selectedBanks.length === 0}
+					<div class="pt-2">
+						<p
+							class="text-[11px] text-[--text-disabled] uppercase tracking-wider font-medium mb-2"
+						>
+							Popular comparisons
+						</p>
+						<div class="flex flex-wrap justify-center gap-1.5">
+							{#each popularComparisons as comp}
+								<button
+									type="button"
+									class="px-3 py-1.5 text-[12px] rounded-full border border-[--border-muted] bg-[--surface-2] text-[--text-secondary]
+										hover:border-[--accent] hover:text-[--accent-text] transition-colors"
+									onclick={() => loadPopularComparison(comp.certs)}
+								>
+									{comp.label}
+								</button>
+							{/each}
+						</div>
+					</div>
+				{/if}
+			</div>
+		</div>
 	{:else if loading}
-		<div class="rounded-md bg-[--surface-1] py-16 text-center" style="box-shadow: var(--shadow-sm)">
-			<div class="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[--border-muted] border-t-[--accent]"></div>
+		<div
+			class="rounded-md bg-[--surface-1] py-16 text-center"
+			style="box-shadow: var(--shadow-sm)"
+		>
+			<div
+				class="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[--border-muted] border-t-[--accent]"
+			></div>
 			<p class="text-[--text-tertiary] text-[13px] mt-2">Loading comparison data...</p>
 		</div>
 	{:else if error}
-		<EmptyState
-			icon="error"
-			title="Failed to load comparison data"
-			message={error}
-		/>
+		<div
+			class="rounded-md bg-[--negative-muted] py-8 text-center"
+			style="box-shadow: var(--shadow-sm)"
+		>
+			<p class="text-[--negative] text-[14px]">Failed to load: {error}</p>
+		</div>
 	{:else if compareData}
 		<!-- Date range selector -->
 		<div class="flex items-center gap-2">
@@ -383,8 +720,8 @@
 					<button
 						class="px-3 py-1 text-[13px] rounded font-medium transition-colors
 							{selectedRange === range
-								? 'bg-[--accent] text-white'
-								: 'bg-[--surface-2] text-[--text-secondary] hover:bg-[--surface-3]'}"
+							? 'bg-[--accent] text-white'
+							: 'bg-[--surface-2] text-[--text-secondary] hover:bg-[--surface-3]'}"
 						onclick={() => (selectedRange = range)}
 					>
 						{range}
@@ -403,8 +740,13 @@
 				{#each selectedMetrics as metric (metric.key)}
 					{@const chartSeries = buildChartSeries(metric)}
 					{#if chartSeries.length > 0}
-						<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
-							<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">{metric.label}</h3>
+						<div
+							class="rounded-md bg-[--surface-1] p-3"
+							style="box-shadow: var(--shadow-sm)"
+						>
+							<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">
+								{metric.label}
+							</h3>
 							<TimeSeriesChart
 								series={chartSeries}
 								yAxisFormat={metric.format}
@@ -416,40 +758,95 @@
 			</div>
 		</section>
 
-		<!-- Comparison table -->
+		<!-- Comparison table (sticky header, color-coded cells, delta row) -->
 		{#if tableRows.length > 0}
 			<section>
 				<div class="flex items-center gap-2 mb-3">
 					<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
-					<h2 class="text-[15px] font-semibold text-[--text-primary]">Latest Quarter Comparison</h2>
+					<h2 class="text-[15px] font-semibold text-[--text-primary]">
+						Latest Quarter Comparison
+					</h2>
 				</div>
-				<div class="rounded-md bg-[--surface-1] overflow-x-auto" style="box-shadow: var(--shadow-sm)">
+				<div
+					class="rounded-md bg-[--surface-1] overflow-x-auto max-h-[500px] overflow-y-auto"
+					style="box-shadow: var(--shadow-sm)"
+				>
 					<table class="w-full text-[13px]">
-						<thead>
+						<thead class="sticky top-0 z-10">
 							<tr class="bg-[--surface-3]">
-								<th class="text-left px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider sticky left-0 bg-[--surface-3]">Metric</th>
+								<th
+									class="text-left px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider sticky left-0 bg-[--surface-3] z-20"
+								>
+									Metric
+								</th>
 								{#each selectedBanks as bank (bank.cert)}
-									<th class="text-right px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider whitespace-nowrap">
-										{bank.name.length > 18 ? bank.name.slice(0, 18) + '...' : bank.name}
+									<th
+										class="text-right px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider whitespace-nowrap"
+									>
+										{bank.name.length > 18
+											? bank.name.slice(0, 18) + '...'
+											: bank.name}
 									</th>
 								{/each}
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-[--surface-2]">
 							{#each tableRows as row (row.metric.key)}
-								<tr class="hover:bg-[--accent-muted] transition-colors">
-									<td class="px-3 py-2 font-medium text-[--text-primary] sticky left-0 bg-[--surface-1]">{row.metric.label}</td>
+								<tr class="hover:bg-[--accent-muted]/30 transition-colors">
+									<td
+										class="px-3 py-2 font-medium text-[--text-primary] sticky left-0 bg-[--surface-1] z-[5]"
+									>
+										{row.metric.label}
+									</td>
 									{#each selectedBanks as bank (bank.cert)}
 										{@const val = row.values.get(bank.cert) ?? null}
-										<td class="px-3 py-2 text-right whitespace-nowrap
-											{bank.cert === row.best ? 'text-[--positive] font-semibold' : ''}
-											{bank.cert === row.worst ? 'text-[--negative]' : ''}
-											{bank.cert !== row.best && bank.cert !== row.worst ? 'text-[--text-primary]' : ''}" data-mono>
+										<td
+											class="px-3 py-2 text-right whitespace-nowrap {cellBg(bank.cert, row.best, row.worst)}
+												{bank.cert === row.best
+												? 'text-[--positive] font-semibold'
+												: ''}
+												{bank.cert === row.worst ? 'text-[--negative]' : ''}
+												{bank.cert !== row.best && bank.cert !== row.worst
+												? 'text-[--text-primary]'
+												: ''}"
+											data-mono
+										>
 											{formatValue(val, row.metric.format)}
 										</td>
 									{/each}
 								</tr>
 							{/each}
+
+							<!-- Delta row for exactly 2 banks -->
+							{#if deltaRows.length > 0}
+								{#each deltaRows as dr, i (dr.metric.key)}
+									{#if i === 0}
+										<tr class="border-t-2 border-[--border]">
+											<td
+												class="px-3 pt-2.5 pb-0.5 text-[10px] font-medium text-[--text-disabled] uppercase tracking-wider sticky left-0 bg-[--surface-1] z-[5]"
+												colspan={selectedBanks.length + 1}
+											>
+												Delta ({selectedBanks[0].name.length > 15 ? selectedBanks[0].name.slice(0, 15) + '...' : selectedBanks[0].name} minus {selectedBanks[1].name.length > 15 ? selectedBanks[1].name.slice(0, 15) + '...' : selectedBanks[1].name})
+											</td>
+										</tr>
+									{/if}
+									<tr class="bg-[--surface-2]/30 hover:bg-[--accent-muted]/30 transition-colors">
+										<td class="px-3 py-1.5 text-[--text-tertiary] text-[12px] sticky left-0 bg-[--surface-2]/30 z-[5]">
+											{dr.metric.label}
+										</td>
+										<td
+											class="px-3 py-1.5 text-right whitespace-nowrap text-[12px]
+												{dr.firstIsBetter === true ? 'text-[--positive] font-semibold' : ''}
+												{dr.firstIsBetter === false ? 'text-[--negative]' : ''}
+												{dr.firstIsBetter === null ? 'text-[--text-disabled]' : ''}"
+											colspan={selectedBanks.length}
+											data-mono
+										>
+											{formatDelta(dr.delta, dr.metric.format)}
+										</td>
+									</tr>
+								{/each}
+							{/if}
 						</tbody>
 					</table>
 				</div>

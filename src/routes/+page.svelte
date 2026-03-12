@@ -19,10 +19,9 @@
 
 <svelte:head>
 	<title>Bank Data Explorer</title>
-	<meta
-		name="description"
-		content="Explore financial data for every FDIC-insured bank in America."
-	/>
+	<meta name="description" content="Explore financial data for every FDIC-insured bank in America." />
+	<meta property="og:title" content="Bank Data Explorer" />
+	<meta property="og:description" content="Explore financial data for every FDIC-insured bank in America." />
 </svelte:head>
 
 <!-- Compact header -->
