@@ -2,6 +2,7 @@
 	import '../app.css';
 	import { page } from '$app/stores';
 	import ModeToggle from '$lib/components/layout/ModeToggle.svelte';
+	import KeyboardShortcuts from '$lib/components/layout/KeyboardShortcuts.svelte';
 
 	let { children } = $props();
 
@@ -21,7 +22,7 @@
 				<span class="hidden sm:inline text-[13px] font-normal text-[--text-secondary]">Bank Data Explorer</span>
 			</a>
 
-			<div class="flex items-center gap-5 text-[13px]">
+			<div class="flex items-center gap-5 text-[13px] overflow-x-auto scrollbar-hide">
 				{#each [
 					{ href: '/banks', label: 'Banks' },
 					{ href: '/industry', label: 'Industry' },
@@ -61,3 +62,5 @@
 		</div>
 	</footer>
 </div>
+
+<KeyboardShortcuts />

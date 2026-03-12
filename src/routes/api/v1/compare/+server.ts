@@ -97,5 +97,51 @@ export const GET: RequestHandler = async ({ platform, url }) => {
     } as CompareResponse;
   });
 
+  const format = url.searchParams.get('format') || 'json';
+
+  if (format === 'csv') {
+    // Flatten: one row per cert+repdte, columns = cert, repdte, metric1, metric2...
+    const flatRows = result.certs.flatMap(cert =>
+      (result.data[cert] ?? []).map(r => r as unknown as Record<string, unknown>)
+    );
+
+    if (flatRows.length === 0) {
+      return new Response('', {
+        status: 200,
+        headers: { 'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename="comparison.csv"' }
+      });
+    }
+
+    const csvHeaders = ['cert', 'repdte', ...result.metrics];
+    const csvLines = [
+      csvHeaders.join(','),
+      ...flatRows.map(row =>
+        csvHeaders.map(h => {
+          const val = row[h];
+          return val === null || val === undefined ? '' : String(val);
+        }).join(',')
+      )
+    ];
+    return new Response(csvLines.join('\n'), {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': 'attachment; filename="comparison.csv"',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  }
+
+  if (format === 'json' && url.searchParams.has('download')) {
+    return new Response(JSON.stringify(result, null, 2), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Disposition': 'attachment; filename="comparison.json"',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  }
+
   return jsonResponse(result);
 };

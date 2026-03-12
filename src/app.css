@@ -269,3 +269,10 @@ th[class*="text-right"] {
 .data-table-body tr:nth-child(even) {
   background-color: var(--surface-stripe);
 }
+
+/* ============================================================
+   SCROLLBAR HIDE UTILITY
+   ============================================================ */
+
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }

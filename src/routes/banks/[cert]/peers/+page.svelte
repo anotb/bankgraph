@@ -1,5 +1,6 @@
 <script lang="ts">
 	import PercentileGauge from '$lib/components/charts/PercentileGauge.svelte';
+	import EmptyState from '$lib/components/data/EmptyState.svelte';
 	import { formatPercent, formatDate } from '$lib/utils/formatters.js';
 	import { getFieldLabel } from '$lib/utils/field-meta.js';
 	import { getMode } from '$lib/stores/mode.svelte.js';
@@ -46,10 +47,11 @@
 
 <div class="space-y-5 pt-3">
 	{#if !peers}
-		<div class="rounded-md bg-[--surface-1] py-24 text-center" style="box-shadow: var(--shadow-sm)">
-			<p class="text-[--text-tertiary] text-[15px]">No peer comparison data available</p>
-			<p class="text-[--text-disabled] text-[13px] mt-1">This bank may not have financials for the latest quarter.</p>
-		</div>
+		<EmptyState
+			icon="data"
+			title="No peer comparison data available"
+			message="This bank may not have financials for the latest quarter. Run the peer aggregation pipeline to generate comparisons."
+		/>
 	{:else}
 		<!-- Peer group header -->
 		<div class="flex items-center gap-2">

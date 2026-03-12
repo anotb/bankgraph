@@ -1,5 +1,6 @@
 <script lang="ts">
 	import TimeSeriesChart from '$lib/components/charts/TimeSeriesChart.svelte';
+	import EmptyState from '$lib/components/data/EmptyState.svelte';
 	import ExportButton from '$lib/components/data/ExportButton.svelte';
 	import DateRangePicker from '$lib/components/data/DateRangePicker.svelte';
 	import FieldPicker from '$lib/components/data/FieldPicker.svelte';
@@ -103,9 +104,11 @@
 
 <div class="space-y-5 pt-3">
 	{#if financials.length === 0}
-		<div class="rounded-md bg-[--surface-1] py-24 text-center" style="box-shadow: var(--shadow-sm)">
-			<p class="text-[--text-tertiary] text-[15px]">No financial data available</p>
-		</div>
+		<EmptyState
+			icon="chart"
+			title="No financial data available"
+			message="Run the backfill pipeline to populate quarterly financials for this institution."
+		/>
 	{:else}
 		<!-- Controls row: DateRangePicker + ExportButton + FieldPicker -->
 		<div class="flex items-center gap-3 flex-wrap">

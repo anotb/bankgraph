@@ -53,8 +53,8 @@
 	</div>
 
 	<!-- Tab navigation -->
-	<nav class="border-b border-[--border-muted] -mx-4 px-4">
-		<div class="flex gap-0 -mb-px">
+	<nav class="border-b border-[--border-muted] -mx-4 px-4 overflow-x-auto scrollbar-hide">
+		<div class="flex gap-0 -mb-px whitespace-nowrap">
 			{#each tabs as tab}
 				<a
 					href={tab.href}

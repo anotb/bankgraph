@@ -48,11 +48,12 @@
 	<table class="min-w-full text-[13px]">
 		<thead>
 			<tr class="bg-[--surface-3] border-b border-[--border]">
-				{#each columns as col}
+				{#each columns as col, i}
 					<th
 						class="px-3 py-2.5 text-[11px] font-semibold tracking-wider text-[--text-secondary] uppercase
 							{col.align === 'right' ? 'text-right' : 'text-left'}
-							{col.sortable ? 'cursor-pointer select-none hover:text-[--text-primary] transition-colors' : ''}"
+							{col.sortable ? 'cursor-pointer select-none hover:text-[--text-primary] transition-colors' : ''}
+							{i === 0 ? 'sticky left-0 z-20 bg-[--surface-3]' : ''}"
 						onclick={() => handleHeaderClick(col)}
 					>
 						<span class="inline-flex items-center gap-1">
@@ -80,7 +81,7 @@
 						<td
 							class="whitespace-nowrap {mode === 'power' ? 'px-2 py-0.5 text-[12px]' : 'px-3 py-1.5'}
 								{col.align === 'right' ? 'text-right data-mono' : 'text-left'}
-								{i === 0 ? 'font-medium text-[--text-primary]' : 'text-[--text-secondary]'}"
+								{i === 0 ? 'font-medium text-[--text-primary] sticky left-0 z-10 bg-inherit' : 'text-[--text-secondary]'}"
 						>
 							{#if customColumns?.[col.key]}
 								{@render customColumns[col.key](row)}

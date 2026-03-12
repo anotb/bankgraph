@@ -1,5 +1,7 @@
 <script lang="ts">
 	import MetricCard from '$lib/components/data/MetricCard.svelte';
+	import QuickCompare from '$lib/components/data/QuickCompare.svelte';
+	import EmptyState from '$lib/components/data/EmptyState.svelte';
 	import { formatCurrency, formatPercent, formatDate, formatNumber } from '$lib/utils/formatters.js';
 	import { getRegulatorName, getCharterClassName } from '$lib/utils/field-meta.js';
 
@@ -7,6 +9,19 @@
 	let bank = $derived(data.bank);
 	let trends = $derived(data.trends ?? {});
 	let hasFinancials = $derived(bank.latest_repdte !== null);
+	let peerComparison = $derived(data.peerComparison ?? []);
+	let recentQuarters = $derived(data.recentQuarters ?? []);
+	let hasPeerData = $derived(peerComparison.length > 0 && peerComparison.some((m: { percentile: number | null }) => m.percentile !== null));
+	let hasHistory = $derived(recentQuarters.length > 0);
+
+	/** Format YYYYMMDD to Q1 2024 style */
+	function formatQuarter(repdte: string): string {
+		if (!repdte || repdte.length !== 8) return repdte ?? '\u2014';
+		const month = parseInt(repdte.slice(4, 6), 10);
+		const year = repdte.slice(0, 4);
+		const q = month <= 3 ? 'Q1' : month <= 6 ? 'Q2' : month <= 9 ? 'Q3' : 'Q4';
+		return `${q} ${year}`;
+	}
 
 	function getMetricSemantic(metric: string, value: number | null): 'positive' | 'negative' | 'warning' | undefined {
 		if (value === null || value === undefined) return undefined;
@@ -184,9 +199,11 @@
 				/>
 			</div>
 		{:else}
-			<div class="rounded-md bg-[--surface-1] py-12 text-center" style="box-shadow: var(--shadow-sm)">
-				<p class="text-[--text-tertiary]">No financial data available</p>
-			</div>
+			<EmptyState
+				icon="chart"
+				title="No financial data available"
+				message="Run the backfill pipeline to populate financial data for this institution."
+			/>
 		{/if}
 	</section>
 </div>
