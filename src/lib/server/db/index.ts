@@ -50,20 +50,30 @@ export async function execute(
 
 /**
  * Batch insert rows into a table using D1's batch API.
- * Uses INSERT OR REPLACE so rows with existing PKs are updated.
- * Chunks into groups of 50 rows per statement to stay within D1 limits.
+ * When primaryKeys are provided, uses ON CONFLICT ... DO UPDATE SET for proper upsert
+ * (preserves columns not included in the insert). Falls back to INSERT OR REPLACE
+ * when no primaryKeys are given.
+ * Chunks into groups of 50 statements per batch to stay within D1 limits.
  */
 export async function batchInsert(
   db: D1Database,
   table: string,
-  rows: Record<string, unknown>[]
+  rows: Record<string, unknown>[],
+  primaryKeys?: string[]
 ): Promise<void> {
   if (rows.length === 0) return;
 
-  // Use the keys from the first row as the column set
   const columns = Object.keys(rows[0]);
   const placeholders = columns.map(() => '?').join(', ');
-  const sql = `INSERT OR REPLACE INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`;
+
+  let sql: string;
+  if (primaryKeys && primaryKeys.length > 0) {
+    const updateCols = columns.filter((c) => !primaryKeys.includes(c));
+    const updateSet = updateCols.map((c) => `${c}=excluded.${c}`).join(', ');
+    sql = `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders}) ON CONFLICT(${primaryKeys.join(', ')}) DO UPDATE SET ${updateSet}`;
+  } else {
+    sql = `INSERT OR REPLACE INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`;
+  }
 
   for (let i = 0; i < rows.length; i += BATCH_CHUNK_SIZE) {
     const chunk = rows.slice(i, i + BATCH_CHUNK_SIZE);

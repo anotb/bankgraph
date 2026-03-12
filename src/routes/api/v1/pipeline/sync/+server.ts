@@ -5,6 +5,7 @@
  * Query params:
  *   ?stage=institutions  - run only institution sync
  *   ?stage=financials    - run only financials backfill
+ *   ?stage=failures      - run only failures sync
  *   ?stage=snapshot      - run only latest-quarter snapshot
  *   ?stage=analytics     - run peer stats and industry aggregates
  *   ?stage=trends        - run trend computation
@@ -20,6 +21,7 @@ import { getDB, queryOne } from '$lib/server/db';
 import { syncInstitutions } from '$lib/server/pipeline/fdic-institutions';
 import { syncLatestFinancials } from '$lib/server/pipeline/fdic-financials-snapshot';
 import { syncFinancials } from '$lib/server/pipeline/fdic-financials';
+import { syncFailures } from '$lib/server/pipeline/fdic-failures';
 import { computePeerStats } from '$lib/server/analytics/peer-stats';
 import { computeIndustryAggregates } from '$lib/server/analytics/industry-agg';
 import { computeAllTrends } from '$lib/server/analytics/trends';
@@ -72,6 +74,17 @@ export const POST: RequestHandler = async ({ platform, url, request }) => {
       const financialsResult = await syncFinancials(db);
       results.financials = {
         ...financialsResult,
+        elapsed_seconds: Number(((Date.now() - t0) / 1000).toFixed(1))
+      };
+    }
+
+    // Stage: failures (bank failure records)
+    if (!stage || stage === 'failures') {
+      console.log('=== Stage: failures ===');
+      const t0 = Date.now();
+      const failuresResult = await syncFailures(db);
+      results.failures = {
+        ...failuresResult,
         elapsed_seconds: Number(((Date.now() - t0) / 1000).toFixed(1))
       };
     }

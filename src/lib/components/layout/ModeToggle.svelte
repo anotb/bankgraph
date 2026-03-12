@@ -8,7 +8,7 @@
 	onclick={toggleMode}
 	class="text-[11px] font-medium uppercase tracking-wider px-2.5 py-1 rounded border transition-colors
 		{currentMode === 'power'
-			? 'bg-[--accent] text-white border-[--accent]'
+			? 'bg-[--accent]/10 text-[--accent] border-[--accent]/30'
 			: 'text-[--text-tertiary] hover:text-[--text-primary] border-[--border]'}"
 	title="Switch to {currentMode === 'accessible' ? 'Power' : 'Accessible'} mode"
 >

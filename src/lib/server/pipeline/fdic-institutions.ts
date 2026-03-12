@@ -78,7 +78,7 @@ export async function syncInstitutions(db: D1Database): Promise<SyncInstitutions
     if (response.data.length === 0) break;
 
     const rows = response.data.map((item) => mapInstitution(item.data));
-    await batchInsert(db, 'institutions', rows);
+    await batchInsert(db, 'institutions', rows, ['cert']);
 
     totalProcessed += rows.length;
     console.log(`Processed ${totalProcessed}/${totalCount} institutions`);

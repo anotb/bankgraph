@@ -37,7 +37,7 @@
 	}
 </script>
 
-<div class="overflow-x-auto rounded border border-[--border]">
+<div class="overflow-x-auto rounded-[5px] border border-[--border-muted] table-shadow">
 	<table class="min-w-full text-[13px]">
 		<thead>
 			<tr class="bg-[--surface-2] border-b border-[--border]">
@@ -62,10 +62,10 @@
 				{/each}
 			</tr>
 		</thead>
-		<tbody class="divide-y divide-[--border-muted] bg-[--surface-1]">
-			{#each data as row}
+		<tbody class="data-table-body bg-[--surface-1]">
+			{#each data as row, rowIdx}
 				<tr
-					class="{onrowclick ? 'cursor-pointer hover:bg-[--surface-2] transition-colors duration-75' : ''}"
+					class="{onrowclick ? 'cursor-pointer hover:bg-[--accent-muted] transition-colors duration-75' : ''}"
 					onclick={() => onrowclick?.(row)}
 				>
 					{#each columns as col, i}

@@ -1,8 +1,15 @@
-<script>
+<script lang="ts">
 	import '../app.css';
+	import { page } from '$app/stores';
 	import ModeToggle from '$lib/components/layout/ModeToggle.svelte';
 
 	let { children } = $props();
+
+	function isActive(href: string): boolean {
+		const path = $page.url.pathname;
+		if (href === '/') return path === '/';
+		return path.startsWith(href);
+	}
 </script>
 
 <div class="min-h-screen bg-[--surface-0] flex flex-col">
@@ -14,12 +21,25 @@
 				<span class="hidden sm:inline text-[13px] font-normal text-[--text-secondary]">Bank Data Explorer</span>
 			</a>
 
-			<div class="flex items-center gap-5 text-[13px] font-medium">
-				<a href="/banks" class="text-[--text-secondary] hover:text-[--text-primary] transition-colors">Banks</a>
-				<a href="/industry" class="text-[--text-secondary] hover:text-[--text-primary] transition-colors">Industry</a>
-				<a href="/macro" class="text-[--text-secondary] hover:text-[--text-primary] transition-colors">Macro</a>
-				<a href="/compare" class="text-[--text-secondary] hover:text-[--text-primary] transition-colors">Compare</a>
-				<a href="/glossary" class="text-[--text-secondary] hover:text-[--text-primary] transition-colors">Glossary</a>
+			<div class="flex items-center gap-5 text-[13px]">
+				{#each [
+					{ href: '/banks', label: 'Banks' },
+					{ href: '/industry', label: 'Industry' },
+					{ href: '/macro', label: 'Macro' },
+					{ href: '/compare', label: 'Compare' },
+					{ href: '/glossary', label: 'Glossary' }
+				] as link}
+					<a
+						href={link.href}
+						class="relative pb-[9px] -mb-[9px] transition-colors duration-150
+							{isActive(link.href) ? 'text-[--text-primary] font-medium' : 'text-[--text-secondary] hover:text-[--text-primary] font-medium'}"
+					>
+						{link.label}
+						{#if isActive(link.href)}
+							<span class="absolute bottom-0 left-0 right-0 h-[2px] bg-[--accent]"></span>
+						{/if}
+					</a>
+				{/each}
 			</div>
 
 			<div class="ml-auto flex items-center gap-3">

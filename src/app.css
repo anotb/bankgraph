@@ -66,6 +66,18 @@
   --warning-muted: #fef3d6;
   --neutral: #918c85;
 
+  /* Shadows (warm-tinted) */
+  --shadow-xs: 0 1px 2px hsl(40deg 6% 50% / 0.06);
+  --shadow-sm: 0 1px 3px hsl(40deg 6% 50% / 0.08), 0 1px 2px hsl(40deg 6% 50% / 0.04);
+  --shadow-md: 0 4px 6px -1px hsl(40deg 6% 50% / 0.08), 0 2px 4px -2px hsl(40deg 6% 50% / 0.04);
+  --shadow-lg: 0 10px 15px -3px hsl(40deg 6% 50% / 0.08), 0 4px 6px -4px hsl(40deg 6% 50% / 0.04);
+
+  /* Surface stripe (alternating rows) */
+  --surface-stripe: hsl(40deg 6% 50% / 0.03);
+
+  /* Accent glow */
+  --accent-glow: 0 0 8px hsl(175deg 40% 50% / 0.1);
+
   /* Chart palette */
   --chart-1: #0d7d7d;
   --chart-2: #c53d2f;
@@ -87,10 +99,10 @@
 
 .dark {
   /* Surfaces */
-  --surface-0: #111318;
+  --surface-0: #0e1015;
   --surface-1: #191c23;
-  --surface-2: #22262f;
-  --surface-3: #2d3139;
+  --surface-2: #242830;
+  --surface-3: #2f343d;
 
   /* Borders */
   --border: #383c44;
@@ -116,6 +128,18 @@
   --warning: #e0a620;
   --warning-muted: #302810;
   --neutral: #7a7e86;
+
+  /* Shadows (deeper, cooler) */
+  --shadow-xs: 0 1px 2px hsl(220deg 10% 4% / 0.3);
+  --shadow-sm: 0 1px 3px hsl(220deg 10% 4% / 0.4), 0 1px 2px hsl(220deg 10% 4% / 0.2);
+  --shadow-md: 0 4px 6px -1px hsl(220deg 10% 4% / 0.4), 0 2px 4px -2px hsl(220deg 10% 4% / 0.2);
+  --shadow-lg: 0 10px 15px -3px hsl(220deg 10% 4% / 0.4), 0 4px 6px -4px hsl(220deg 10% 4% / 0.2);
+
+  /* Surface stripe (alternating rows) */
+  --surface-stripe: hsl(220deg 10% 80% / 0.03);
+
+  /* Accent glow */
+  --accent-glow: 0 0 12px hsl(175deg 60% 45% / 0.15);
 
   /* Chart palette (lifted lightness) */
   --chart-1: #2db5a8;
@@ -201,4 +225,23 @@ th[class*="text-right"] {
 
 .dark .dense-grid {
   gap: 1px;
+}
+
+/* Card hover transitions */
+.card-shadow {
+  box-shadow: var(--shadow-xs);
+  transition: box-shadow 0.15s, border-color 0.15s, transform 0.15s;
+}
+.card-shadow:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+/* Table shadow */
+.table-shadow {
+  box-shadow: var(--shadow-sm);
+}
+
+/* Alternating row stripe */
+.data-table-body tr:nth-child(even) {
+  background-color: var(--surface-stripe);
 }

@@ -124,6 +124,8 @@ function mapFinancial(raw: Record<string, unknown>): Record<string, unknown> {
 
 export interface SyncFinancialsResult {
   processed: number;
+  done: boolean;
+  offset: number;
 }
 
 /** Read a pipeline_state value */
@@ -147,16 +149,23 @@ async function setState(db: D1Database, key: string, value: string): Promise<voi
 }
 
 /**
- * Fetch ALL historical financials from FDIC and insert into D1.
+ * Fetch historical financials from FDIC and insert into D1.
  * Resumes from last saved offset if a previous run was interrupted.
+ * Processes at most `maxPages` pages per invocation to stay within
+ * the Cloudflare Workers 30s timeout. Returns `done: false` when
+ * there are more pages to fetch; the caller should re-invoke.
  */
-export async function syncFinancials(db: D1Database): Promise<SyncFinancialsResult> {
+export async function syncFinancials(
+  db: D1Database,
+  maxPages: number = 5
+): Promise<SyncFinancialsResult> {
   // Check for resumable state
   const savedOffset = await getState(db, 'financials_sync_offset');
   const savedCount = await getState(db, 'financials_sync_count');
   let offset = savedOffset ? Number(savedOffset) : 0;
   let totalProcessed = savedCount ? Number(savedCount) : 0;
   let pageNum = Math.floor(offset / PAGE_SIZE) + 1;
+  let pagesThisInvocation = 0;
 
   if (offset > 0) {
     console.log(`Financials: resuming from offset ${offset}, previously processed ${totalProcessed} rows`);
@@ -178,25 +187,34 @@ export async function syncFinancials(db: D1Database): Promise<SyncFinancialsResu
     if (response.data.length === 0) break;
 
     const rows = response.data.map((item) => mapFinancial(item.data));
-    await batchInsert(db, 'financials', rows);
+    await batchInsert(db, 'financials', rows, ['cert', 'repdte']);
 
     totalProcessed += rows.length;
+    pagesThisInvocation++;
 
     // Save progress after each page for resumability
-    await setState(db, 'financials_sync_offset', String(offset + response.data.length));
+    const nextOffset = offset + response.data.length;
+    await setState(db, 'financials_sync_offset', String(nextOffset));
     await setState(db, 'financials_sync_count', String(totalProcessed));
 
     if (response.data.length < PAGE_SIZE) break;
+
+    // Check if we've hit the per-invocation page limit
+    if (pagesThisInvocation >= maxPages) {
+      console.log(`Financials: pausing after ${pagesThisInvocation} pages, offset ${nextOffset}`);
+      return { processed: totalProcessed, done: false, offset: nextOffset };
+    }
 
     offset += PAGE_SIZE;
     pageNum++;
     await delay(DELAY_BETWEEN_PAGES_MS);
   }
 
-  // Mark complete
+  // All data exhausted: mark complete and reset offset
   await setState(db, 'financials_sync_status', 'complete');
   await setState(db, 'financials_sync_offset', '0');
+  await setState(db, 'financials_sync_count', '0');
   console.log(`Financials: backfill complete, ${totalProcessed} total rows`);
 
-  return { processed: totalProcessed };
+  return { processed: totalProcessed, done: true, offset: 0 };
 }
