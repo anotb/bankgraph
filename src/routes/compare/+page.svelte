@@ -446,6 +446,9 @@
 
 <svelte:head>
 	<title>Compare | Bank Data Explorer</title>
+	<meta name="description" content="Compare financial metrics across multiple FDIC-insured banks side by side." />
+	<meta property="og:title" content="Compare | Bank Data Explorer" />
+	<meta property="og:description" content="Compare financial metrics across multiple FDIC-insured banks side by side." />
 </svelte:head>
 
 <div class="space-y-5">

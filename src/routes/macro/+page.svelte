@@ -163,6 +163,9 @@
 
 <svelte:head>
 	<title>Macro | Bank Data Explorer</title>
+	<meta name="description" content="Federal Reserve economic data, interest rates, treasury yields, and banking sector indicators." />
+	<meta property="og:title" content="Macro | Bank Data Explorer" />
+	<meta property="og:description" content="Federal Reserve economic data, interest rates, treasury yields, and banking sector indicators." />
 </svelte:head>
 
 <div class="space-y-5">

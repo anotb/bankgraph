@@ -26,6 +26,9 @@
 
 <svelte:head>
 	<title>{data.bank.name} | Bank Data Explorer</title>
+	<meta name="description" content="Financial overview, trends, peer comparison, and risk profile for {data.bank.name}." />
+	<meta property="og:title" content="{data.bank.name} | Bank Data Explorer" />
+	<meta property="og:description" content="Financial overview, trends, peer comparison, and risk profile for {data.bank.name}." />
 </svelte:head>
 
 <div class="space-y-3">

@@ -36,6 +36,9 @@
 
 <svelte:head>
 	<title>Glossary | Bank Data Explorer</title>
+	<meta name="description" content="Definitions for all financial fields, ratios, and metrics used in Bank Data Explorer." />
+	<meta property="og:title" content="Glossary | Bank Data Explorer" />
+	<meta property="og:description" content="Definitions for all financial fields, ratios, and metrics used in Bank Data Explorer." />
 </svelte:head>
 
 <div class="space-y-5">
