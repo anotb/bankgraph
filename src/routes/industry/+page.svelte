@@ -1,5 +1,6 @@
 <script lang="ts">
 	import MetricCard from '$lib/components/data/MetricCard.svelte';
+	import EmptyState from '$lib/components/data/EmptyState.svelte';
 	import TimeSeriesChart from '$lib/components/charts/TimeSeriesChart.svelte';
 	import { formatCurrency, formatPercent, formatDate, formatNumber } from '$lib/utils/formatters.js';
 	import { getMode } from '$lib/stores/mode.svelte.js';
@@ -140,9 +141,11 @@
 			</div>
 		</section>
 	{:else}
-		<div class="rounded-md bg-[--surface-1] py-24 text-center" style="box-shadow: var(--shadow-sm)">
-			<p class="text-[--text-tertiary] text-[15px]">No metadata available</p>
-		</div>
+		<EmptyState
+			icon="data"
+			title="No industry metadata available"
+			message="Run the aggregation pipeline to populate industry-wide statistics."
+		/>
 	{/if}
 
 	<!-- Segment breakdown table -->
@@ -178,10 +181,11 @@
 				</table>
 			</div>
 		{:else}
-			<div class="rounded-md bg-[--surface-1] py-16 text-center" style="box-shadow: var(--shadow-sm)">
-				<p class="text-[--text-tertiary] text-[15px]">No industry data available yet</p>
-				<p class="text-[--text-disabled] text-[13px] mt-1">Run the aggregation pipeline to populate industry stats.</p>
-			</div>
+			<EmptyState
+				icon="chart"
+				title="No segment data available yet"
+				message="Run the aggregation pipeline to populate industry segment breakdowns."
+			/>
 		{/if}
 	</section>
 

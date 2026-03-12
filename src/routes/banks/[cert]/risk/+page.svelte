@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ScoreGauge from '$lib/components/charts/ScoreGauge.svelte';
 	import AnomalyBadge from '$lib/components/data/AnomalyBadge.svelte';
+	import EmptyState from '$lib/components/data/EmptyState.svelte';
 	import Disclaimer from '$lib/components/data/Disclaimer.svelte';
 	import { formatDate, formatPercent } from '$lib/utils/formatters.js';
 	import { getMode } from '$lib/stores/mode.svelte.js';
@@ -60,10 +61,11 @@
 
 <div class="space-y-5 pt-3">
 	{#if !risk}
-		<div class="rounded-md bg-[--surface-1] py-24 text-center" style="box-shadow: var(--shadow-sm)">
-			<p class="text-[--text-tertiary] text-[15px]">No risk analysis data available</p>
-			<p class="text-[--text-disabled] text-[13px] mt-1">This bank may not have financials for the latest quarter.</p>
-		</div>
+		<EmptyState
+			icon="error"
+			title="No risk analysis data available"
+			message="This bank may not have financials for the latest quarter. Risk scores require at least one quarter of data."
+		/>
 	{:else}
 		<!-- Financial Health Summary -->
 		<section>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import TimeSeriesChart from '$lib/components/charts/TimeSeriesChart.svelte';
+	import EmptyState from '$lib/components/data/EmptyState.svelte';
 	import { formatPercent, formatCurrency, formatNumber } from '$lib/utils/formatters.js';
 	import type { CompareResponse, Financial, Institution } from '$lib/types';
 
@@ -357,19 +358,22 @@
 	</section>
 
 	{#if selectedBanks.length < 2}
-		<div class="rounded-md bg-[--surface-1] py-16 text-center" style="box-shadow: var(--shadow-sm)">
-			<p class="text-[--text-tertiary] text-[15px]">Select at least 2 banks to compare</p>
-			<p class="text-[--text-disabled] text-[13px] mt-1">Use the search above to find and add banks.</p>
-		</div>
+		<EmptyState
+			icon="search"
+			title="Select at least 2 banks to compare"
+			message="Search for banks above to start comparing financial metrics side by side."
+		/>
 	{:else if loading}
 		<div class="rounded-md bg-[--surface-1] py-16 text-center" style="box-shadow: var(--shadow-sm)">
 			<div class="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[--border-muted] border-t-[--accent]"></div>
 			<p class="text-[--text-tertiary] text-[13px] mt-2">Loading comparison data...</p>
 		</div>
 	{:else if error}
-		<div class="rounded-md bg-[--negative-muted] py-8 text-center" style="box-shadow: var(--shadow-sm)">
-			<p class="text-[--negative] text-[14px]">Failed to load: {error}</p>
-		</div>
+		<EmptyState
+			icon="error"
+			title="Failed to load comparison data"
+			message={error}
+		/>
 	{:else if compareData}
 		<!-- Date range selector -->
 		<div class="flex items-center gap-2">

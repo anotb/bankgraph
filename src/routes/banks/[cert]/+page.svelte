@@ -206,4 +206,62 @@
 			/>
 		{/if}
 	</section>
+
+	<!-- Quick Compare -->
+	{#if hasPeerData}
+		<section>
+			<div class="flex items-center gap-2 mb-3">
+				<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+				<h2 class="text-[15px] font-semibold text-[--text-primary]">Quick Compare</h2>
+				<span class="text-[11px] text-[--text-tertiary] ml-1">vs. peer group</span>
+			</div>
+			<QuickCompare metrics={peerComparison} />
+		</section>
+	{/if}
+
+	<!-- Recent Financial History -->
+	{#if hasHistory}
+		<section>
+			<div class="flex items-center gap-2 mb-3">
+				<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+				<h2 class="text-[15px] font-semibold text-[--text-primary]">Recent Quarters</h2>
+			</div>
+			<div class="rounded-md bg-[--surface-1] overflow-x-auto" style="box-shadow: var(--shadow-sm)">
+				<table class="w-full" style="font-size: 12px;">
+					<thead>
+						<tr class="bg-[--surface-3]">
+							<th class="text-left px-3 py-1.5 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Quarter</th>
+							<th class="text-right px-3 py-1.5 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Assets</th>
+							<th class="text-right px-3 py-1.5 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">ROA</th>
+							<th class="text-right px-3 py-1.5 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">ROE</th>
+							<th class="text-right px-3 py-1.5 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">NIM</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-[--surface-2]">
+						{#each recentQuarters as q (q.repdte)}
+							<tr class="hover:bg-[--accent-muted] transition-colors">
+								<td class="px-3 py-1.5 font-medium text-[--text-primary] data-mono">{formatQuarter(q.repdte)}</td>
+								<td class="px-3 py-1.5 text-right text-[--text-primary] data-mono">{formatCurrency(q.asset)}</td>
+								<td class="px-3 py-1.5 text-right data-mono">
+									<span class="{getMetricSemantic('roa', q.roa) === 'positive' ? 'text-[--positive]' : getMetricSemantic('roa', q.roa) === 'negative' ? 'text-[--negative]' : getMetricSemantic('roa', q.roa) === 'warning' ? 'text-[--warning]' : 'text-[--text-primary]'}">
+										{formatPercent(q.roa)}
+									</span>
+								</td>
+								<td class="px-3 py-1.5 text-right data-mono">
+									<span class="{getMetricSemantic('roe', q.roe) === 'positive' ? 'text-[--positive]' : getMetricSemantic('roe', q.roe) === 'negative' ? 'text-[--negative]' : getMetricSemantic('roe', q.roe) === 'warning' ? 'text-[--warning]' : 'text-[--text-primary]'}">
+										{formatPercent(q.roe)}
+									</span>
+								</td>
+								<td class="px-3 py-1.5 text-right data-mono">
+									<span class="{getMetricSemantic('nim', q.nimy) === 'positive' ? 'text-[--positive]' : getMetricSemantic('nim', q.nimy) === 'negative' ? 'text-[--negative]' : getMetricSemantic('nim', q.nimy) === 'warning' ? 'text-[--warning]' : 'text-[--text-primary]'}">
+										{formatPercent(q.nimy)}
+									</span>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		</section>
+	{/if}
 </div>

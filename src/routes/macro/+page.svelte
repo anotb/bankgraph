@@ -1,5 +1,6 @@
 <script lang="ts">
 	import TimeSeriesChart from '$lib/components/charts/TimeSeriesChart.svelte';
+	import EmptyState from '$lib/components/data/EmptyState.svelte';
 	import InsightCard from '$lib/components/data/InsightCard.svelte';
 	import type { MacroResponse, MacroDataPoint } from '$lib/types';
 
@@ -174,10 +175,11 @@
 	</div>
 
 	{#if !hasAnyData}
-		<div class="rounded-md bg-[--surface-1] py-24 text-center" style="box-shadow: var(--shadow-sm)">
-			<p class="text-[--text-tertiary] text-[15px]">No macro data available</p>
-			<p class="text-[--text-disabled] text-[13px] mt-1">Run the FRED sync pipeline to populate macro series.</p>
-		</div>
+		<EmptyState
+			icon="chart"
+			title="No macro data available"
+			message="Run the FRED sync pipeline to populate macro economic series."
+		/>
 	{:else}
 		<!-- Date range selector -->
 		<div class="flex items-center gap-2">
