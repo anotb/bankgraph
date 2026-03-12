@@ -46,5 +46,50 @@ export const load: LayoutServerLoad = async ({ params, platform }) => {
     // anomalies table may not exist yet
   }
 
-  return { bank, anomalyCounts };
+  // Compute QoQ trend data from the last 2 quarters of financials
+  let trends: Record<string, number | null> = {};
+  try {
+    const recentFinancials = await queryAll<{
+      repdte: string;
+      roa: number | null;
+      roe: number | null;
+      nimy: number | null;
+      nclnlsr: number | null;
+      rbcrwaj: number | null;
+      asset: number | null;
+      dep: number | null;
+    }>(
+      db,
+      'SELECT repdte, roa, roe, nimy, nclnlsr, rbcrwaj, asset, dep FROM financials WHERE cert = ? ORDER BY repdte DESC LIMIT 2',
+      [cert]
+    );
+
+    if (recentFinancials.length === 2) {
+      const [current, previous] = recentFinancials;
+
+      function qoqDelta(curr: number | null, prev: number | null): number | null {
+        if (curr === null || prev === null) return null;
+        return curr - prev;
+      }
+
+      function pctChange(curr: number | null, prev: number | null): number | null {
+        if (curr === null || prev === null || prev === 0) return null;
+        return ((curr - prev) / Math.abs(prev)) * 100;
+      }
+
+      trends = {
+        roa: qoqDelta(current.roa, previous.roa),
+        roe: qoqDelta(current.roe, previous.roe),
+        nim: qoqDelta(current.nimy, previous.nimy),
+        npl_ratio: qoqDelta(current.nclnlsr, previous.nclnlsr),
+        tier1_ratio: qoqDelta(current.rbcrwaj, previous.rbcrwaj),
+        total_assets: pctChange(current.asset, previous.asset),
+        total_deposits: pctChange(current.dep, previous.dep),
+      };
+    }
+  } catch {
+    // financials table might not have data yet
+  }
+
+  return { bank, anomalyCounts, trends };
 };

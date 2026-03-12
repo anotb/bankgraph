@@ -1,5 +1,6 @@
 <script lang="ts">
 	import MetricCard from '$lib/components/data/MetricCard.svelte';
+	import TimeSeriesChart from '$lib/components/charts/TimeSeriesChart.svelte';
 	import { formatCurrency, formatPercent, formatDate, formatNumber } from '$lib/utils/formatters.js';
 	import { getMode } from '$lib/stores/mode.svelte.js';
 
@@ -77,6 +78,18 @@
 		if (!metrics) return null;
 		return metrics[key] ?? null;
 	}
+
+	// Build time series from allSegment data (reversed to chronological order)
+	let industrySeries = $derived.by(() => {
+		if (!data.allSegment?.data || data.allSegment.data.length < 2) return null;
+		const quarters = [...data.allSegment.data].reverse();
+
+		return {
+			roa: quarters.map((q) => ({ date: q.repdte, value: q.metrics?.median_roa ?? null })),
+			roe: quarters.map((q) => ({ date: q.repdte, value: q.metrics?.median_roe ?? null })),
+			nim: quarters.map((q) => ({ date: q.repdte, value: q.metrics?.median_nim ?? null }))
+		};
+	});
 </script>
 
 <svelte:head>
@@ -167,4 +180,41 @@
 			</div>
 		{/if}
 	</section>
+
+	<!-- Industry Trends -->
+	{#if industrySeries}
+		<section>
+			<div class="flex items-center gap-2 mb-3">
+				<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+				<h2 class="text-[15px] font-semibold text-[--text-primary]">Industry Trends</h2>
+			</div>
+			<div class="grid grid-cols-1 lg:grid-cols-2 gap-2">
+				<div class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
+					<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Key Ratios</h3>
+					<TimeSeriesChart
+						series={[
+							{ key: 'roa', label: 'Median ROA', data: industrySeries.roa },
+							{ key: 'roe', label: 'Median ROE', data: industrySeries.roe },
+							{ key: 'nim', label: 'Median NIM', data: industrySeries.nim }
+						]}
+						yAxisFormat="percent"
+					/>
+				</div>
+			</div>
+		</section>
+	{/if}
+
+	<!-- Bank Failures link -->
+	{#if data.failureCount > 0}
+		<section>
+			<div class="flex items-center gap-2 mb-3">
+				<div class="w-0.5 h-4 bg-[--warning] rounded-full"></div>
+				<h2 class="text-[15px] font-semibold text-[--text-primary]">Bank Failures</h2>
+				<span class="text-[11px] text-[--text-tertiary]">{data.failureCount} total</span>
+			</div>
+			<a href="/industry/failures" class="inline-flex items-center gap-1 text-[13px] font-medium text-[--accent] hover:text-[--accent-hover]">
+				View failure timeline and analysis &rarr;
+			</a>
+		</section>
+	{/if}
 </div>

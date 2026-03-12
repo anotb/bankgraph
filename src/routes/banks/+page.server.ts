@@ -1,8 +1,9 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { BankListResponse } from '$lib/types';
+import { getDB, queryAll } from '$lib/server/db';
 
-export const load: PageServerLoad = async ({ url, fetch }) => {
+export const load: PageServerLoad = async ({ url, fetch, platform }) => {
   // Forward all search params to the API endpoint
   const params = new URLSearchParams();
 
@@ -35,11 +36,43 @@ export const load: PageServerLoad = async ({ url, fetch }) => {
 
   const result: BankListResponse = await res.json();
 
+  // Fetch sparkline data (last 8 quarters of ROA) for listed banks
+  let sparklines: Record<number, (number | null)[]> = {};
+
+  const certs = result.data.map(b => b.cert);
+  if (certs.length > 0) {
+    try {
+      const db = getDB(platform);
+      const placeholders = certs.map(() => '?').join(',');
+      const sparklineData = await queryAll<{ cert: number; repdte: string; roa: number | null }>(
+        db,
+        `SELECT cert, repdte, roa FROM financials
+         WHERE cert IN (${placeholders})
+         ORDER BY cert, repdte DESC`,
+        certs
+      );
+
+      // Group by cert, take last 8, reverse to chronological
+      for (const row of sparklineData) {
+        if (!sparklines[row.cert]) sparklines[row.cert] = [];
+        if (sparklines[row.cert].length < 8) {
+          sparklines[row.cert].push(row.roa);
+        }
+      }
+      for (const cert in sparklines) {
+        sparklines[cert].reverse();
+      }
+    } catch {
+      // If DB query fails (e.g. dev mode without D1), return empty sparklines
+    }
+  }
+
   return {
     banks: result.data,
     total: result.total,
     page: result.page,
     limit: result.limit,
+    sparklines,
     params: {
       q: q || '',
       state: state || '',

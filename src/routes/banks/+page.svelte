@@ -3,6 +3,7 @@
 	import { page } from '$app/stores';
 	import SearchBar from '$lib/components/data/SearchBar.svelte';
 	import DataTable from '$lib/components/data/DataTable.svelte';
+	import Sparkline from '$lib/components/data/Sparkline.svelte';
 	import Pagination from '$lib/components/data/Pagination.svelte';
 	import { formatCurrency } from '$lib/utils/formatters.js';
 	import type { Column } from '$lib/components/data/DataTable.svelte';
@@ -40,6 +41,11 @@
 			sortable: true,
 			align: 'right',
 			format: (v: number | null) => formatCurrency(v)
+		},
+		{
+			key: 'roa_trend',
+			label: 'ROA Trend',
+			align: 'right'
 		},
 		{
 			key: 'total_deposits',
@@ -157,6 +163,8 @@
 			value={data.params.q}
 			placeholder="Search by name..."
 			onsearch={handleSearch}
+			autocomplete={true}
+			onselect={(cert) => goto('/banks/' + cert)}
 		/>
 	</div>
 
@@ -209,6 +217,10 @@
 			<p class="text-[--text-tertiary]">No banks found matching your criteria.</p>
 		</div>
 	{:else}
+		{#snippet roaTrendCell(row: Record<string, any>)}
+			<Sparkline data={data.sparklines?.[row.cert] ?? []} />
+		{/snippet}
+
 		<DataTable
 			{columns}
 			data={data.banks}
@@ -216,6 +228,7 @@
 			{currentOrder}
 			onsort={handleSort}
 			onrowclick={handleRowClick}
+			customColumns={{ roa_trend: roaTrendCell }}
 		/>
 	{/if}
 

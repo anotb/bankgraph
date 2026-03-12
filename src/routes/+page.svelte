@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import SearchBar from '$lib/components/data/SearchBar.svelte';
 	import MetricCard from '$lib/components/data/MetricCard.svelte';
-	import { formatNumber, formatDate } from '$lib/utils/formatters.js';
+	import { formatNumber, formatDate, formatPercent, formatCurrency } from '$lib/utils/formatters.js';
 
 	let { data } = $props();
 
@@ -10,6 +10,10 @@
 		if (query) {
 			goto(`/banks?q=${encodeURIComponent(query)}`);
 		}
+	}
+
+	function handleSelect(cert: number) {
+		goto(`/banks/${cert}`);
 	}
 </script>
 
@@ -22,21 +26,31 @@
 </svelte:head>
 
 <!-- Compact header -->
-<div class="py-6 text-center">
+<div class="py-5">
 	<h1 class="text-2xl font-semibold tracking-tight text-[--text-primary]">
 		Bank Data Explorer
 	</h1>
-	<p class="mx-auto mt-2 max-w-xl text-[15px] text-[--text-secondary]">
-		Explore financial data for every FDIC-insured bank in America.
+	<p class="mt-1 text-[14px] text-[--text-secondary]">
+		Financial data for every FDIC-insured bank in America.
 	</p>
 </div>
 
-<!-- Quick stats -->
-<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+<!-- Search -->
+<div class="mb-6">
+	<SearchBar
+		placeholder="Search by name, city, or state..."
+		onsearch={handleSearch}
+		autocomplete={true}
+		onselect={handleSelect}
+	/>
+</div>
+
+<!-- Overview stats -->
+<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
 	<MetricCard
 		label="Total Banks"
 		value={data.meta.bank_count ? formatNumber(data.meta.bank_count) : '...'}
-		sublabel="All FDIC-insured institutions"
+		sublabel="All FDIC-insured"
 	/>
 	<MetricCard
 		label="Active Banks"
@@ -46,21 +60,109 @@
 	<MetricCard
 		label="Latest Data"
 		value={data.meta.latest_quarter ? formatDate(data.meta.latest_quarter) : '...'}
-		sublabel="Most recent reporting quarter"
+		sublabel="Most recent quarter"
 	/>
 </div>
 
-<!-- Search -->
-<div class="mx-auto mt-8 max-w-lg">
-	<p class="mb-1.5 text-center text-[13px] font-medium text-[--text-tertiary]">Find a bank</p>
-	<SearchBar
-		placeholder="Search by name, city, or state..."
-		onsearch={handleSearch}
-	/>
-</div>
+<!-- Industry metrics (only show if we have agg data) -->
+{#if data.industryMetrics.median_roa !== null || data.industryMetrics.total_assets !== null}
+	<section class="mt-5">
+		<div class="flex items-center gap-2 mb-3">
+			<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+			<h2 class="text-[15px] font-semibold text-[--text-primary]">Industry Health</h2>
+			<span class="text-[11px] text-[--text-tertiary] ml-1">all FDIC-insured banks</span>
+		</div>
+		<div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+			{#if data.industryMetrics.total_assets !== null}
+				<MetricCard
+					label="Total Assets"
+					value={formatCurrency(data.industryMetrics.total_assets)}
+					sublabel="Industry-wide"
+				/>
+			{/if}
+			{#if data.industryMetrics.median_roa !== null}
+				<MetricCard
+					label="Median ROA"
+					value={formatPercent(data.industryMetrics.median_roa)}
+					sublabel="Return on Assets"
+				/>
+			{/if}
+			{#if data.industryMetrics.median_roe !== null}
+				<MetricCard
+					label="Median ROE"
+					value={formatPercent(data.industryMetrics.median_roe)}
+					sublabel="Return on Equity"
+				/>
+			{/if}
+			{#if data.industryMetrics.median_nim !== null}
+				<MetricCard
+					label="Median NIM"
+					value={formatPercent(data.industryMetrics.median_nim)}
+					sublabel="Net Interest Margin"
+				/>
+			{/if}
+		</div>
+	</section>
+{/if}
+
+<!-- Anomalies + Failures side by side -->
+{#if data.recentAnomalies.length > 0 || data.failureSummary.total_failures > 0}
+	<div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+		<!-- Recent Anomalies -->
+		{#if data.recentAnomalies.length > 0}
+			<section>
+				<div class="flex items-center gap-2 mb-3">
+					<div class="w-0.5 h-4 bg-[--negative] rounded-full"></div>
+					<h2 class="text-[15px] font-semibold text-[--text-primary]">Recent Anomalies</h2>
+				</div>
+				<div class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] divide-y divide-[--border-muted]" style="box-shadow: var(--shadow-sm)">
+					{#each data.recentAnomalies as anomaly}
+						<a href="/banks/{anomaly.cert}/risk" class="flex items-center justify-between px-3 py-2.5 hover:bg-[--accent-muted] transition-colors">
+							<div class="flex items-center gap-2 min-w-0">
+								<span class="inline-flex shrink-0 items-center rounded-sm px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase
+									{anomaly.severity === 'critical' ? 'bg-[--negative-muted] text-[--negative]' : 'bg-[--warning-muted] text-[--warning]'}">
+									{anomaly.severity}
+								</span>
+								<span class="text-[13px] font-medium text-[--text-primary] truncate">{anomaly.name ?? `CERT ${anomaly.cert}`}</span>
+							</div>
+							<span class="text-[12px] text-[--text-tertiary] shrink-0 ml-2">{anomaly.metric}</span>
+						</a>
+					{/each}
+				</div>
+			</section>
+		{/if}
+
+		<!-- Bank Failures -->
+		{#if data.failureSummary.total_failures > 0}
+			<section>
+				<div class="flex items-center gap-2 mb-3">
+					<div class="w-0.5 h-4 bg-[--warning] rounded-full"></div>
+					<h2 class="text-[15px] font-semibold text-[--text-primary]">Bank Failures</h2>
+					<span class="text-[11px] text-[--text-tertiary]">{formatNumber(data.failureSummary.total_failures)} total</span>
+				</div>
+				<div class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] divide-y divide-[--border-muted]" style="box-shadow: var(--shadow-sm)">
+					{#each data.failureSummary.recent_failures as failure}
+						<div class="flex items-center justify-between px-3 py-2.5">
+							<span class="text-[13px] font-medium text-[--text-primary] truncate">{failure.name ?? 'Unknown'}</span>
+							<div class="flex items-center gap-2 shrink-0 ml-2">
+								{#if failure.state}
+									<span class="text-[12px] text-[--text-tertiary]">{failure.state}</span>
+								{/if}
+								<span class="text-[12px] text-[--text-tertiary] tabular-nums">{formatDate(failure.fail_date)}</span>
+							</div>
+						</div>
+					{/each}
+				</div>
+				<a href="/industry" class="inline-flex items-center gap-1 mt-2 text-[13px] font-medium text-[--accent] hover:text-[--accent-hover]">
+					View industry overview &rarr;
+				</a>
+			</section>
+		{/if}
+	</div>
+{/if}
 
 <!-- Browse link -->
-<div class="mt-5 text-center">
+<div class="mt-6 text-center">
 	<a
 		href="/banks"
 		class="inline-flex items-center gap-1 text-[13px] font-medium text-[--accent] hover:text-[--accent-hover]"
@@ -70,23 +172,8 @@
 	</a>
 </div>
 
-<!-- Risk & Anomaly teaser -->
-<div class="mt-8 rounded border border-[--border] bg-[--surface-1] p-4 text-center">
-	<p class="text-[13px] font-medium text-[--text-primary]">Risk Analysis & Anomaly Detection</p>
-	<p class="text-[13px] text-[--text-tertiary] mt-1">
-		CAMELS-proxy risk scores and anomaly detection are now available on individual bank pages.
-	</p>
-	<a
-		href="/banks"
-		class="inline-flex items-center gap-1 mt-2 text-[13px] font-medium text-[--accent] hover:text-[--accent-hover]"
-	>
-		Find a bank to view risk analysis
-		<span aria-hidden="true">&rarr;</span>
-	</a>
-</div>
-
 <!-- Attribution & Disclaimer -->
-<div class="mt-12 space-y-1 border-t border-[--border] pt-6 text-center text-[11px] text-[--text-tertiary]">
+<div class="mt-10 space-y-1 border-t border-[--border] pt-6 text-center text-[11px] text-[--text-tertiary]">
 	<p>Data from FDIC BankFind, Federal Reserve, FFIEC.</p>
 	<p>Not financial advice. Data provided as-is for educational purposes.</p>
 </div>

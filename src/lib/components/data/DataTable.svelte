@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
+
 	export interface Column {
 		key: string;
 		label: string;
@@ -13,7 +15,8 @@
 		currentSort = '',
 		currentOrder = 'asc',
 		onsort,
-		onrowclick
+		onrowclick,
+		customColumns
 	}: {
 		columns: Column[];
 		data: Record<string, any>[];
@@ -21,6 +24,7 @@
 		currentOrder?: 'asc' | 'desc';
 		onsort?: (key: string) => void;
 		onrowclick?: (row: any) => void;
+		customColumns?: Record<string, Snippet<[Record<string, any>]>>;
 	} = $props();
 
 	function handleHeaderClick(col: Column) {
@@ -74,7 +78,11 @@
 								{col.align === 'right' ? 'text-right tabular-nums' : 'text-left'}
 								{i === 0 ? 'font-medium text-[--text-primary]' : 'text-[--text-secondary]'}"
 						>
-							{getCellValue(row, col)}
+							{#if customColumns?.[col.key]}
+								{@render customColumns[col.key](row)}
+							{:else}
+								{getCellValue(row, col)}
+							{/if}
 						</td>
 					{/each}
 				</tr>

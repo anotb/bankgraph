@@ -5,6 +5,7 @@
 
 	let { data } = $props();
 	let bank = $derived(data.bank);
+	let trends = $derived(data.trends ?? {});
 	let hasFinancials = $derived(bank.latest_repdte !== null);
 </script>
 
@@ -111,35 +112,49 @@
 				<MetricCard
 					label="Total Assets"
 					value={formatCurrency(bank.total_assets)}
+					trend={trends.total_assets}
+					trendLabel="vs prior quarter"
 				/>
 				<MetricCard
 					label="Total Deposits"
 					value={formatCurrency(bank.total_deposits)}
+					trend={trends.total_deposits}
+					trendLabel="vs prior quarter"
 				/>
 				<MetricCard
 					label="ROA"
 					value={formatPercent(bank.latest_roa)}
 					sublabel="Return on Assets"
+					trend={trends.roa}
+					trendLabel="vs prior quarter"
 				/>
 				<MetricCard
 					label="ROE"
 					value={formatPercent(bank.latest_roe)}
 					sublabel="Return on Equity"
+					trend={trends.roe}
+					trendLabel="vs prior quarter"
 				/>
 				<MetricCard
 					label="NIM"
 					value={formatPercent(bank.latest_nim)}
 					sublabel="Net Interest Margin"
+					trend={trends.nim}
+					trendLabel="vs prior quarter"
 				/>
 				<MetricCard
 					label="NPL Ratio"
 					value={formatPercent(bank.latest_npl_ratio)}
 					sublabel="Non-Performing Loans"
+					trend={trends.npl_ratio}
+					trendLabel="vs prior quarter"
 				/>
 				<MetricCard
 					label="Tier 1 Capital"
 					value={formatPercent(bank.latest_tier1_ratio)}
 					sublabel="Risk-Based Capital"
+					trend={trends.tier1_ratio}
+					trendLabel="vs prior quarter"
 				/>
 			</div>
 		{:else}
