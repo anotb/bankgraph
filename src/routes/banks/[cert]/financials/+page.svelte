@@ -1,20 +1,26 @@
 <script lang="ts">
 	import TimeSeriesChart from '$lib/components/charts/TimeSeriesChart.svelte';
+	import ExportButton from '$lib/components/data/ExportButton.svelte';
+	import DateRangePicker from '$lib/components/data/DateRangePicker.svelte';
+	import FieldPicker from '$lib/components/data/FieldPicker.svelte';
+	import PivotTable from '$lib/components/data/PivotTable.svelte';
+	import { getFieldLabel } from '$lib/utils/field-meta.js';
+	import { getMode } from '$lib/stores/mode.svelte.js';
 	import type { Financial } from '$lib/types';
 
 	let { data } = $props();
 	let financials = $derived(data.financials);
+	let cert = $derived(data.bank.cert);
+	let mode = $derived(getMode());
 
-	type DateRange = '5Y' | '10Y' | '20Y' | 'All';
-	let selectedRange: DateRange = $state('10Y');
-
-	const rangeButtons: DateRange[] = ['5Y', '10Y', '20Y', 'All'];
+	let selectedRange = $state('10Y');
 
 	let cutoffDate = $derived.by(() => {
 		if (selectedRange === 'All' || financials.length === 0) return null;
 		const latest = financials[financials.length - 1].repdte;
 		const latestYear = parseInt(latest.slice(0, 4), 10);
-		const years = selectedRange === '5Y' ? 5 : selectedRange === '10Y' ? 10 : 20;
+		const rangeMap: Record<string, number> = { '4Q': 1, '8Q': 2, '5Y': 5, '10Y': 10, '20Y': 20 };
+		const years = rangeMap[selectedRange] ?? 10;
 		const cutoffYear = latestYear - years;
 		return `${cutoffYear}${latest.slice(4)}`;
 	});
@@ -24,12 +30,29 @@
 		return financials.filter((f) => f.repdte >= cutoffDate!);
 	});
 
+	// Export URL with date range params
+	let exportBaseUrl = $derived.by(() => {
+		let url = `/api/v1/banks/${cert}/financials`;
+		const params: string[] = [];
+		if (cutoffDate) params.push(`from=${cutoffDate}`);
+		if (params.length > 0) url += '?' + params.join('&');
+		return url;
+	});
+
+	// Custom fields for FieldPicker + custom chart
+	let customFields = $state<string[]>(['roa', 'roe', 'nimy']);
+
 	function buildSeries(
 		key: string,
 		label: string,
 		color: string | undefined,
 		field: keyof Financial
-	): { key: string; label: string; color?: string; data: Array<{ date: string; value: number | null }> } {
+	): {
+		key: string;
+		label: string;
+		color?: string;
+		data: Array<{ date: string; value: number | null }>;
+	} {
 		return {
 			key,
 			label,
@@ -41,7 +64,7 @@
 		};
 	}
 
-	// Chart configurations (colors removed, let chart component use design system palette)
+	// Chart configurations
 	let keyRatiosSeries = $derived([
 		buildSeries('roa', 'ROA', undefined, 'roa'),
 		buildSeries('roe', 'ROE', undefined, 'roe'),
@@ -64,6 +87,18 @@
 		buildSeries('tier1_rbc', 'Tier 1 RBC', undefined, 'rbc1rwaj'),
 		buildSeries('leverage', 'Leverage Ratio', undefined, 'rbc1aaj')
 	]);
+
+	// Custom chart series from FieldPicker selections
+	let customSeries = $derived(
+		customFields.map((field) =>
+			buildSeries(
+				field,
+				getFieldLabel(field).replace(/\s*\(.*\)/, ''),
+				undefined,
+				field as keyof Financial
+			)
+		)
+	);
 </script>
 
 <div class="space-y-5 pt-3">
@@ -72,25 +107,16 @@
 			<p class="text-[--text-tertiary] text-[15px]">No financial data available</p>
 		</div>
 	{:else}
-		<!-- Date range selector -->
-		<div class="flex items-center gap-2">
-			<span class="text-[13px] text-[--text-tertiary]">Period:</span>
-			<div class="flex gap-1">
-				{#each rangeButtons as range}
-					<button
-						class="px-3 py-1 text-[13px] rounded font-medium transition-colors
-							{selectedRange === range
-								? 'bg-[--accent] text-white'
-								: 'bg-[--surface-2] text-[--text-secondary] hover:bg-[--surface-3]'}"
-						onclick={() => (selectedRange = range)}
-					>
-						{range}
-					</button>
-				{/each}
-			</div>
-			<span class="text-[11px] text-[--text-tertiary] ml-2 tabular-nums">
+		<!-- Controls row: DateRangePicker + ExportButton + FieldPicker -->
+		<div class="flex items-center gap-3 flex-wrap">
+			<DateRangePicker bind:selected={selectedRange} />
+			<span class="text-[11px] text-[--text-tertiary] tabular-nums">
 				{filtered.length} quarters
 			</span>
+			<div class="ml-auto flex items-center gap-2">
+				<FieldPicker bind:selected={customFields} />
+				<ExportButton baseUrl={exportBaseUrl} filename="bank_{cert}_financials" />
+			</div>
 		</div>
 
 		<!-- Charts grid -->
@@ -119,5 +145,37 @@
 				<TimeSeriesChart series={capitalSeries} yAxisFormat="percent" />
 			</section>
 		</div>
+
+		<!-- Custom chart from FieldPicker -->
+		{#if customFields.length > 0}
+			<section>
+				<div class="flex items-center gap-2 mb-2">
+					<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+					<h3 class="text-[13px] font-semibold text-[--text-primary]">Custom Chart</h3>
+				</div>
+				<div
+					class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] p-3"
+					style="box-shadow: var(--shadow-sm)"
+				>
+					<TimeSeriesChart series={customSeries} yAxisFormat="number" />
+				</div>
+			</section>
+		{/if}
+
+		<!-- Pivot Table (power mode only) -->
+		{#if mode === 'power'}
+			<section>
+				<div class="flex items-center gap-2 mb-3">
+					<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+					<h3 class="text-[13px] font-semibold text-[--text-primary]">Pivot Table</h3>
+				</div>
+				<PivotTable
+					data={filtered}
+					metrics={customFields.length > 0
+						? customFields
+						: ['roa', 'roe', 'nimy', 'rbcrwaj', 'nclnlsr', 'eeffr']}
+				/>
+			</section>
+		{/if}
 	{/if}
 </div>

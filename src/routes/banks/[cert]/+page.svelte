@@ -7,6 +7,27 @@
 	let bank = $derived(data.bank);
 	let trends = $derived(data.trends ?? {});
 	let hasFinancials = $derived(bank.latest_repdte !== null);
+
+	function getMetricSemantic(metric: string, value: number | null): 'positive' | 'negative' | 'warning' | undefined {
+		if (value === null || value === undefined) return undefined;
+		const thresholds: Record<string, { good: number; warn: number; inverse?: boolean }> = {
+			roa: { good: 1.0, warn: 0.5 },
+			roe: { good: 10, warn: 5 },
+			nim: { good: 3.0, warn: 2.0 },
+			npl_ratio: { good: 1.0, warn: 3.0, inverse: true },
+			tier1_ratio: { good: 10, warn: 8 }
+		};
+		const t = thresholds[metric];
+		if (!t) return undefined;
+		if (t.inverse) {
+			if (value < t.good) return 'positive';
+			if (value > t.warn) return 'negative';
+			return 'warning';
+		}
+		if (value >= t.good) return 'positive';
+		if (value >= t.warn) return 'warning';
+		return 'negative';
+	}
 </script>
 
 <div class="space-y-5 pt-3">
@@ -108,53 +129,58 @@
 		</div>
 
 		{#if hasFinancials}
-			<div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+			<div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-[--border-muted] rounded-[5px] overflow-hidden border border-[--border-muted]" style="box-shadow: var(--shadow-sm)">
 				<MetricCard
+					compact
 					label="Total Assets"
 					value={formatCurrency(bank.total_assets)}
 					trend={trends.total_assets}
-					trendLabel="vs prior quarter"
 				/>
 				<MetricCard
+					compact
 					label="Total Deposits"
 					value={formatCurrency(bank.total_deposits)}
 					trend={trends.total_deposits}
-					trendLabel="vs prior quarter"
 				/>
 				<MetricCard
+					compact
 					label="ROA"
 					value={formatPercent(bank.latest_roa)}
 					sublabel="Return on Assets"
 					trend={trends.roa}
-					trendLabel="vs prior quarter"
+					semantic={getMetricSemantic('roa', bank.latest_roa)}
 				/>
 				<MetricCard
+					compact
 					label="ROE"
 					value={formatPercent(bank.latest_roe)}
 					sublabel="Return on Equity"
 					trend={trends.roe}
-					trendLabel="vs prior quarter"
+					semantic={getMetricSemantic('roe', bank.latest_roe)}
 				/>
 				<MetricCard
+					compact
 					label="NIM"
 					value={formatPercent(bank.latest_nim)}
 					sublabel="Net Interest Margin"
 					trend={trends.nim}
-					trendLabel="vs prior quarter"
+					semantic={getMetricSemantic('nim', bank.latest_nim)}
 				/>
 				<MetricCard
+					compact
 					label="NPL Ratio"
 					value={formatPercent(bank.latest_npl_ratio)}
 					sublabel="Non-Performing Loans"
 					trend={trends.npl_ratio}
-					trendLabel="vs prior quarter"
+					semantic={getMetricSemantic('npl_ratio', bank.latest_npl_ratio)}
 				/>
 				<MetricCard
+					compact
 					label="Tier 1 Capital"
 					value={formatPercent(bank.latest_tier1_ratio)}
 					sublabel="Risk-Based Capital"
 					trend={trends.tier1_ratio}
-					trendLabel="vs prior quarter"
+					semantic={getMetricSemantic('tier1_ratio', bank.latest_tier1_ratio)}
 				/>
 			</div>
 		{:else}

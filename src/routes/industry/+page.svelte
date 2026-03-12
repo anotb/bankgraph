@@ -112,22 +112,26 @@
 				<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
 				<h2 class="text-[15px] font-semibold text-[--text-primary]">Industry Snapshot</h2>
 			</div>
-			<div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+			<div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-[--border-muted] rounded-[5px] overflow-hidden border border-[--border-muted]" style="box-shadow: var(--shadow-sm)">
 				<MetricCard
+					compact
 					label="Total Banks"
 					value={formatNumber(meta.bank_count)}
 				/>
 				<MetricCard
+					compact
 					label="Active Banks"
 					value={formatNumber(meta.active_count)}
 				/>
 				{#if allMetrics}
 					<MetricCard
+						compact
 						label="Total Assets"
 						value={formatCurrency(getVal(allMetrics, 'total_assets'))}
 						sublabel="Industry-wide"
 					/>
 					<MetricCard
+						compact
 						label="Median ROA"
 						value={formatPercent(getVal(allMetrics, 'median_roa'))}
 						sublabel="All banks"

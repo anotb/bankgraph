@@ -1,5 +1,8 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { getMode } from '$lib/stores/mode.svelte.js';
+
+	let mode = $derived(getMode());
 
 	export interface Column {
 		key: string;
@@ -74,7 +77,7 @@
 				>
 					{#each columns as col, i}
 						<td
-							class="whitespace-nowrap px-3 py-1.5
+							class="whitespace-nowrap {mode === 'power' ? 'px-2 py-0.5 text-[12px]' : 'px-3 py-1.5'}
 								{col.align === 'right' ? 'text-right tabular-nums' : 'text-left'}
 								{i === 0 ? 'font-medium text-[--text-primary]' : 'text-[--text-secondary]'}"
 						>

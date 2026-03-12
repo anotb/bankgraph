@@ -98,5 +98,46 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
     to: to || null
   };
 
+  const format = url.searchParams.get('format') || 'json';
+
+  if (format === 'csv') {
+    if (data.length === 0) {
+      return new Response('', {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/csv',
+          'Content-Disposition': `attachment; filename="bank_${cert}_financials.csv"`
+        }
+      });
+    }
+    const csvHeaders = Object.keys(data[0]);
+    const csvRows = [
+      csvHeaders.join(','),
+      ...data.map(row => csvHeaders.map(h => {
+        const val = (row as unknown as Record<string, unknown>)[h];
+        return val === null || val === undefined ? '' : String(val);
+      }).join(','))
+    ];
+    return new Response(csvRows.join('\n'), {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': `attachment; filename="bank_${cert}_financials.csv"`,
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  }
+
+  if (format === 'json' && url.searchParams.has('download')) {
+    return new Response(JSON.stringify(response, null, 2), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Disposition': `attachment; filename="bank_${cert}_financials.json"`,
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  }
+
   return jsonResponse(response);
 };

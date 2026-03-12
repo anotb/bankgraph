@@ -276,3 +276,14 @@ export function getRegulatorName(code: string): string {
 export function getCharterClassName(code: string): string {
   return charterClassMap[code] ?? code;
 }
+
+export function getFieldLabelWithMdrm(field: string): string {
+  const def = fieldDefs[field];
+  if (!def) return field;
+  if (def.mdrm) return `${def.label} (${def.mdrm})`;
+  return def.label;
+}
+
+export function getFieldMdrm(field: string): string | undefined {
+  return fieldDefs[field]?.mdrm;
+}
