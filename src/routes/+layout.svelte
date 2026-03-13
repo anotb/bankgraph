@@ -2,6 +2,7 @@
 	import '../app.css';
 	import { page } from '$app/stores';
 	import ModeToggle from '$lib/components/layout/ModeToggle.svelte';
+	import ThemeToggle from '$lib/components/layout/ThemeToggle.svelte';
 	import KeyboardShortcuts from '$lib/components/layout/KeyboardShortcuts.svelte';
 	import { getMode } from '$lib/stores/mode.svelte.js';
 
@@ -49,7 +50,8 @@
 				{/each}
 			</div>
 
-			<div class="ml-auto flex items-center gap-3">
+			<div class="ml-auto flex items-center gap-2">
+				<ThemeToggle />
 				<ModeToggle />
 			</div>
 		</div>

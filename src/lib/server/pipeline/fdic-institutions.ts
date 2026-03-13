@@ -11,7 +11,7 @@ const PAGE_SIZE = 10_000;
 const DELAY_BETWEEN_PAGES_MS = 100;
 
 /** Compute asset tier from total_assets (in thousands of dollars) */
-function computeAssetTier(totalAssets: number | null): number | null {
+export function computeAssetTier(totalAssets: number | null): number | null {
   if (totalAssets == null) return null;
   if (totalAssets < 100_000) return 1;
   if (totalAssets < 300_000) return 2;
@@ -23,7 +23,7 @@ function computeAssetTier(totalAssets: number | null): number | null {
 }
 
 /** Map a raw FDIC record to our institution schema */
-function mapInstitution(raw: Record<string, unknown>): Record<string, unknown> {
+export function mapInstitution(raw: Record<string, unknown>): Record<string, unknown> {
   const totalAssets = raw.ASSET != null ? Number(raw.ASSET) : null;
   const activeValue = raw.ACTIVE != null ? (Number(raw.ACTIVE) === 1 ? 1 : 0) : 1;
 

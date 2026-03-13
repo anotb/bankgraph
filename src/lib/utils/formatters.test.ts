@@ -109,6 +109,19 @@ describe('formatDate', () => {
 		expect(formatDate('20241315')).toBe('20241315');
 		expect(formatDate('20240015')).toBe('20240015');
 	});
+
+	it('formats MM/DD/YYYY (FDIC API format)', () => {
+		expect(formatDate('10/17/1904')).toBe('Oct 1904');
+		expect(formatDate('01/01/2000')).toBe('Jan 2000');
+		expect(formatDate('12/31/2024')).toBe('Dec 2024');
+		expect(formatDate('03/15/1998')).toBe('Mar 1998');
+	});
+
+	it('formats YYYY-MM-DD (ISO format)', () => {
+		expect(formatDate('2024-03-31')).toBe('Mar 2024');
+		expect(formatDate('2023-01-01')).toBe('Jan 2023');
+		expect(formatDate('2022-12-31')).toBe('Dec 2022');
+	});
 });
 
 describe('formatNumber', () => {

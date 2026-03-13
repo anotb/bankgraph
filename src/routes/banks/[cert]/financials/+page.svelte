@@ -14,28 +14,44 @@
 	let cert = $derived(data.bank.cert);
 	let mode = $derived(getMode());
 
-	let selectedRange = $state('10Y');
+	// Available date range from server data
+	let availableRange = $derived.by(() => {
+		if (financials.length === 0) return undefined;
+		return {
+			earliest: financials[0].repdte,
+			latest: financials[financials.length - 1].repdte
+		};
+	});
 
-	let cutoffDate = $derived.by(() => {
-		if (selectedRange === 'All' || financials.length === 0) return null;
-		const latest = financials[financials.length - 1].repdte;
-		const latestYear = parseInt(latest.slice(0, 4), 10);
-		const rangeMap: Record<string, number> = { '4Q': 1, '8Q': 2, '5Y': 5, '10Y': 10, '20Y': 20 };
-		const years = rangeMap[selectedRange] ?? 10;
-		const cutoffYear = latestYear - years;
-		return `${cutoffYear}${latest.slice(4)}`;
+	// Date range value (from/to as YYYYMMDD)
+	let dateRange = $state({ from: '', to: '' });
+
+	// Initialize the range once data is available (default to 10Y)
+	let initialized = false;
+	$effect(() => {
+		if (!initialized && availableRange) {
+			initialized = true;
+			const latest = availableRange.latest;
+			const latestYear = parseInt(latest.slice(0, 4), 10);
+			const from = `${latestYear - 10}${latest.slice(4)}`;
+			dateRange = {
+				from: from < availableRange.earliest ? availableRange.earliest : from,
+				to: latest
+			};
+		}
 	});
 
 	let filtered = $derived.by(() => {
-		if (!cutoffDate) return financials;
-		return financials.filter((f) => f.repdte >= cutoffDate!);
+		if (!dateRange.from || !dateRange.to) return financials;
+		return financials.filter((f) => f.repdte >= dateRange.from && f.repdte <= dateRange.to);
 	});
 
 	// Export URL with date range params
 	let exportBaseUrl = $derived.by(() => {
 		let url = `/api/v1/banks/${cert}/financials`;
 		const params: string[] = [];
-		if (cutoffDate) params.push(`from=${cutoffDate}`);
+		if (dateRange.from) params.push(`from=${dateRange.from}`);
+		if (dateRange.to) params.push(`to=${dateRange.to}`);
 		if (params.length > 0) url += '?' + params.join('&');
 		return url;
 	});
@@ -112,7 +128,7 @@
 	{:else}
 		<!-- Controls row: DateRangePicker + ExportButton + FieldPicker -->
 		<div class="flex items-center gap-3 flex-wrap">
-			<DateRangePicker bind:selected={selectedRange} />
+			<DateRangePicker bind:value={dateRange} {availableRange} />
 			<span class="text-[11px] text-[--text-tertiary] data-mono">
 				{filtered.length} quarters
 			</span>

@@ -4,6 +4,8 @@ import { getDB, queryOne, queryAll } from '$lib/server/db';
 interface MetaData {
   bank_count: number;
   active_count: number;
+  total_assets: number | null;
+  total_deposits: number | null;
   latest_quarter: string | null;
 }
 
@@ -13,6 +15,7 @@ interface IndustryMetrics {
   median_nim: number | null;
   total_assets: number | null;
   total_deposits: number | null;
+  repdte: string | null;
 }
 
 interface RecentAnomaly {
@@ -26,21 +29,35 @@ interface RecentAnomaly {
 
 interface FailureSummary {
   total_failures: number;
+  recent_5yr_count: number;
   recent_failures: Array<{ cert: number; name: string | null; fail_date: string | null; state: string | null }>;
+}
+
+interface TopBank {
+  cert: number;
+  name: string;
+  state: string | null;
+  total_assets: number | null;
+  total_deposits: number | null;
 }
 
 const EMPTY_INDUSTRY: IndustryMetrics = {
   median_roa: null, median_roe: null, median_nim: null,
-  total_assets: null, total_deposits: null
+  total_assets: null, total_deposits: null, repdte: null
 };
 
-const EMPTY_META: MetaData = { bank_count: 0, active_count: 0, latest_quarter: null };
+const EMPTY_META: MetaData = {
+  bank_count: 0, active_count: 0,
+  total_assets: null, total_deposits: null,
+  latest_quarter: null
+};
 
 export const load: PageServerLoad = async ({ platform }) => {
   try {
     const db = getDB(platform);
 
-    const [counts, quarter] = await Promise.all([
+    // Core counts + aggregates from institutions
+    const [counts, quarter, assetAgg] = await Promise.all([
       queryOne<{ bank_count: number; active_count: number }>(
         db,
         `SELECT
@@ -51,22 +68,29 @@ export const load: PageServerLoad = async ({ platform }) => {
       queryOne<{ latest_quarter: string | null }>(
         db,
         'SELECT MAX(latest_repdte) as latest_quarter FROM institutions'
+      ),
+      queryOne<{ total_assets: number | null; total_deposits: number | null }>(
+        db,
+        'SELECT SUM(total_assets) as total_assets, SUM(total_deposits) as total_deposits FROM institutions WHERE active = 1'
       )
     ]);
 
     const meta: MetaData = {
       bank_count: counts?.bank_count ?? 0,
       active_count: counts?.active_count ?? 0,
+      total_assets: assetAgg?.total_assets ?? null,
+      total_deposits: assetAgg?.total_deposits ?? null,
       latest_quarter: quarter?.latest_quarter ?? null
     };
 
-    // Industry metrics from agg_industry
+    // Industry metrics from agg_industry (latest quarter)
     let industryMetrics: IndustryMetrics = { ...EMPTY_INDUSTRY };
     try {
       const latestRepdte = await queryOne<{ repdte: string }>(
         db, 'SELECT MAX(repdte) as repdte FROM agg_industry'
       );
       if (latestRepdte?.repdte) {
+        industryMetrics.repdte = latestRepdte.repdte;
         const aggRows = await queryAll<{ metric: string; value: number | null }>(
           db,
           'SELECT metric, value FROM agg_industry WHERE repdte = ? AND segment = ?',
@@ -96,30 +120,55 @@ export const load: PageServerLoad = async ({ platform }) => {
       );
     } catch { /* anomalies table may be empty */ }
 
-    // Failures summary
-    let failureSummary: FailureSummary = { total_failures: 0, recent_failures: [] };
+    // Failures summary with 5-year count
+    let failureSummary: FailureSummary = { total_failures: 0, recent_5yr_count: 0, recent_failures: [] };
     try {
+      // Total failures
       const failCount = await queryOne<{ cnt: number }>(
         db, 'SELECT COUNT(*) as cnt FROM failures'
       );
+      // Failures in last 5 years (fail_date can be YYYYMMDD or YYYY-MM-DD)
+      const fiveYearsAgo = `${new Date().getFullYear() - 5}0101`;
+      const recent5yr = await queryOne<{ cnt: number }>(
+        db,
+        `SELECT COUNT(*) as cnt FROM failures
+         WHERE REPLACE(fail_date, '-', '') >= ?`,
+        [fiveYearsAgo]
+      );
+      // Recent failures list
       const recentFails = await queryAll<{ cert: number; name: string | null; fail_date: string | null; state: string | null }>(
         db,
         'SELECT cert, name, fail_date, state FROM failures ORDER BY fail_date DESC LIMIT 5'
       );
       failureSummary = {
         total_failures: failCount?.cnt ?? 0,
+        recent_5yr_count: recent5yr?.cnt ?? 0,
         recent_failures: recentFails
       };
     } catch { /* failures table may be empty */ }
 
-    return { meta, industryMetrics, recentAnomalies, failureSummary };
+    // Top 8 banks by total assets
+    let topBanks: TopBank[] = [];
+    try {
+      topBanks = await queryAll<TopBank>(
+        db,
+        `SELECT cert, name, state, total_assets, total_deposits
+         FROM institutions
+         WHERE active = 1 AND total_assets IS NOT NULL
+         ORDER BY total_assets DESC
+         LIMIT 8`
+      );
+    } catch { /* institutions may be empty */ }
+
+    return { meta, industryMetrics, recentAnomalies, failureSummary, topBanks };
   } catch {
     // DB not available (local dev, first deploy, etc.)
     return {
       meta: EMPTY_META,
       industryMetrics: EMPTY_INDUSTRY,
       recentAnomalies: [] as RecentAnomaly[],
-      failureSummary: { total_failures: 0, recent_failures: [] } as FailureSummary
+      failureSummary: { total_failures: 0, recent_5yr_count: 0, recent_failures: [] } as FailureSummary,
+      topBanks: [] as TopBank[]
     };
   }
 };

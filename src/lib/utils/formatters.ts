@@ -25,7 +25,7 @@ export function formatPercent(value: number | null, decimals = 2): string {
   return `${value.toFixed(decimals)}%`;
 }
 
-/** Format a YYYYMMDD date string to "Mar 2024" */
+/** Format a date string to "Mar 2024". Accepts YYYYMMDD, YYYY-MM-DD, or MM/DD/YYYY formats. */
 export function formatDate(dateStr: string | null): string {
   if (!dateStr) return '—';
 
@@ -34,10 +34,28 @@ export function formatDate(dateStr: string | null): string {
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
   ];
 
-  const year = dateStr.slice(0, 4);
-  const monthIdx = parseInt(dateStr.slice(4, 6), 10) - 1;
+  let year: string;
+  let monthIdx: number;
 
-  if (monthIdx < 0 || monthIdx > 11) return dateStr;
+  if (dateStr.includes('/')) {
+    // MM/DD/YYYY format (from FDIC API)
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return dateStr;
+    monthIdx = parseInt(parts[0], 10) - 1;
+    year = parts[2];
+  } else if (dateStr.includes('-')) {
+    // YYYY-MM-DD format (ISO)
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    year = parts[0];
+    monthIdx = parseInt(parts[1], 10) - 1;
+  } else {
+    // YYYYMMDD format
+    year = dateStr.slice(0, 4);
+    monthIdx = parseInt(dateStr.slice(4, 6), 10) - 1;
+  }
+
+  if (monthIdx < 0 || monthIdx > 11 || !year || year.length < 4) return dateStr;
 
   return `${months[monthIdx]} ${year}`;
 }

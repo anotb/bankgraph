@@ -49,7 +49,7 @@ export function pearsonCorrelation(x: number[], y: number[]): number {
 /**
  * Convert a YYYYMMDD reporting date to the start of its quarter as YYYY-MM-DD.
  */
-function repdteToQuarterStart(repdte: string): string {
+export function repdteToQuarterStart(repdte: string): string {
   const year = repdte.slice(0, 4);
   const month = parseInt(repdte.slice(4, 6), 10);
   const q = Math.ceil(month / 3);

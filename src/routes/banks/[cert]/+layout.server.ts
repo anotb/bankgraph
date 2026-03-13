@@ -21,9 +21,13 @@ interface PeerComparisonMetric {
 interface QuarterSnapshot {
   repdte: string;
   asset: number | null;
+  dep: number | null;
   roa: number | null;
   roe: number | null;
   nimy: number | null;
+  nclnlsr: number | null;
+  rbcrwaj: number | null;
+  numemp: number | null;
 }
 
 /** Calculate percentile rank of a value within its peer group */
@@ -183,7 +187,7 @@ export const load: LayoutServerLoad = async ({ params, platform }) => {
   try {
     recentQuarters = await queryAll<QuarterSnapshot>(
       db,
-      'SELECT repdte, asset, roa, roe, nimy FROM financials WHERE cert = ? ORDER BY repdte DESC LIMIT 4',
+      'SELECT repdte, asset, dep, roa, roe, nimy, nclnlsr, rbcrwaj, numemp FROM financials WHERE cert = ? ORDER BY repdte DESC LIMIT 4',
       [cert]
     );
   } catch {

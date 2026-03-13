@@ -15,11 +15,6 @@ let mode = $state<Mode>(getInitialMode());
 
 function applyMode(m: Mode): void {
   if (!browser) return;
-  if (m === 'power') {
-    document.documentElement.classList.add('dark');
-  } else {
-    document.documentElement.classList.remove('dark');
-  }
   localStorage.setItem(STORAGE_KEY, m);
 }
 

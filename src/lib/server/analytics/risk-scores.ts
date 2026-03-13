@@ -10,7 +10,7 @@ const BANK_BATCH_SIZE = 200;
 
 // --- PCA Classification ---
 
-interface PCAInput {
+export interface PCAInput {
   rbcrwaj: number | null;
   rbc1rwaj: number | null;
   rbc1aaj: number | null;
@@ -23,7 +23,7 @@ type PCACategory =
   | 'significantly_undercapitalized'
   | 'critically_undercapitalized';
 
-function classifyPCA(data: PCAInput): PCACategory {
+export function classifyPCA(data: PCAInput): PCACategory {
   const { rbcrwaj, rbc1rwaj, rbc1aaj } = data;
 
   // Can't classify without data
@@ -67,7 +67,7 @@ function classifyPCA(data: PCAInput): PCACategory {
 
 // --- Capital Score (0-100) ---
 
-function computeCapitalScore(data: PCAInput): number {
+export function computeCapitalScore(data: PCAInput): number {
   const category = classifyPCA(data);
   const { rbcrwaj, rbc1rwaj, rbc1aaj } = data;
 
@@ -105,7 +105,7 @@ function computeCapitalScore(data: PCAInput): number {
 // --- Asset Quality Score (0-100) ---
 // Based on NPL ratio peer percentile (inverted: low NPL = high score)
 
-function computeAssetQualityScore(nclnlsrPercentile: number | null): number {
+export function computeAssetQualityScore(nclnlsrPercentile: number | null): number {
   if (nclnlsrPercentile == null) return 50; // default
 
   // Invert: high percentile (high NPL, bad) = low score
@@ -128,7 +128,7 @@ function computeAssetQualityScore(nclnlsrPercentile: number | null): number {
 // --- Earnings Score (0-100) ---
 // Based on ROA peer percentile, with trend penalty
 
-function computeEarningsScore(
+export function computeEarningsScore(
   roaPercentile: number | null,
   roaTrendSlope: number | null
 ): number {
@@ -150,7 +150,7 @@ function computeEarningsScore(
 // --- Liquidity Score (0-100) ---
 // Based on loan-to-deposit ratio peer percentile (inverted: high LTD = lower score)
 
-function computeLiquidityScore(lnlsdeprPercentile: number | null): number {
+export function computeLiquidityScore(lnlsdeprPercentile: number | null): number {
   if (lnlsdeprPercentile == null) return 50;
 
   // Invert: high LTD percentile = lower score (less liquid)
@@ -304,7 +304,7 @@ export async function computeRiskScores(db: D1Database, repdte: string): Promise
  * Approximate a value's percentile within its peer group using z-score
  * and normal CDF approximation. Returns 0-100.
  */
-function computePercentileFromPeer(
+export function computePercentileFromPeer(
   value: number | null,
   peerGroup: string | null,
   metric: string,
@@ -322,7 +322,7 @@ function computePercentileFromPeer(
 }
 
 /** Approximate standard normal CDF using rational approximation. */
-function normalCDF(z: number): number {
+export function normalCDF(z: number): number {
   if (z < -6) return 0;
   if (z > 6) return 1;
 

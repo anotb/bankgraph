@@ -8,11 +8,68 @@
 	let { data } = $props();
 	let bank = $derived(data.bank);
 	let trends = $derived(data.trends ?? {});
-	let hasFinancials = $derived(bank.latest_repdte !== null);
 	let peerComparison = $derived(data.peerComparison ?? []);
 	let recentQuarters = $derived(data.recentQuarters ?? []);
 	let hasPeerData = $derived(peerComparison.length > 0 && peerComparison.some((m: { percentile: number | null }) => m.percentile !== null));
 	let hasHistory = $derived(recentQuarters.length > 0);
+
+	// Toggle for additional details section
+	let showAdditionalDetails = $state(false);
+
+	/** Derive metrics from recentQuarters[0] when institution snapshot fields are null */
+	let latestQ = $derived(recentQuarters.length > 0 ? recentQuarters[0] : null);
+
+	let metricsSource = $derived.by(() => {
+		const fromSnapshot = bank.latest_repdte !== null;
+		const fromQuarters = !fromSnapshot && latestQ !== null;
+		if (!fromSnapshot && !fromQuarters) return null;
+
+		return {
+			repdte: fromSnapshot ? bank.latest_repdte : latestQ!.repdte,
+			total_assets: fromSnapshot ? bank.total_assets : latestQ!.asset,
+			total_deposits: fromSnapshot ? bank.total_deposits : latestQ!.dep,
+			roa: fromSnapshot ? bank.latest_roa : latestQ!.roa,
+			roe: fromSnapshot ? bank.latest_roe : latestQ!.roe,
+			nim: fromSnapshot ? bank.latest_nim : latestQ!.nimy,
+			npl_ratio: fromSnapshot ? bank.latest_npl_ratio : latestQ!.nclnlsr,
+			tier1_ratio: fromSnapshot ? bank.latest_tier1_ratio : latestQ!.rbcrwaj,
+			derived: fromQuarters
+		};
+	});
+
+	let hasFinancials = $derived(metricsSource !== null);
+
+	/** Compute QoQ trend from recentQuarters when server-side trends are empty */
+	let effectiveTrends = $derived.by(() => {
+		const serverTrends = data.trends ?? {};
+		const hasServerTrends = Object.values(serverTrends).some((v) => v !== null && v !== undefined);
+		if (hasServerTrends) return serverTrends;
+
+		if (recentQuarters.length < 2) return {};
+
+		const [current, previous] = recentQuarters;
+		function qoqDelta(curr: number | null, prev: number | null): number | null {
+			if (curr === null || prev === null) return null;
+			return curr - prev;
+		}
+		function pctChange(curr: number | null, prev: number | null): number | null {
+			if (curr === null || prev === null || prev === 0) return null;
+			return ((curr - prev) / Math.abs(prev)) * 100;
+		}
+
+		return {
+			roa: qoqDelta(current.roa, previous.roa),
+			roe: qoqDelta(current.roe, previous.roe),
+			nim: qoqDelta(current.nimy, previous.nimy),
+			npl_ratio: qoqDelta(current.nclnlsr, previous.nclnlsr),
+			tier1_ratio: qoqDelta(current.rbcrwaj, previous.rbcrwaj),
+			total_assets: pctChange(current.asset, previous.asset),
+			total_deposits: pctChange(current.dep, previous.dep)
+		};
+	});
+
+	/** Employee count: prefer institution field, fallback to latest quarter */
+	let employeeCount = $derived(bank.num_employees ?? latestQ?.numemp ?? null);
 
 	/** Format YYYYMMDD to Q1 2024 style */
 	function formatQuarter(repdte: string): string {
@@ -43,10 +100,40 @@
 		if (value >= t.warn) return 'warning';
 		return 'negative';
 	}
+
+	/** Fields that are commonly null and should go in "Additional Details" */
+	let additionalFields = $derived.by(() => {
+		const fields: Array<{ label: string; value: string }> = [];
+		if (bank.rssd_id !== null) fields.push({ label: 'RSSD ID', value: String(bank.rssd_id) });
+		if (bank.hc_rssd_id !== null) fields.push({ label: 'HC RSSD ID', value: String(bank.hc_rssd_id) });
+		if (bank.county) fields.push({ label: 'County', value: bank.county });
+		if (bank.zip) fields.push({ label: 'ZIP', value: bank.zip });
+		if (bank.insured_date) fields.push({ label: 'Insured Date', value: formatDate(bank.insured_date) });
+		if (bank.asset_tier !== null) {
+			const tierLabels: Record<number, string> = {
+				1: 'Under $100M', 2: '$100M - $300M', 3: '$300M - $1B',
+				4: '$1B - $10B', 5: '$10B - $50B', 6: '$50B - $250B', 7: 'Over $250B'
+			};
+			fields.push({ label: 'Asset Tier', value: tierLabels[bank.asset_tier] ?? `Tier ${bank.asset_tier}` });
+		}
+		return fields;
+	});
+
+	/** Helper to get a semantic color class */
+	function semanticColor(semantic: string | undefined): string {
+		if (semantic === 'positive') return 'text-[--positive]';
+		if (semantic === 'negative') return 'text-[--negative]';
+		if (semantic === 'warning') return 'text-[--warning]';
+		return 'text-[--text-primary]';
+	}
+
+	const detailRow = 'flex justify-between items-center px-3 py-2';
+	const detailLabel = 'text-[13px] text-[--text-tertiary]';
+	const detailValue = 'text-[13px] font-medium text-[--text-primary]';
 </script>
 
 <div class="space-y-5 pt-3">
-	<!-- Institution info -->
+	<!-- Institution Details: grouped into Identity, Location, Regulatory -->
 	<section>
 		<div class="flex items-center gap-2 mb-3">
 			<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
@@ -54,60 +141,28 @@
 		</div>
 		<div class="rounded-md bg-[--surface-1]" style="box-shadow: var(--shadow-sm)">
 			<div class="grid grid-cols-1 md:grid-cols-2">
-				<!-- Left column -->
+				<!-- Identity & Location -->
 				<div class="divide-y divide-[--surface-2]">
-					<div class="flex justify-between items-center px-3 py-2">
-						<span class="text-[13px] text-[--text-tertiary]">Name</span>
-						<span class="text-[13px] font-medium text-[--text-primary]">{bank.name}</span>
+					<div class="{detailRow}">
+						<span class="{detailLabel}">Name</span>
+						<span class="{detailValue}">{bank.name}</span>
 					</div>
-					<div class="flex justify-between items-center px-3 py-2">
-						<span class="text-[13px] text-[--text-tertiary]">CERT</span>
-						<span class="text-[13px] font-medium text-[--text-primary] data-mono">{bank.cert}</span>
+					<div class="{detailRow}">
+						<span class="{detailLabel}">CERT</span>
+						<span class="{detailValue} data-mono">{bank.cert}</span>
 					</div>
-					<div class="flex justify-between items-center px-3 py-2">
-						<span class="text-[13px] text-[--text-tertiary]">RSSD ID</span>
-						<span class="text-[13px] font-medium text-[--text-primary] data-mono">{bank.rssd_id ?? '\u2014'}</span>
-					</div>
-					<div class="flex justify-between items-center px-3 py-2">
-						<span class="text-[13px] text-[--text-tertiary]">Location</span>
-						<span class="text-[13px] font-medium text-[--text-primary]">
-							{[bank.city, bank.state].filter(Boolean).join(', ')}{bank.zip ? ` ${bank.zip}` : ''}
+					<div class="{detailRow}">
+						<span class="{detailLabel}">Location</span>
+						<span class="{detailValue}">
+							{[bank.city, bank.state].filter(Boolean).join(', ')}
 						</span>
 					</div>
-					<div class="flex justify-between items-center px-3 py-2">
-						<span class="text-[13px] text-[--text-tertiary]">County</span>
-						<span class="text-[13px] font-medium text-[--text-primary]">{bank.county ?? '\u2014'}</span>
+					<div class="{detailRow}">
+						<span class="{detailLabel}">Established</span>
+						<span class="{detailValue}">{formatDate(bank.established_date)}</span>
 					</div>
-					<div class="flex justify-between items-center px-3 py-2">
-						<span class="text-[13px] text-[--text-tertiary]">Established</span>
-						<span class="text-[13px] font-medium text-[--text-primary]">{formatDate(bank.established_date)}</span>
-					</div>
-					<div class="flex justify-between items-center px-3 py-2">
-						<span class="text-[13px] text-[--text-tertiary]">Insured</span>
-						<span class="text-[13px] font-medium text-[--text-primary]">{formatDate(bank.insured_date)}</span>
-					</div>
-				</div>
-
-				<!-- Right column -->
-				<div class="divide-y divide-[--surface-2] md:border-l md:border-[--surface-2]">
-					<div class="flex justify-between items-center px-3 py-2">
-						<span class="text-[13px] text-[--text-tertiary]">Regulator</span>
-						<span class="text-[13px] font-medium text-[--text-primary]">
-							{bank.regulator ? getRegulatorName(bank.regulator) : '\u2014'}
-						</span>
-					</div>
-					<div class="flex justify-between items-center px-3 py-2">
-						<span class="text-[13px] text-[--text-tertiary]">Charter Class</span>
-						<span class="text-[13px] font-medium text-[--text-primary]">
-							{bank.charter_class ? getCharterClassName(bank.charter_class) : '\u2014'}
-						</span>
-					</div>
-					<div class="flex justify-between items-center px-3 py-2">
-						<span class="text-[13px] text-[--text-tertiary]">Holding Company</span>
-						<span class="text-[13px] font-medium text-[--text-primary]">{bank.holding_company ?? '\u2014'}</span>
-					</div>
-					<div class="flex justify-between items-center px-3 py-2">
-						<span class="text-[13px] text-[--text-tertiary]">Status</span>
+					<div class="{detailRow}">
+						<span class="{detailLabel}">Status</span>
 						<span>
 							{#if bank.active === 1}
 								<span class="inline-flex items-center rounded-sm px-1.5 py-0.5 text-[11px] font-medium tracking-wide bg-[--positive-muted] text-[--positive]">
@@ -120,82 +175,137 @@
 							{/if}
 						</span>
 					</div>
-					<div class="flex justify-between items-center px-3 py-2">
-						<span class="text-[13px] text-[--text-tertiary]">Branches</span>
-						<span class="text-[13px] font-medium text-[--text-primary] tabular-nums">{formatNumber(bank.num_branches)}</span>
+				</div>
+
+				<!-- Regulatory & Operations -->
+				<div class="divide-y divide-[--surface-2] md:border-l md:border-[--surface-2]">
+					<div class="{detailRow}">
+						<span class="{detailLabel}">Regulator</span>
+						<span class="{detailValue}">
+							{bank.regulator ? getRegulatorName(bank.regulator) : '\u2014'}
+						</span>
 					</div>
-					<div class="flex justify-between items-center px-3 py-2">
-						<span class="text-[13px] text-[--text-tertiary]">Employees</span>
-						<span class="text-[13px] font-medium text-[--text-primary] tabular-nums">{formatNumber(bank.num_employees)}</span>
+					<div class="{detailRow}">
+						<span class="{detailLabel}">Charter Class</span>
+						<span class="{detailValue}">
+							{bank.charter_class ? getCharterClassName(bank.charter_class) : '\u2014'}
+						</span>
+					</div>
+					<div class="{detailRow}">
+						<span class="{detailLabel}">Holding Company</span>
+						<span class="{detailValue}">{bank.holding_company ?? '\u2014'}</span>
+					</div>
+					<div class="{detailRow}">
+						<span class="{detailLabel}">Branches</span>
+						<span class="{detailValue} tabular-nums">{formatNumber(bank.num_branches)}</span>
+					</div>
+					<div class="{detailRow}">
+						<span class="{detailLabel}">Employees</span>
+						<span class="{detailValue} tabular-nums">{formatNumber(employeeCount)}</span>
 					</div>
 				</div>
 			</div>
+
+			<!-- Additional Details (collapsible, for fields that are often null) -->
+			{#if additionalFields.length > 0}
+				<div class="border-t border-[--surface-2]">
+					<button
+						class="w-full flex items-center justify-between px-3 py-2 text-[12px] text-[--text-tertiary] hover:text-[--text-secondary] transition-colors"
+						onclick={() => showAdditionalDetails = !showAdditionalDetails}
+					>
+						<span class="font-medium">Additional Details ({additionalFields.length})</span>
+						<svg
+							class="w-3.5 h-3.5 transition-transform duration-200 {showAdditionalDetails ? 'rotate-180' : ''}"
+							fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+						>
+							<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+						</svg>
+					</button>
+					{#if showAdditionalDetails}
+						<div class="divide-y divide-[--surface-2] border-t border-[--surface-2]">
+							<div class="grid grid-cols-1 md:grid-cols-2">
+								{#each additionalFields as field, i}
+									<div class="{detailRow} {i % 2 === 1 ? 'md:border-l md:border-[--surface-2]' : ''}">
+										<span class="{detailLabel}">{field.label}</span>
+										<span class="{detailValue} data-mono">{field.value}</span>
+									</div>
+								{/each}
+							</div>
+						</div>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	</section>
 
-	<!-- Key metrics -->
+	<!-- Key Metrics -->
 	<section>
 		<div class="flex items-center gap-2 mb-3">
 			<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
 			<h2 class="text-[15px] font-semibold text-[--text-primary]">Key Metrics</h2>
-			{#if hasFinancials}
-				<span class="text-[11px] text-[--text-tertiary] ml-1">as of {formatDate(bank.latest_repdte)}</span>
+			{#if metricsSource}
+				<span class="text-[11px] text-[--text-tertiary] ml-1">
+					as of {formatQuarter(metricsSource.repdte ?? '')}
+				</span>
+				{#if metricsSource.derived}
+					<span class="text-[10px] text-[--warning] ml-1">(from quarterly data)</span>
+				{/if}
 			{/if}
 		</div>
 
-		{#if hasFinancials}
+		{#if hasFinancials && metricsSource}
 			<div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-[--border-muted] rounded-[5px] overflow-hidden border border-[--border-muted]" style="box-shadow: var(--shadow-sm)">
 				<MetricCard
 					compact
 					label="Total Assets"
-					value={formatCurrency(bank.total_assets)}
-					trend={trends.total_assets}
+					value={formatCurrency(metricsSource.total_assets)}
+					trend={effectiveTrends.total_assets}
 				/>
 				<MetricCard
 					compact
 					label="Total Deposits"
-					value={formatCurrency(bank.total_deposits)}
-					trend={trends.total_deposits}
+					value={formatCurrency(metricsSource.total_deposits)}
+					trend={effectiveTrends.total_deposits}
 				/>
 				<MetricCard
 					compact
 					label="ROA"
-					value={formatPercent(bank.latest_roa)}
+					value={formatPercent(metricsSource.roa)}
 					sublabel="Return on Assets"
-					trend={trends.roa}
-					semantic={getMetricSemantic('roa', bank.latest_roa)}
+					trend={effectiveTrends.roa}
+					semantic={getMetricSemantic('roa', metricsSource.roa)}
 				/>
 				<MetricCard
 					compact
 					label="ROE"
-					value={formatPercent(bank.latest_roe)}
+					value={formatPercent(metricsSource.roe)}
 					sublabel="Return on Equity"
-					trend={trends.roe}
-					semantic={getMetricSemantic('roe', bank.latest_roe)}
+					trend={effectiveTrends.roe}
+					semantic={getMetricSemantic('roe', metricsSource.roe)}
 				/>
 				<MetricCard
 					compact
 					label="NIM"
-					value={formatPercent(bank.latest_nim)}
+					value={formatPercent(metricsSource.nim)}
 					sublabel="Net Interest Margin"
-					trend={trends.nim}
-					semantic={getMetricSemantic('nim', bank.latest_nim)}
+					trend={effectiveTrends.nim}
+					semantic={getMetricSemantic('nim', metricsSource.nim)}
 				/>
 				<MetricCard
 					compact
 					label="NPL Ratio"
-					value={formatPercent(bank.latest_npl_ratio)}
+					value={formatPercent(metricsSource.npl_ratio)}
 					sublabel="Non-Performing Loans"
-					trend={trends.npl_ratio}
-					semantic={getMetricSemantic('npl_ratio', bank.latest_npl_ratio)}
+					trend={effectiveTrends.npl_ratio}
+					semantic={getMetricSemantic('npl_ratio', metricsSource.npl_ratio)}
 				/>
 				<MetricCard
 					compact
 					label="Tier 1 Capital"
-					value={formatPercent(bank.latest_tier1_ratio)}
+					value={formatPercent(metricsSource.tier1_ratio)}
 					sublabel="Risk-Based Capital"
-					trend={trends.tier1_ratio}
-					semantic={getMetricSemantic('tier1_ratio', bank.latest_tier1_ratio)}
+					trend={effectiveTrends.tier1_ratio}
+					semantic={getMetricSemantic('tier1_ratio', metricsSource.tier1_ratio)}
 				/>
 			</div>
 		{:else}
@@ -243,17 +353,17 @@
 								<td class="px-3 py-1.5 font-medium text-[--text-primary] data-mono">{formatQuarter(q.repdte)}</td>
 								<td class="px-3 py-1.5 text-right text-[--text-primary] data-mono">{formatCurrency(q.asset)}</td>
 								<td class="px-3 py-1.5 text-right data-mono">
-									<span class="{getMetricSemantic('roa', q.roa) === 'positive' ? 'text-[--positive]' : getMetricSemantic('roa', q.roa) === 'negative' ? 'text-[--negative]' : getMetricSemantic('roa', q.roa) === 'warning' ? 'text-[--warning]' : 'text-[--text-primary]'}">
+									<span class="{semanticColor(getMetricSemantic('roa', q.roa))}">
 										{formatPercent(q.roa)}
 									</span>
 								</td>
 								<td class="px-3 py-1.5 text-right data-mono">
-									<span class="{getMetricSemantic('roe', q.roe) === 'positive' ? 'text-[--positive]' : getMetricSemantic('roe', q.roe) === 'negative' ? 'text-[--negative]' : getMetricSemantic('roe', q.roe) === 'warning' ? 'text-[--warning]' : 'text-[--text-primary]'}">
+									<span class="{semanticColor(getMetricSemantic('roe', q.roe))}">
 										{formatPercent(q.roe)}
 									</span>
 								</td>
 								<td class="px-3 py-1.5 text-right data-mono">
-									<span class="{getMetricSemantic('nim', q.nimy) === 'positive' ? 'text-[--positive]' : getMetricSemantic('nim', q.nimy) === 'negative' ? 'text-[--negative]' : getMetricSemantic('nim', q.nimy) === 'warning' ? 'text-[--warning]' : 'text-[--text-primary]'}">
+									<span class="{semanticColor(getMetricSemantic('nim', q.nimy))}">
 										{formatPercent(q.nimy)}
 									</span>
 								</td>

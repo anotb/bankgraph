@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { formatCurrency, formatPercent, formatNumber } from '$lib/utils/formatters.js';
-	import { getMode } from '$lib/stores/mode.svelte.js';
+	import { isDark as getIsDark } from '$lib/stores/theme.svelte.js';
 
 	type SeriesDataPoint = { date: string; value: number | null };
 	type SeriesConfig = {
@@ -28,7 +28,7 @@
 	let chartContainer: HTMLDivElement;
 	let chart: any;
 
-	let mode = $derived(getMode());
+	let dark = $derived(getIsDark());
 
 	// Check if there's sufficient data to render a meaningful chart
 	let totalDataPoints = $derived(
@@ -70,7 +70,7 @@
 	$effect(() => {
 		// Track series and mode reactively
 		const currentSeries = series;
-		const currentMode = mode;
+		const isDark = dark;
 		const enoughData = hasEnoughData;
 		let disposed = false;
 
@@ -89,8 +89,6 @@
 			if (!chart) {
 				chart = echarts.init(chartContainer);
 			}
-
-			const isDark = currentMode === 'power';
 			const colors = isDark ? darkColors : lightColors;
 
 			const option: any = {

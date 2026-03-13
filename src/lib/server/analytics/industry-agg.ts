@@ -18,7 +18,7 @@ const SEGMENTS: SegmentDef[] = [
   { name: 'large', where: 'asset_bucket IN (6,7)', params: [] }
 ];
 
-function medianOf(sorted: number[]): number {
+export function medianOf(sorted: number[]): number {
   if (sorted.length === 0) return 0;
   const mid = Math.floor(sorted.length / 2);
   if (sorted.length % 2 === 1) return sorted[mid];

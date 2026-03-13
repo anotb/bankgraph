@@ -47,7 +47,7 @@ interface FDICFailuresResponse {
 }
 
 /** Map a raw FDIC failure record to our schema */
-function mapFailure(raw: Record<string, unknown>): Record<string, unknown> {
+export function mapFailure(raw: Record<string, unknown>): Record<string, unknown> {
   const cityst = String(raw.CITYST ?? '');
   const parts = cityst.split(', ');
   const city = parts[0] || null;

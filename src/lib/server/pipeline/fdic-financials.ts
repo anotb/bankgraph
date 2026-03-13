@@ -67,7 +67,7 @@ async function fetchFinancialsPage(
 }
 
 /** Compute asset tier bucket from ASSET (in thousands of dollars) */
-function computeAssetBucket(asset: number | null): number | null {
+export function computeAssetBucket(asset: number | null): number | null {
   if (asset == null) return null;
   if (asset < 100_000) return 1;
   if (asset < 300_000) return 2;
@@ -79,12 +79,12 @@ function computeAssetBucket(asset: number | null): number | null {
 }
 
 /** Safely convert to number or null */
-function toNum(v: unknown): number | null {
+export function toNum(v: unknown): number | null {
   return v != null ? Number(v) : null;
 }
 
 /** Map a raw FDIC financials record to our schema */
-function mapFinancial(raw: Record<string, unknown>): Record<string, unknown> {
+export function mapFinancial(raw: Record<string, unknown>): Record<string, unknown> {
   const asset = toNum(raw.ASSET);
   return {
     cert: Number(raw.CERT),

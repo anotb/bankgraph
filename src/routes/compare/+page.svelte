@@ -85,8 +85,8 @@
 			try {
 				const res = await fetch(`/api/v1/banks/${cert}`);
 				if (res.ok) {
-					const json = (await res.json()) as { data?: Institution };
-					if (json.data) banks.push(json.data);
+					const json = (await res.json()) as Institution & { latest_financials?: unknown };
+					if (json.cert) banks.push(json);
 				}
 			} catch {
 				// Skip banks that fail to load
@@ -247,9 +247,11 @@
 
 		loading = true;
 		error = null;
+		let cancelled = false;
 
 		fetch(`/api/v1/compare?certs=${certs.join(',')}&metrics=${metrics.join(',')}`)
 			.then(async (res) => {
+				if (cancelled) return;
 				if (!res.ok) {
 					const body = (await res.json().catch(() => null)) as {
 						error?: string;
@@ -259,15 +261,21 @@
 				return res.json() as Promise<CompareResponse>;
 			})
 			.then((data) => {
+				if (cancelled || !data) return;
 				compareData = data;
 			})
 			.catch((e) => {
+				if (cancelled) return;
 				error = e.message;
 				compareData = null;
 			})
 			.finally(() => {
-				loading = false;
+				if (!cancelled) loading = false;
 			});
+
+		return () => {
+			cancelled = true;
+		};
 	});
 
 	// ── Export URL ──
@@ -319,6 +327,15 @@
 				};
 			});
 	}
+
+	// ── Banks with no financials data ──
+	let banksWithNoData = $derived.by(() => {
+		if (!compareData) return [];
+		return selectedBanks.filter((bank) => {
+			const rows = compareData!.data[bank.cert];
+			return !rows || rows.length === 0;
+		});
+	});
 
 	// ── Comparison table ──
 	const lowerIsBetter = new Set(['eeffr', 'nclnlsr']);
@@ -438,8 +455,8 @@
 		best: number | null,
 		worst: number | null
 	): string {
-		if (cert === best) return 'bg-[--positive]/8';
-		if (cert === worst) return 'bg-[--negative]/8';
+		if (cert === best) return 'bg-[--positive-muted]';
+		if (cert === worst) return 'bg-[--negative-muted]';
 		return '';
 	}
 </script>
@@ -561,7 +578,7 @@
 								<span class="font-medium text-[--text-primary] text-[13px] truncate">
 									{bank.name}
 								</span>
-								<span class="ml-2 shrink-0 text-[12px] text-[--text-tertiary]" data-mono>
+								<span class="ml-2 shrink-0 text-[12px] text-[--text-tertiary] data-mono">
 									{bank.city ?? ''}{bank.city && bank.state ? ', ' : ''}{bank.state ??
 										''}
 									{#if bank.total_assets}
@@ -584,7 +601,9 @@
 					<span
 						class="inline-flex items-center gap-1 rounded-full bg-[--accent-muted] text-[--accent-text] px-2.5 py-1 text-[12px] font-medium"
 					>
-						{bank.name.length > 25 ? bank.name.slice(0, 25) + '...' : bank.name}
+						<a href="/banks/{bank.cert}" class="hover:underline" title={bank.name}>
+							{bank.name.length > 25 ? bank.name.slice(0, 25) + '...' : bank.name}
+						</a>
 						<button
 							type="button"
 							class="ml-0.5 hover:text-[--negative] transition-colors"
@@ -733,6 +752,23 @@
 			</div>
 		</div>
 
+		<!-- No-data notice for banks missing financials -->
+		{#if banksWithNoData.length > 0}
+			<div
+				class="rounded-md bg-[--warning-muted] px-4 py-3 text-[13px] text-[--text-secondary]"
+				style="box-shadow: var(--shadow-xs)"
+			>
+				<span class="font-medium text-[--warning]">Missing data:</span>
+				{banksWithNoData.map((b) => b.name).join(', ')}
+				{banksWithNoData.length === 1 ? ' has' : ' have'} no financial data available.
+				{#if banksWithNoData.length === selectedBanks.length}
+					No comparison can be shown.
+				{:else}
+					Showing comparison for banks with available data.
+				{/if}
+			</div>
+		{/if}
+
 		<!-- Charts -->
 		<section>
 			<div class="flex items-center gap-2 mb-3">
@@ -784,11 +820,17 @@
 								</th>
 								{#each selectedBanks as bank (bank.cert)}
 									<th
-										class="text-right px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider whitespace-nowrap"
+										class="text-right px-3 py-2 text-[11px] font-medium uppercase tracking-wider whitespace-nowrap"
 									>
-										{bank.name.length > 18
-											? bank.name.slice(0, 18) + '...'
-											: bank.name}
+										<a
+											href="/banks/{bank.cert}"
+											class="text-[--text-tertiary] hover:text-[--accent] transition-colors"
+											title={bank.name}
+										>
+											{bank.name.length > 18
+												? bank.name.slice(0, 18) + '...'
+												: bank.name}
+										</a>
 									</th>
 								{/each}
 							</tr>
@@ -804,7 +846,7 @@
 									{#each selectedBanks as bank (bank.cert)}
 										{@const val = row.values.get(bank.cert) ?? null}
 										<td
-											class="px-3 py-2 text-right whitespace-nowrap {cellBg(bank.cert, row.best, row.worst)}
+											class="px-3 py-2 text-right whitespace-nowrap data-mono {cellBg(bank.cert, row.best, row.worst)}
 												{bank.cert === row.best
 												? 'text-[--positive] font-semibold'
 												: ''}
@@ -812,7 +854,6 @@
 												{bank.cert !== row.best && bank.cert !== row.worst
 												? 'text-[--text-primary]'
 												: ''}"
-											data-mono
 										>
 											{formatValue(val, row.metric.format)}
 										</td>
@@ -838,12 +879,11 @@
 											{dr.metric.label}
 										</td>
 										<td
-											class="px-3 py-1.5 text-right whitespace-nowrap text-[12px]
+											class="px-3 py-1.5 text-right whitespace-nowrap text-[12px] data-mono
 												{dr.firstIsBetter === true ? 'text-[--positive] font-semibold' : ''}
 												{dr.firstIsBetter === false ? 'text-[--negative]' : ''}
 												{dr.firstIsBetter === null ? 'text-[--text-disabled]' : ''}"
 											colspan={selectedBanks.length}
-											data-mono
 										>
 											{formatDelta(dr.delta, dr.metric.format)}
 										</td>

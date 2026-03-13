@@ -9,7 +9,7 @@ const METRICS = ['roa', 'roe', 'nimy', 'eeffr', 'nclnlsr', 'rbcrwaj', 'lnlsdepr'
 const BUCKETS = [1, 2, 3, 4, 5, 6, 7] as const;
 
 /** Compute interpolated percentile from a sorted array of numbers. */
-function percentile(sorted: number[], p: number): number {
+export function percentile(sorted: number[], p: number): number {
   if (sorted.length === 0) return 0;
   if (sorted.length === 1) return sorted[0];
 
@@ -22,18 +22,18 @@ function percentile(sorted: number[], p: number): number {
   return sorted[lower] + frac * (sorted[upper] - sorted[lower]);
 }
 
-function mean(values: number[]): number {
+export function mean(values: number[]): number {
   if (values.length === 0) return 0;
   return values.reduce((sum, v) => sum + v, 0) / values.length;
 }
 
-function stddev(values: number[], avg: number): number {
+export function stddev(values: number[], avg: number): number {
   if (values.length < 2) return 0;
   const sumSqDiff = values.reduce((sum, v) => sum + (v - avg) ** 2, 0);
   return Math.sqrt(sumSqDiff / (values.length - 1));
 }
 
-function median(sorted: number[]): number {
+export function median(sorted: number[]): number {
   if (sorted.length === 0) return 0;
   const mid = Math.floor(sorted.length / 2);
   if (sorted.length % 2 === 1) return sorted[mid];
