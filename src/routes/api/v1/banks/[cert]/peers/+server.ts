@@ -76,6 +76,7 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
   const kv = platform?.env?.CACHE;
   const cacheKey = `peers:${cert}:${metrics.join(',')}:${repdteParam || 'latest'}`;
 
+  try {
   const result = await cacheWrap<PeerComparison | null>(kv, cacheKey, SIX_HOURS, async () => {
     // Get the bank's asset_bucket
     const institution = await queryOne<{ asset_tier: number | null }>(
@@ -157,4 +158,8 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
   }
 
   return jsonResponse(result);
+  } catch (err) {
+    console.error(`Failed to load peers for cert ${cert}:`, err);
+    return errorResponse('Failed to load peer comparison data', 500);
+  }
 };

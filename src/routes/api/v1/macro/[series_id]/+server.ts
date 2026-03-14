@@ -26,50 +26,55 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
   const kv = platform?.env?.CACHE;
   const cacheKey = `macro:${seriesId}:${from || ''}`;
 
-  const result = await cacheWrap<MacroResponse>(kv, cacheKey, SIX_HOURS, async () => {
-    const db = getDB(platform);
+  try {
+    const result = await cacheWrap<MacroResponse>(kv, cacheKey, SIX_HOURS, async () => {
+      const db = getDB(platform);
 
-    // Fetch series metadata
-    const meta = await queryOne<{ series_id: string; title: string; frequency: string; units: string }>(
-      db,
-      'SELECT series_id, title, frequency, units FROM fred_series WHERE series_id = ?',
-      [seriesId]
-    );
+      // Fetch series metadata
+      const meta = await queryOne<{ series_id: string; title: string; frequency: string; units: string }>(
+        db,
+        'SELECT series_id, title, frequency, units FROM fred_series WHERE series_id = ?',
+        [seriesId]
+      );
 
-    if (!meta) {
+      if (!meta) {
+        return {
+          series_id: seriesId,
+          title: null,
+          frequency: null,
+          units: null,
+          data: []
+        } as MacroResponse;
+      }
+
+      // Fetch observation data
+      const conditions: string[] = ['series_id = ?'];
+      const bindParams: unknown[] = [seriesId];
+
+      if (from) {
+        conditions.push('date >= ?');
+        bindParams.push(from);
+      }
+
+      const where = conditions.join(' AND ');
+      const data = await queryAll<{ date: string; value: number }>(
+        db,
+        `SELECT date, value FROM macro_data WHERE ${where} ORDER BY date ASC`,
+        bindParams
+      );
+
       return {
-        series_id: seriesId,
-        title: null,
-        frequency: null,
-        units: null,
-        data: []
+        series_id: meta.series_id,
+        title: meta.title,
+        frequency: meta.frequency,
+        units: meta.units,
+        data
       } as MacroResponse;
-    }
+    });
 
-    // Fetch observation data
-    const conditions: string[] = ['series_id = ?'];
-    const bindParams: unknown[] = [seriesId];
-
-    if (from) {
-      conditions.push('date >= ?');
-      bindParams.push(from);
-    }
-
-    const where = conditions.join(' AND ');
-    const data = await queryAll<{ date: string; value: number }>(
-      db,
-      `SELECT date, value FROM macro_data WHERE ${where} ORDER BY date ASC`,
-      bindParams
-    );
-
-    return {
-      series_id: meta.series_id,
-      title: meta.title,
-      frequency: meta.frequency,
-      units: meta.units,
-      data
-    } as MacroResponse;
-  });
-
-  return jsonResponse(result);
+    return jsonResponse(result);
+  } catch (err) {
+    console.error(`Failed to load macro data for ${seriesId}:`, err);
+    return errorResponse('Failed to load macro data', 500);
+  }
 };

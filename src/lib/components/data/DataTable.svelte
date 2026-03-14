@@ -2,6 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import { getMode } from '$lib/stores/mode.svelte.js';
 	import EmptyState from './EmptyState.svelte';
+	import Skeleton from './Skeleton.svelte';
 
 	let mode = $derived(getMode());
 
@@ -18,6 +19,7 @@
 		data,
 		currentSort = '',
 		currentOrder = 'asc',
+		loading = false,
 		onsort,
 		onrowclick,
 		customColumns
@@ -26,6 +28,7 @@
 		data: Record<string, any>[];
 		currentSort?: string;
 		currentOrder?: 'asc' | 'desc';
+		loading?: boolean;
 		onsort?: (key: string) => void;
 		onrowclick?: (row: any) => void;
 		customColumns?: Record<string, Snippet<[Record<string, any>]>>;
@@ -133,7 +136,7 @@
 		<!-- Column visibility toggle -->
 		<div class="absolute top-1.5 right-1.5 z-30">
 			<button
-				class="p-1 rounded text-[--text-disabled] hover:text-[--text-secondary] hover:bg-[--surface-3] transition-colors"
+				class="p-2 sm:p-1 rounded text-[--text-disabled] hover:text-[--text-secondary] hover:bg-[--surface-3] transition-colors"
 				onclick={() => (showColumnPicker = !showColumnPicker)}
 				title="Toggle columns"
 			>
@@ -150,7 +153,7 @@
 					onkeydown={(e) => e.stopPropagation()}
 				>
 					{#each columns as col}
-						<label class="flex items-center gap-2 px-3 py-1 text-[12px] text-[--text-secondary] hover:bg-[--surface-3] cursor-pointer select-none">
+						<label class="flex items-center gap-2 px-3 py-2 sm:py-1 text-[12px] text-[--text-secondary] hover:bg-[--surface-3] cursor-pointer select-none">
 							<input
 								type="checkbox"
 								checked={!hiddenColumns.has(col.key)}
@@ -165,8 +168,42 @@
 		</div>
 	{/if}
 
-	{#if data.length === 0}
-		<EmptyState title="No data" icon="data" />
+	{#if loading || data.length === 0}
+		{#if loading}
+			<!-- Skeleton loading rows -->
+			<table class="min-w-full text-[13px]">
+				<thead>
+					<tr class="bg-[--surface-3] border-b border-[--border]">
+						{#each visibleColumns as col, i}
+							<th
+								class="px-3 py-2.5 text-[11px] font-semibold tracking-wider uppercase
+									{col.align === 'right' ? 'text-right' : 'text-left'}
+									{i === 0 ? 'sticky left-0 z-20 bg-[--surface-3]' : ''}
+									text-[--text-secondary]"
+							>
+								{col.label}
+							</th>
+						{/each}
+					</tr>
+				</thead>
+				<tbody class="bg-[--surface-1]">
+					{#each { length: 5 } as _, rowIdx}
+						<tr>
+							{#each visibleColumns as col, i}
+								<td class="px-3 py-2 {i === 0 ? 'sticky left-0 z-10 bg-inherit' : ''}">
+									<Skeleton
+										width={i === 0 ? '60%' : col.align === 'right' ? '50%' : '45%'}
+										height="14px"
+									/>
+								</td>
+							{/each}
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		{:else}
+			<EmptyState title="No data" icon="data" />
+		{/if}
 	{:else}
 		<table class="min-w-full text-[13px]">
 			<thead>

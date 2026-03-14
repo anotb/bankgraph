@@ -141,7 +141,7 @@
 				<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
 				<h2 class="text-[15px] font-semibold text-[--text-primary]">Industry Snapshot</h2>
 			</div>
-			<div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-[--border-muted] rounded-md overflow-hidden" style="box-shadow: var(--shadow-sm)">
+			<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-px bg-[--border-muted] rounded-md overflow-hidden" style="box-shadow: var(--shadow-sm)">
 				<MetricCard
 					compact
 					label="Total Banks"
@@ -192,10 +192,10 @@
 			</div>
 
 			<div class="borderless-card overflow-x-auto">
-				<table class="w-full text-[13px]">
+				<table class="w-full min-w-[500px] text-[13px]">
 					<thead>
 						<tr class="bg-[--surface-3]">
-							<th class="text-left px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Segment</th>
+							<th class="text-left px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider sticky left-0 bg-[--surface-3] z-10">Segment</th>
 							<th class="text-right px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Banks</th>
 							<th class="text-right px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Total Assets</th>
 							<th class="text-right px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Avg Assets</th>
@@ -211,7 +211,7 @@
 						<!-- All Banks row -->
 						{#if allBanksStats}
 							<tr class="bg-[--surface-2]/50">
-								<td class="px-3 py-2 font-semibold text-[--text-primary]">All Banks</td>
+								<td class="px-3 py-2 font-semibold text-[--text-primary] sticky left-0 bg-[--surface-2]/50 z-[5]">All Banks</td>
 								<td class="px-3 py-2 text-right text-[--text-primary]" data-mono>{formatNumber(allBanksStats.bank_count)}</td>
 								<td class="px-3 py-2 text-right text-[--text-primary]" data-mono>{formatCurrency(allBanksStats.total_assets)}</td>
 								<td class="px-3 py-2 text-right text-[--text-primary]" data-mono>{formatCurrency(allBanksStats.avg_assets)}</td>
@@ -232,7 +232,7 @@
 								: seg.segment === 'Large' ? data.largeSegment
 								: null}
 							<tr class="hover:bg-[--accent-muted] transition-colors">
-								<td class="px-3 py-2 font-medium text-[--text-primary]">
+								<td class="px-3 py-2 font-medium text-[--text-primary] sticky left-0 bg-[--surface-1] z-[5]">
 									{seg.segment}
 									<span class="text-[11px] text-[--text-tertiary] ml-1">
 										{#if seg.segment === 'Community'}(&lt;$1B){:else if seg.segment === 'Regional'}($1-50B){:else if seg.segment === 'Large'}(&gt;$50B){/if}
@@ -301,10 +301,10 @@
 			</div>
 
 			<div class="borderless-card overflow-x-auto">
-				<table class="w-full text-[13px]">
+				<table class="w-full min-w-[500px] text-[13px]">
 					<thead>
 						<tr class="bg-[--surface-3]">
-							<th class="text-left px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Tier</th>
+							<th class="text-left px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider sticky left-0 bg-[--surface-3] z-10">Tier</th>
 							<th class="text-right px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Banks</th>
 							<th class="text-right px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">% of Banks</th>
 							<th class="text-right px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Total Assets</th>
@@ -315,7 +315,7 @@
 					<tbody class="divide-y divide-[--surface-2]">
 						{#each data.assetTiers as tier (tier.asset_tier)}
 							<tr class="hover:bg-[--accent-muted] transition-colors">
-								<td class="px-3 py-2 font-medium text-[--text-primary]">{TIER_LABELS[tier.asset_tier] ?? `Tier ${tier.asset_tier}`}</td>
+								<td class="px-3 py-2 font-medium text-[--text-primary] sticky left-0 bg-[--surface-1] z-[5]">{TIER_LABELS[tier.asset_tier] ?? `Tier ${tier.asset_tier}`}</td>
 								<td class="px-3 py-2 text-right text-[--text-primary]" data-mono>{formatNumber(tier.bank_count)}</td>
 								<td class="px-3 py-2 text-right text-[--text-tertiary]" data-mono>{tierTotalBanks > 0 ? ((tier.bank_count / tierTotalBanks) * 100).toFixed(1) : '0'}%</td>
 								<td class="px-3 py-2 text-right text-[--text-primary]" data-mono>{formatCurrency(tier.total_assets)}</td>
@@ -369,10 +369,10 @@
 
 			{#if data.recentFailures.length > 0}
 				<div class="borderless-card overflow-x-auto mb-3">
-					<table class="w-full text-[13px]">
+					<table class="w-full min-w-[500px] text-[13px]">
 						<thead>
 							<tr class="bg-[--surface-3]">
-								<th class="text-left px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Bank</th>
+								<th class="text-left px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider sticky left-0 bg-[--surface-3] z-10">Bank</th>
 								<th class="text-left px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Location</th>
 								<th class="text-left px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Date</th>
 								<th class="text-right px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Assets</th>
@@ -381,7 +381,7 @@
 						<tbody class="divide-y divide-[--surface-2]">
 							{#each data.recentFailures as f (f.cert)}
 								<tr class="hover:bg-[--accent-muted] transition-colors">
-									<td class="px-3 py-2 font-medium text-[--text-primary]">{f.name ?? '\u2014'}</td>
+									<td class="px-3 py-2 font-medium text-[--text-primary] sticky left-0 bg-[--surface-1] z-[5]">{f.name ?? '\u2014'}</td>
 									<td class="px-3 py-2 text-[--text-secondary]">{f.city && f.state ? `${f.city}, ${f.state}` : (f.state ?? '\u2014')}</td>
 									<td class="px-3 py-2 text-[--text-secondary]">{formatFailDate(f.fail_date)}</td>
 									<td class="px-3 py-2 text-right text-[--text-primary]" data-mono>{formatCurrency(f.total_assets)}</td>

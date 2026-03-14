@@ -4,6 +4,7 @@
 	import ModeToggle from '$lib/components/layout/ModeToggle.svelte';
 	import ThemeToggle from '$lib/components/layout/ThemeToggle.svelte';
 	import KeyboardShortcuts from '$lib/components/layout/KeyboardShortcuts.svelte';
+	import NavigationProgress from '$lib/components/layout/NavigationProgress.svelte';
 	import { getMode } from '$lib/stores/mode.svelte.js';
 
 	let { children } = $props();
@@ -16,6 +17,7 @@
 	}
 </script>
 
+<NavigationProgress />
 <div class="min-h-screen bg-[--surface-0] flex flex-col">
 	<!-- Nav -->
 	<nav class="bg-[--surface-1] sticky top-0 z-50" style="box-shadow: var(--shadow-md)">
@@ -23,13 +25,13 @@
 		{#if currentMode === 'power'}
 			<div class="h-[1px] bg-gradient-to-r from-transparent via-[--accent] to-transparent"></div>
 		{/if}
-		<div class="max-w-[1400px] mx-auto px-4 h-11 flex items-center gap-6">
-			<a href="/" class="text-[15px] font-semibold tracking-tight text-[--text-primary] flex items-center gap-1.5">
+		<div class="max-w-[1400px] mx-auto px-4 h-12 sm:h-11 flex items-center gap-4 sm:gap-6">
+			<a href="/" class="text-[15px] font-semibold tracking-tight text-[--text-primary] flex items-center gap-1.5 shrink-0">
 				<span class="text-[--accent] font-bold">BDE</span>
 				<span class="hidden sm:inline text-[13px] font-normal text-[--text-secondary]">Bank Data Explorer</span>
 			</a>
 
-			<div class="flex items-center gap-5 text-[13px] overflow-x-auto scrollbar-hide">
+			<div class="flex items-center gap-1 sm:gap-5 text-[13px] overflow-x-auto scrollbar-hide">
 				{#each [
 					{ href: '/banks', label: 'Banks' },
 					{ href: '/industry', label: 'Industry' },
@@ -39,7 +41,7 @@
 				] as link}
 					<a
 						href={link.href}
-						class="relative pb-[9px] -mb-[9px] transition-colors duration-150
+						class="relative py-3 sm:py-0 px-2 sm:px-0 sm:pb-[9px] sm:-mb-[9px] transition-colors duration-150 whitespace-nowrap
 							{isActive(link.href) ? 'text-[--accent-text] font-semibold' : 'text-[--text-secondary] hover:text-[--text-primary] font-medium'}"
 					>
 						{link.label}
@@ -50,7 +52,7 @@
 				{/each}
 			</div>
 
-			<div class="ml-auto flex items-center gap-2">
+			<div class="ml-auto flex items-center gap-1 sm:gap-2 shrink-0">
 				<ThemeToggle />
 				<ModeToggle />
 			</div>

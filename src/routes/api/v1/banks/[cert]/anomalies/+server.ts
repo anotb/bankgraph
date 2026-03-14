@@ -30,28 +30,33 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
   const kv = platform?.env?.CACHE;
   const cacheKey = `anomalies:${cert}:${repdteParam || 'all'}`;
 
-  const result = await cacheWrap<AnomalyResponse>(kv, cacheKey, SIX_HOURS, async () => {
-    let sql = 'SELECT * FROM anomalies WHERE cert = ?';
-    const bindParams: unknown[] = [cert];
+  try {
+    const result = await cacheWrap<AnomalyResponse>(kv, cacheKey, SIX_HOURS, async () => {
+      let sql = 'SELECT * FROM anomalies WHERE cert = ?';
+      const bindParams: unknown[] = [cert];
 
-    if (repdteParam) {
-      sql += ' AND repdte = ?';
-      bindParams.push(repdteParam);
-    }
+      if (repdteParam) {
+        sql += ' AND repdte = ?';
+        bindParams.push(repdteParam);
+      }
 
-    sql += ' ORDER BY repdte DESC, severity ASC, metric ASC';
+      sql += ' ORDER BY repdte DESC, severity ASC, metric ASC';
 
-    const anomalies = await queryAll<Anomaly>(db, sql, bindParams);
+      const anomalies = await queryAll<Anomaly>(db, sql, bindParams);
 
-    const counts = { critical: 0, warning: 0, info: 0 };
-    for (const a of anomalies) {
-      if (a.severity === 'critical') counts.critical++;
-      else if (a.severity === 'warning') counts.warning++;
-      else counts.info++;
-    }
+      const counts = { critical: 0, warning: 0, info: 0 };
+      for (const a of anomalies) {
+        if (a.severity === 'critical') counts.critical++;
+        else if (a.severity === 'warning') counts.warning++;
+        else counts.info++;
+      }
 
-    return { cert, anomalies, counts };
-  });
+      return { cert, anomalies, counts };
+    });
 
-  return jsonResponse(result);
+    return jsonResponse(result);
+  } catch (err) {
+    console.error(`Failed to load anomalies for cert ${cert}:`, err);
+    return errorResponse('Failed to load anomaly data', 500);
+  }
 };

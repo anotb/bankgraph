@@ -176,7 +176,7 @@
 		<select
 			value={data.params.state}
 			onchange={handleStateChange}
-			class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] pl-3 pr-8 py-1.5
+			class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] pl-3 pr-8 py-2.5 sm:py-1.5
 				text-[13px] font-medium text-[--text-secondary]
 				focus:border-[--accent] focus:ring-2 focus:ring-[--accent]/20 focus:outline-none
 				transition-all duration-150 cursor-pointer"
@@ -191,7 +191,7 @@
 		<select
 			value={selectedBucketIndex}
 			onchange={handleAssetBucketChange}
-			class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] pl-3 pr-8 py-1.5
+			class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] pl-3 pr-8 py-2.5 sm:py-1.5
 				text-[13px] font-medium text-[--text-secondary]
 				focus:border-[--accent] focus:ring-2 focus:ring-[--accent]/20 focus:outline-none
 				transition-all duration-150 cursor-pointer"
@@ -205,7 +205,7 @@
 		<select
 			value={data.params.active}
 			onchange={handleActiveToggle}
-			class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] pl-3 pr-8 py-1.5
+			class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] pl-3 pr-8 py-2.5 sm:py-1.5
 				text-[13px] font-medium text-[--text-secondary]
 				focus:border-[--accent] focus:ring-2 focus:ring-[--accent]/20 focus:outline-none
 				transition-all duration-150 cursor-pointer"

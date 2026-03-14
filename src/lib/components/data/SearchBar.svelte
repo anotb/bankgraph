@@ -195,7 +195,7 @@
 						type="button"
 						role="option"
 						aria-selected={i === highlightedIndex}
-						class="flex w-full items-center justify-between px-3 py-2 text-left cursor-pointer transition-colors
+						class="flex w-full items-center justify-between px-3 py-2.5 sm:py-2 text-left cursor-pointer transition-colors min-h-[44px] sm:min-h-0
 							{i === highlightedIndex ? 'bg-[--accent-muted]' : 'hover:bg-[--accent-muted]'}"
 						onmousedown={() => selectSuggestion(suggestion.cert)}
 					>

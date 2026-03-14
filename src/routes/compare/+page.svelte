@@ -569,7 +569,7 @@
 								type="button"
 								role="option"
 								aria-selected={i === highlightedIndex}
-								class="flex w-full items-center justify-between px-3 py-2 text-left cursor-pointer transition-colors
+								class="flex w-full items-center justify-between px-3 py-2.5 sm:py-2 text-left cursor-pointer transition-colors min-h-[44px] sm:min-h-0
 									{i === highlightedIndex
 									? 'bg-[--accent-muted]'
 									: 'hover:bg-[--accent-muted]'}"
@@ -599,14 +599,14 @@
 			<div class="flex flex-wrap gap-1.5 mt-2">
 				{#each selectedBanks as bank (bank.cert)}
 					<span
-						class="inline-flex items-center gap-1 rounded-full bg-[--accent-muted] text-[--accent-text] px-2.5 py-1 text-[12px] font-medium"
+						class="inline-flex items-center gap-1.5 rounded-full bg-[--accent-muted] text-[--accent-text] px-3 py-1.5 sm:px-2.5 sm:py-1 text-[12px] font-medium"
 					>
 						<a href="/banks/{bank.cert}" class="hover:underline" title={bank.name}>
 							{bank.name.length > 25 ? bank.name.slice(0, 25) + '...' : bank.name}
 						</a>
 						<button
 							type="button"
-							class="ml-0.5 hover:text-[--negative] transition-colors"
+							class="ml-0.5 p-1 sm:p-0 hover:text-[--negative] transition-colors"
 							onclick={() => removeBank(bank.cert)}
 							aria-label="Remove {bank.name}"
 						>
@@ -646,7 +646,7 @@
 		<div class="flex flex-wrap gap-1.5">
 			{#each availableMetrics as metric (metric.key)}
 				<button
-					class="px-3 py-1 text-[13px] rounded-full font-medium transition-colors
+					class="px-3.5 py-2 sm:px-3 sm:py-1 text-[13px] rounded-full font-medium transition-colors
 						{selectedMetricKeys.has(metric.key)
 						? 'bg-[--accent] text-white'
 						: 'bg-[--surface-2] text-[--text-secondary] hover:bg-[--surface-3]'}"
@@ -704,7 +704,7 @@
 							{#each popularComparisons as comp}
 								<button
 									type="button"
-									class="px-3 py-1.5 text-[12px] rounded-full border border-[--border-muted] bg-[--surface-2] text-[--text-secondary]
+									class="px-3.5 py-2.5 sm:px-3 sm:py-1.5 text-[12px] rounded-full border border-[--border-muted] bg-[--surface-2] text-[--text-secondary]
 										hover:border-[--accent] hover:text-[--accent-text] transition-colors"
 									onclick={() => loadPopularComparison(comp.certs)}
 								>
@@ -740,7 +740,7 @@
 			<div class="flex gap-1">
 				{#each rangeButtons as range}
 					<button
-						class="px-3 py-1 text-[13px] rounded font-medium transition-colors
+						class="px-3.5 py-2 sm:px-3 sm:py-1 text-[13px] rounded font-medium transition-colors min-h-[44px] sm:min-h-0
 							{selectedRange === range
 							? 'bg-[--accent] text-white'
 							: 'bg-[--surface-2] text-[--text-secondary] hover:bg-[--surface-3]'}"

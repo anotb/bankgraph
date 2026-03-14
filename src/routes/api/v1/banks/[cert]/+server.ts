@@ -19,18 +19,23 @@ export const GET: RequestHandler = async (event) => {
   const kv = platform?.env?.CACHE;
   const cacheKey = `bank:${cert}`;
 
-  const bank = await cacheWrap<Institution | null>(kv, cacheKey, TWENTY_FOUR_HOURS, async () => {
-    return queryOne<Institution>(db, 'SELECT * FROM institutions WHERE cert = ?', [cert]);
-  });
+  try {
+    const bank = await cacheWrap<Institution | null>(kv, cacheKey, TWENTY_FOUR_HOURS, async () => {
+      return queryOne<Institution>(db, 'SELECT * FROM institutions WHERE cert = ?', [cert]);
+    });
 
-  if (!bank) {
-    return errorResponse('Bank not found', 404);
+    if (!bank) {
+      return errorResponse('Bank not found', 404);
+    }
+
+    const finCacheKey = `bank:${cert}:latest_fin`;
+    const latestFinancials = await cacheWrap<Financial | null>(kv, finCacheKey, TWENTY_FOUR_HOURS, async () => {
+      return queryOne<Financial>(db, 'SELECT * FROM financials WHERE cert = ? ORDER BY repdte DESC LIMIT 1', [cert]);
+    });
+
+    return jsonResponse({ ...bank, latest_financials: latestFinancials });
+  } catch (err) {
+    console.error(`Failed to load bank ${cert}:`, err);
+    return errorResponse('Failed to load bank data', 500);
   }
-
-  const finCacheKey = `bank:${cert}:latest_fin`;
-  const latestFinancials = await cacheWrap<Financial | null>(kv, finCacheKey, TWENTY_FOUR_HOURS, async () => {
-    return queryOne<Financial>(db, 'SELECT * FROM financials WHERE cert = ? ORDER BY repdte DESC LIMIT 1', [cert]);
-  });
-
-  return jsonResponse({ ...bank, latest_financials: latestFinancials });
 };

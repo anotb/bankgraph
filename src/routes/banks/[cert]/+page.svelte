@@ -127,9 +127,9 @@
 		return 'text-[--text-primary]';
 	}
 
-	const detailRow = 'flex justify-between items-center px-3 py-2';
-	const detailLabel = 'text-[13px] text-[--text-tertiary]';
-	const detailValue = 'text-[13px] font-medium text-[--text-primary]';
+	const detailRow = 'flex justify-between items-center px-3 py-2 gap-2';
+	const detailLabel = 'text-[13px] text-[--text-tertiary] shrink-0';
+	const detailValue = 'text-[13px] font-medium text-[--text-primary] text-right break-words min-w-0';
 </script>
 
 <div class="space-y-5 pt-3">
@@ -254,7 +254,7 @@
 		</div>
 
 		{#if hasFinancials && metricsSource}
-			<div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-[--border-muted] rounded-[5px] overflow-hidden border border-[--border-muted]" style="box-shadow: var(--shadow-sm)">
+			<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-px bg-[--border-muted] rounded-[5px] overflow-hidden border border-[--border-muted]" style="box-shadow: var(--shadow-sm)">
 				<MetricCard
 					compact
 					label="Total Assets"
@@ -337,10 +337,10 @@
 				<h2 class="text-[15px] font-semibold text-[--text-primary]">Recent Quarters</h2>
 			</div>
 			<div class="rounded-md bg-[--surface-1] overflow-x-auto" style="box-shadow: var(--shadow-sm)">
-				<table class="w-full" style="font-size: 12px;">
+				<table class="w-full min-w-[400px]" style="font-size: 12px;">
 					<thead>
 						<tr class="bg-[--surface-3]">
-							<th class="text-left px-3 py-1.5 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Quarter</th>
+							<th class="text-left px-3 py-1.5 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider sticky left-0 bg-[--surface-3] z-10">Quarter</th>
 							<th class="text-right px-3 py-1.5 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Assets</th>
 							<th class="text-right px-3 py-1.5 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">ROA</th>
 							<th class="text-right px-3 py-1.5 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">ROE</th>
@@ -350,7 +350,7 @@
 					<tbody class="divide-y divide-[--surface-2]">
 						{#each recentQuarters as q (q.repdte)}
 							<tr class="hover:bg-[--accent-muted] transition-colors">
-								<td class="px-3 py-1.5 font-medium text-[--text-primary] data-mono">{formatQuarter(q.repdte)}</td>
+								<td class="px-3 py-1.5 font-medium text-[--text-primary] data-mono sticky left-0 bg-inherit z-[5]">{formatQuarter(q.repdte)}</td>
 								<td class="px-3 py-1.5 text-right text-[--text-primary] data-mono">{formatCurrency(q.asset)}</td>
 								<td class="px-3 py-1.5 text-right data-mono">
 									<span class="{semanticColor(getMetricSemantic('roa', q.roa))}">

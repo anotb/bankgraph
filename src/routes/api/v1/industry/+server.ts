@@ -40,54 +40,59 @@ export const GET: RequestHandler = async ({ platform, url }) => {
   const kv = platform?.env?.CACHE;
   const cacheKey = `industry:${segment}:${repdteParam || 'all'}:${limit}`;
 
-  const result = await cacheWrap(kv, cacheKey, TWELVE_HOURS, async () => {
-    let rows: IndustryAggregate[];
+  try {
+    const result = await cacheWrap(kv, cacheKey, TWELVE_HOURS, async () => {
+      let rows: IndustryAggregate[];
 
-    if (repdteParam) {
-      rows = await queryAll<IndustryAggregate>(
-        db,
-        'SELECT * FROM agg_industry WHERE segment = ? AND repdte = ?',
-        [segment, repdteParam]
-      );
-    } else {
-      // Get distinct quarters (latest first), limited
-      const quarters = await queryAll<{ repdte: string }>(
-        db,
-        'SELECT DISTINCT repdte FROM agg_industry WHERE segment = ? ORDER BY repdte DESC LIMIT ?',
-        [segment, limit]
-      );
+      if (repdteParam) {
+        rows = await queryAll<IndustryAggregate>(
+          db,
+          'SELECT * FROM agg_industry WHERE segment = ? AND repdte = ?',
+          [segment, repdteParam]
+        );
+      } else {
+        // Get distinct quarters (latest first), limited
+        const quarters = await queryAll<{ repdte: string }>(
+          db,
+          'SELECT DISTINCT repdte FROM agg_industry WHERE segment = ? ORDER BY repdte DESC LIMIT ?',
+          [segment, limit]
+        );
 
-      if (quarters.length === 0) {
-        return { segment, data: [] };
+        if (quarters.length === 0) {
+          return { segment, data: [] };
+        }
+
+        const placeholders = quarters.map(() => '?').join(',');
+        const repdtes = quarters.map((q) => q.repdte);
+
+        rows = await queryAll<IndustryAggregate>(
+          db,
+          `SELECT * FROM agg_industry WHERE segment = ? AND repdte IN (${placeholders}) ORDER BY repdte DESC`,
+          [segment, ...repdtes]
+        );
       }
 
-      const placeholders = quarters.map(() => '?').join(',');
-      const repdtes = quarters.map((q) => q.repdte);
-
-      rows = await queryAll<IndustryAggregate>(
-        db,
-        `SELECT * FROM agg_industry WHERE segment = ? AND repdte IN (${placeholders}) ORDER BY repdte DESC`,
-        [segment, ...repdtes]
-      );
-    }
-
-    // Group by repdte, pivot metrics into an object
-    const byQuarter = new Map<string, { repdte: string; metrics: Record<string, number> }>();
-    for (const row of rows) {
-      if (!byQuarter.has(row.repdte)) {
-        byQuarter.set(row.repdte, { repdte: row.repdte, metrics: {} });
+      // Group by repdte, pivot metrics into an object
+      const byQuarter = new Map<string, { repdte: string; metrics: Record<string, number> }>();
+      for (const row of rows) {
+        if (!byQuarter.has(row.repdte)) {
+          byQuarter.set(row.repdte, { repdte: row.repdte, metrics: {} });
+        }
+        const entry = byQuarter.get(row.repdte)!;
+        if (row.value !== null) {
+          entry.metrics[row.metric] = row.value;
+        }
       }
-      const entry = byQuarter.get(row.repdte)!;
-      if (row.value !== null) {
-        entry.metrics[row.metric] = row.value;
-      }
-    }
 
-    // Sort by repdte descending
-    const data = [...byQuarter.values()].sort((a, b) => b.repdte.localeCompare(a.repdte));
+      // Sort by repdte descending
+      const data = [...byQuarter.values()].sort((a, b) => b.repdte.localeCompare(a.repdte));
 
-    return { segment, data };
-  });
+      return { segment, data };
+    });
 
-  return jsonResponse(result);
+    return jsonResponse(result);
+  } catch (err) {
+    console.error('Failed to load industry data:', err);
+    return errorResponse('Failed to load industry data', 500);
+  }
 };

@@ -281,6 +281,20 @@ th[class*="text-right"] {
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
 /* ============================================================
+   RESPONSIVE UTILITIES
+   ============================================================ */
+
+/* On touch devices, ensure standalone interactive elements meet 44px minimum.
+   Only applies to selects and nav-level links (not table cells or inline buttons). */
+@media (pointer: coarse) {
+  nav a {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
+/* ============================================================
    PAGE TRANSITION
    ============================================================ */
 

@@ -81,55 +81,60 @@ export const GET: RequestHandler = async (event) => {
   const kv = platform?.env?.CACHE;
   const cacheKey = hashParams(url);
 
-  const result = await cacheWrap<BankListResponse>(kv, cacheKey, ONE_HOUR, async () => {
-    const db = getDB(platform);
+  try {
+    const result = await cacheWrap<BankListResponse>(kv, cacheKey, ONE_HOUR, async () => {
+      const db = getDB(platform);
 
-    const conditions: string[] = [];
-    const params: unknown[] = [];
+      const conditions: string[] = [];
+      const params: unknown[] = [];
 
-    if (q) {
-      conditions.push('LOWER(name) LIKE LOWER(?)');
-      params.push(`%${q}%`);
-    }
+      if (q) {
+        conditions.push('LOWER(name) LIKE LOWER(?)');
+        params.push(`%${q}%`);
+      }
 
-    if (state) {
-      conditions.push('state = ?');
-      params.push(state);
-    }
+      if (state) {
+        conditions.push('state = ?');
+        params.push(state);
+      }
 
-    if (assetMin !== undefined) {
-      conditions.push('total_assets >= ?');
-      params.push(assetMin);
-    }
+      if (assetMin !== undefined) {
+        conditions.push('total_assets >= ?');
+        params.push(assetMin);
+      }
 
-    if (assetMax !== undefined) {
-      conditions.push('total_assets <= ?');
-      params.push(assetMax);
-    }
+      if (assetMax !== undefined) {
+        conditions.push('total_assets <= ?');
+        params.push(assetMax);
+      }
 
-    if (active !== undefined) {
-      conditions.push('active = ?');
-      params.push(active);
-    }
+      if (active !== undefined) {
+        conditions.push('active = ?');
+        params.push(active);
+      }
 
-    const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
-    const sortColumn = SORT_COLUMN_MAP[sort];
-    const offset = (page - 1) * limit;
+      const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+      const sortColumn = SORT_COLUMN_MAP[sort];
+      const offset = (page - 1) * limit;
 
-    // Get total count
-    const countSql = `SELECT COUNT(*) as total FROM institutions ${whereClause}`;
-    const countRow = await queryOne<{ total: number }>(db, countSql, params);
-    const total = countRow?.total ?? 0;
+      // Get total count
+      const countSql = `SELECT COUNT(*) as total FROM institutions ${whereClause}`;
+      const countRow = await queryOne<{ total: number }>(db, countSql, params);
+      const total = countRow?.total ?? 0;
 
-    // Get page of results
-    // SAFETY: sortColumn and order are interpolated directly into SQL, but both are
-    // validated against allowlists above (SORT_COLUMN_MAP keys and 'asc'/'desc')
-    // so there is no SQL injection risk here.
-    const dataSql = `SELECT * FROM institutions ${whereClause} ORDER BY ${sortColumn} ${order.toUpperCase()} LIMIT ? OFFSET ?`;
-    const data = await queryAll<Institution>(db, dataSql, [...params, limit, offset]);
+      // Get page of results
+      // SAFETY: sortColumn and order are interpolated directly into SQL, but both are
+      // validated against allowlists above (SORT_COLUMN_MAP keys and 'asc'/'desc')
+      // so there is no SQL injection risk here.
+      const dataSql = `SELECT * FROM institutions ${whereClause} ORDER BY ${sortColumn} ${order.toUpperCase()} LIMIT ? OFFSET ?`;
+      const data = await queryAll<Institution>(db, dataSql, [...params, limit, offset]);
 
-    return { data, total, page, limit };
-  });
+      return { data, total, page, limit };
+    });
 
-  return jsonResponse(result);
+    return jsonResponse(result);
+  } catch (err) {
+    console.error('Failed to list banks:', err);
+    return errorResponse('Failed to load bank list', 500);
+  }
 };

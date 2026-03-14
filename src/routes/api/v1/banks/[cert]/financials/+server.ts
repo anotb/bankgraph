@@ -69,75 +69,80 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
   const kv = platform?.env?.CACHE;
   const cacheKey = `fin:${cert}:${fieldsSorted}:${from || ''}:${to || ''}`;
 
-  const data = await cacheWrap<Financial[]>(kv, cacheKey, SIX_HOURS, async () => {
-    const db = getDB(platform);
+  try {
+    const data = await cacheWrap<Financial[]>(kv, cacheKey, SIX_HOURS, async () => {
+      const db = getDB(platform);
 
-    const conditions: string[] = ['cert = ?'];
-    const bindParams: unknown[] = [cert];
+      const conditions: string[] = ['cert = ?'];
+      const bindParams: unknown[] = [cert];
 
-    if (from) {
-      conditions.push('repdte >= ?');
-      bindParams.push(from);
-    }
-    if (to) {
-      conditions.push('repdte <= ?');
-      bindParams.push(to);
-    }
+      if (from) {
+        conditions.push('repdte >= ?');
+        bindParams.push(from);
+      }
+      if (to) {
+        conditions.push('repdte <= ?');
+        bindParams.push(to);
+      }
 
-    const where = conditions.join(' AND ');
-    const sql = `SELECT ${selectFields} FROM financials WHERE ${where} ORDER BY repdte ASC LIMIT ?`;
-    bindParams.push(limit);
+      const where = conditions.join(' AND ');
+      const sql = `SELECT ${selectFields} FROM financials WHERE ${where} ORDER BY repdte ASC LIMIT ?`;
+      bindParams.push(limit);
 
-    return queryAll<Financial>(db, sql, bindParams);
-  });
+      return queryAll<Financial>(db, sql, bindParams);
+    });
 
-  const response: FinancialsResponse = {
-    data,
-    cert,
-    from: from || null,
-    to: to || null
-  };
+    const response: FinancialsResponse = {
+      data,
+      cert,
+      from: from || null,
+      to: to || null
+    };
 
-  const format = url.searchParams.get('format') || 'json';
+    const format = url.searchParams.get('format') || 'json';
 
-  if (format === 'csv') {
-    if (data.length === 0) {
-      return new Response('', {
+    if (format === 'csv') {
+      if (data.length === 0) {
+        return new Response('', {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/csv',
+            'Content-Disposition': `attachment; filename="bank_${cert}_financials.csv"`
+          }
+        });
+      }
+      const csvHeaders = Object.keys(data[0]);
+      const csvRows = [
+        csvHeaders.join(','),
+        ...data.map(row => csvHeaders.map(h => {
+          const val = (row as unknown as Record<string, unknown>)[h];
+          return val === null || val === undefined ? '' : String(val);
+        }).join(','))
+      ];
+      return new Response(csvRows.join('\n'), {
         status: 200,
         headers: {
           'Content-Type': 'text/csv',
-          'Content-Disposition': `attachment; filename="bank_${cert}_financials.csv"`
+          'Content-Disposition': `attachment; filename="bank_${cert}_financials.csv"`,
+          'Access-Control-Allow-Origin': '*'
         }
       });
     }
-    const csvHeaders = Object.keys(data[0]);
-    const csvRows = [
-      csvHeaders.join(','),
-      ...data.map(row => csvHeaders.map(h => {
-        const val = (row as unknown as Record<string, unknown>)[h];
-        return val === null || val === undefined ? '' : String(val);
-      }).join(','))
-    ];
-    return new Response(csvRows.join('\n'), {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/csv',
-        'Content-Disposition': `attachment; filename="bank_${cert}_financials.csv"`,
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
-  }
 
-  if (format === 'json' && url.searchParams.has('download')) {
-    return new Response(JSON.stringify(response, null, 2), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Disposition': `attachment; filename="bank_${cert}_financials.json"`,
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
-  }
+    if (format === 'json' && url.searchParams.has('download')) {
+      return new Response(JSON.stringify(response, null, 2), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Disposition': `attachment; filename="bank_${cert}_financials.json"`,
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
 
-  return jsonResponse(response);
+    return jsonResponse(response);
+  } catch (err) {
+    console.error(`Failed to load financials for cert ${cert}:`, err);
+    return errorResponse('Failed to load financial data', 500);
+  }
 };

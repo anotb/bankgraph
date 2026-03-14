@@ -58,90 +58,95 @@ export const GET: RequestHandler = async ({ platform, url }) => {
   const sortedCerts = [...certs].sort((a, b) => a - b);
   const cacheKey = `compare:${sortedCerts.join(',')}:${metrics.join(',')}:${from || ''}:${to || ''}`;
 
-  const result = await cacheWrap<CompareResponse>(kv, cacheKey, ONE_HOUR, async () => {
-    const db = getDB(platform);
+  try {
+    const result = await cacheWrap<CompareResponse>(kv, cacheKey, ONE_HOUR, async () => {
+      const db = getDB(platform);
 
-    // Build select columns: always include cert + repdte + requested metrics
-    const columns = ['cert', 'repdte', ...metrics];
-    const selectFields = columns.join(', ');
+      // Build select columns: always include cert + repdte + requested metrics
+      const columns = ['cert', 'repdte', ...metrics];
+      const selectFields = columns.join(', ');
 
-    const data: Record<number, Financial[]> = {};
+      const data: Record<number, Financial[]> = {};
 
-    for (const cert of certs) {
-      const conditions: string[] = ['cert = ?'];
-      const bindParams: unknown[] = [cert];
+      for (const cert of certs) {
+        const conditions: string[] = ['cert = ?'];
+        const bindParams: unknown[] = [cert];
 
-      if (from) {
-        conditions.push('repdte >= ?');
-        bindParams.push(from);
+        if (from) {
+          conditions.push('repdte >= ?');
+          bindParams.push(from);
+        }
+        if (to) {
+          conditions.push('repdte <= ?');
+          bindParams.push(to);
+        }
+
+        const where = conditions.join(' AND ');
+        const rows = await queryAll<Financial>(
+          db,
+          `SELECT ${selectFields} FROM financials WHERE ${where} ORDER BY repdte ASC`,
+          bindParams
+        );
+
+        data[cert] = rows;
       }
-      if (to) {
-        conditions.push('repdte <= ?');
-        bindParams.push(to);
-      }
 
-      const where = conditions.join(' AND ');
-      const rows = await queryAll<Financial>(
-        db,
-        `SELECT ${selectFields} FROM financials WHERE ${where} ORDER BY repdte ASC`,
-        bindParams
+      return {
+        certs: sortedCerts,
+        metrics,
+        data
+      } as CompareResponse;
+    });
+
+    const format = url.searchParams.get('format') || 'json';
+
+    if (format === 'csv') {
+      // Flatten: one row per cert+repdte, columns = cert, repdte, metric1, metric2...
+      const flatRows = result.certs.flatMap(cert =>
+        (result.data[cert] ?? []).map(r => r as unknown as Record<string, unknown>)
       );
 
-      data[cert] = rows;
-    }
+      if (flatRows.length === 0) {
+        return new Response('', {
+          status: 200,
+          headers: { 'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename="comparison.csv"' }
+        });
+      }
 
-    return {
-      certs: sortedCerts,
-      metrics,
-      data
-    } as CompareResponse;
-  });
-
-  const format = url.searchParams.get('format') || 'json';
-
-  if (format === 'csv') {
-    // Flatten: one row per cert+repdte, columns = cert, repdte, metric1, metric2...
-    const flatRows = result.certs.flatMap(cert =>
-      (result.data[cert] ?? []).map(r => r as unknown as Record<string, unknown>)
-    );
-
-    if (flatRows.length === 0) {
-      return new Response('', {
+      const csvHeaders = ['cert', 'repdte', ...result.metrics];
+      const csvLines = [
+        csvHeaders.join(','),
+        ...flatRows.map(row =>
+          csvHeaders.map(h => {
+            const val = row[h];
+            return val === null || val === undefined ? '' : String(val);
+          }).join(',')
+        )
+      ];
+      return new Response(csvLines.join('\n'), {
         status: 200,
-        headers: { 'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename="comparison.csv"' }
+        headers: {
+          'Content-Type': 'text/csv',
+          'Content-Disposition': 'attachment; filename="comparison.csv"',
+          'Access-Control-Allow-Origin': '*'
+        }
       });
     }
 
-    const csvHeaders = ['cert', 'repdte', ...result.metrics];
-    const csvLines = [
-      csvHeaders.join(','),
-      ...flatRows.map(row =>
-        csvHeaders.map(h => {
-          const val = row[h];
-          return val === null || val === undefined ? '' : String(val);
-        }).join(',')
-      )
-    ];
-    return new Response(csvLines.join('\n'), {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/csv',
-        'Content-Disposition': 'attachment; filename="comparison.csv"',
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
-  }
+    if (format === 'json' && url.searchParams.has('download')) {
+      return new Response(JSON.stringify(result, null, 2), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Disposition': 'attachment; filename="comparison.json"',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
 
-  if (format === 'json' && url.searchParams.has('download')) {
-    return new Response(JSON.stringify(result, null, 2), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Disposition': 'attachment; filename="comparison.json"',
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
+    return jsonResponse(result);
+  } catch (err) {
+    console.error('Failed to load comparison data:', err);
+    return errorResponse('Failed to load comparison data', 500);
   }
-
-  return jsonResponse(result);
 };
