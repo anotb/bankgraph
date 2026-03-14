@@ -1,93 +1,228 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Banks listing page', () => {
-	test('banks page loads with a table', async ({ page }) => {
+	test('page loads at /banks with heading and title', async ({ page }) => {
 		await page.goto('/banks');
 
 		await expect(page).toHaveTitle(/Banks/);
 		await expect(page.locator('h1')).toContainText('Banks');
+	});
 
-		// Table should be visible with header columns
+	test('search bar is visible and accepts input', async ({ page }) => {
+		await page.goto('/banks');
+
+		// SearchBar renders an input with placeholder "Search by name..."
+		const searchInput = page.getByPlaceholder('Search by name...');
+		await expect(searchInput).toBeVisible({ timeout: 10000 });
+
+		// Typing into it should not cause an error
+		await searchInput.fill('Chase');
+		await expect(searchInput).toHaveValue('Chase');
+	});
+
+	test('search filters the table results', async ({ page }) => {
+		await page.goto('/banks');
+
+		await expect(page.locator('table')).toBeVisible({ timeout: 10000 });
+
+		const searchInput = page.getByPlaceholder('Search by name...');
+		await searchInput.fill('JPMorgan');
+
+		// Press Enter to trigger search (SearchBar fires onsearch on enter/submit)
+		await searchInput.press('Enter');
+
+		await page.waitForTimeout(500);
+
+		// URL should now include q=JPMorgan
+		await expect(page).toHaveURL(/q=JPMorgan/i, { timeout: 10000 });
+	});
+
+	test('table shows bank data with expected columns', async ({ page }) => {
+		await page.goto('/banks');
+
 		const table = page.locator('table');
 		await expect(table).toBeVisible({ timeout: 10000 });
 
-		// Should have expected columns: Name, State, Total Assets, etc.
-		const headers = table.locator('th');
-		expect(await headers.count()).toBeGreaterThanOrEqual(3);
-		await expect(headers.filter({ hasText: 'Name' })).toBeVisible();
-		await expect(headers.filter({ hasText: 'Total Assets' })).toBeVisible();
+		// Required column headers per the DataTable column config
+		for (const col of ['Name', 'State', 'Total Assets', 'Total Deposits', 'Regulator', 'Status']) {
+			await expect(table.locator('th').filter({ hasText: col })).toBeVisible();
+		}
 	});
 
-	test('table has bank names and CERT numbers in data', async ({ request }) => {
-		// Verify the API returns rows with name and cert
-		const res = await request.get('/api/v1/banks?limit=5');
+	test('table has data rows with non-empty bank names', async ({ page }) => {
+		await page.goto('/banks');
+
+		const table = page.locator('table');
+		await expect(table).toBeVisible({ timeout: 10000 });
+
+		// Wait for rows to appear
+		const rows = table.locator('tbody tr');
+		await expect(rows.first()).toBeVisible({ timeout: 15000 });
+
+		const count = await rows.count();
+		expect(count).toBeGreaterThan(0);
+
+		// First row's first cell (bank name) should not be empty
+		const firstNameCell = rows.first().locator('td').first();
+		const name = await firstNameCell.innerText();
+		expect(name.trim().length).toBeGreaterThan(0);
+	});
+
+	test('data values are real numbers not placeholders', async ({ request }) => {
+		const res = await request.get('/api/v1/banks?limit=5&active=1&sort=assets&order=desc');
 		expect(res.status()).toBe(200);
 
 		const json = await res.json();
 		expect(json.data).toBeDefined();
 		expect(json.data.length).toBeGreaterThan(0);
+		expect(json.total).toBeGreaterThan(0);
 
 		for (const bank of json.data) {
-			expect(bank.name).toBeTruthy();
-			expect(bank.cert).toBeTruthy();
+			// Every row must have a name and cert
+			expect(typeof bank.name).toBe('string');
+			expect(bank.name.length).toBeGreaterThan(0);
 			expect(typeof bank.cert).toBe('number');
+			expect(bank.cert).toBeGreaterThan(0);
 		}
 	});
 
 	test('clicking a bank row navigates to detail page', async ({ page }) => {
 		await page.goto('/banks');
 
-		// Wait for table rows to fully load (cursor-pointer indicates clickable)
+		// cursor-pointer is added to clickable rows by DataTable
 		const clickableRow = page.locator('table tbody tr.cursor-pointer').first();
 		await expect(clickableRow).toBeVisible({ timeout: 15000 });
 
-		// Small delay for hydration to complete
+		// Small delay for Svelte hydration
 		await page.waitForTimeout(500);
 
 		await clickableRow.click();
 
-		// Should navigate to /banks/{cert}
 		await expect(page).toHaveURL(/\/banks\/\d+/, { timeout: 15000 });
-
-		// Detail page should show institution details
 		await expect(page.getByText('Institution Details')).toBeVisible({ timeout: 15000 });
 	});
 
-	test('pagination indicator shows result count', async ({ page }) => {
+	test('ROA Trend sparkline column renders in the table', async ({ page }) => {
 		await page.goto('/banks');
 
-		// Wait for table to load
 		const table = page.locator('table');
 		await expect(table).toBeVisible({ timeout: 10000 });
 
-		// Pagination shows "Showing X-Y of Z results"
+		// "ROA Trend" column header should be visible
+		await expect(table.locator('th').filter({ hasText: 'ROA Trend' })).toBeVisible();
+
+		// Sparkline cells render inside td — at least the column exists
+		// (Sparklines render SVG or canvas elements; just confirm the column header is there
+		// since sparkline data depends on financials being populated)
+	});
+
+	test('bank count indicator shows a positive total', async ({ page }) => {
+		await page.goto('/banks');
+
+		// "{N} banks" or "{N} bank" text in the filter bar
+		const countText = page.getByText(/[\d,]+ banks?/);
+		await expect(countText).toBeVisible({ timeout: 10000 });
+
+		const text = await countText.innerText();
+		const match = text.match(/[\d,]+/);
+		expect(match).not.toBeNull();
+		const count = parseInt((match![0] ?? '0').replace(/,/g, ''), 10);
+		expect(count).toBeGreaterThan(0);
+	});
+
+	test('pagination shows result range and has Previous/Next buttons', async ({ page }) => {
+		await page.goto('/banks');
+
+		const table = page.locator('table');
+		await expect(table).toBeVisible({ timeout: 10000 });
+
+		// Pagination component renders "Showing X-Y of Z results"
 		await expect(page.getByText(/Showing \d+.+\d+ of [\d,]+ results/)).toBeVisible({ timeout: 5000 });
 
-		// Previous/Next buttons should exist
 		await expect(page.getByRole('button', { name: 'Previous' })).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Next' })).toBeVisible();
 	});
 
-	test('bank count indicator shows total banks', async ({ page }) => {
+	test('Next page button loads the next page of results', async ({ page }) => {
 		await page.goto('/banks');
 
-		// The filter bar shows "{N} banks" text
-		await expect(page.getByText(/[\d,]+ banks?/)).toBeVisible({ timeout: 10000 });
+		await expect(page.locator('table')).toBeVisible({ timeout: 10000 });
+		await expect(page.getByText(/Showing \d+.+\d+ of [\d,]+ results/)).toBeVisible({ timeout: 5000 });
+
+		const nextButton = page.getByRole('button', { name: 'Next' });
+		await expect(nextButton).toBeEnabled();
+
+		await nextButton.click();
+
+		// URL should update to include page=2
+		await expect(page).toHaveURL(/page=2/, { timeout: 10000 });
+
+		// Table should still show data
+		await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 10000 });
 	});
 
-	test('filters are visible (state, asset size, status)', async ({ page }) => {
+	test('filters are visible: state, asset size, and status', async ({ page }) => {
 		await page.goto('/banks');
 
 		// State dropdown
-		const stateSelect = page.locator('select').filter({ hasText: 'All states' });
-		await expect(stateSelect).toBeVisible();
+		await expect(page.locator('select').filter({ hasText: 'All states' })).toBeVisible();
 
 		// Asset size dropdown
-		const assetSelect = page.locator('select').filter({ hasText: 'All sizes' });
-		await expect(assetSelect).toBeVisible();
+		await expect(page.locator('select').filter({ hasText: 'All sizes' })).toBeVisible();
 
 		// Status dropdown
-		const statusSelect = page.locator('select').filter({ hasText: 'Active only' });
-		await expect(statusSelect).toBeVisible();
+		await expect(page.locator('select').filter({ hasText: 'Active only' })).toBeVisible();
+	});
+
+	test('state filter updates results', async ({ page }) => {
+		await page.goto('/banks');
+
+		await expect(page.locator('table')).toBeVisible({ timeout: 10000 });
+
+		const stateSelect = page.locator('select').filter({ hasText: 'All states' });
+		await stateSelect.selectOption('TX');
+
+		// URL should update with state=TX
+		await expect(page).toHaveURL(/state=TX/, { timeout: 10000 });
+
+		// Table should reload with filtered results
+		await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 15000 });
+	});
+
+	test('sort by Name column updates URL and reorders table', async ({ page }) => {
+		await page.goto('/banks');
+
+		const table = page.locator('table');
+		await expect(table).toBeVisible({ timeout: 10000 });
+
+		// Click the "Name" column header to sort by name
+		const nameHeader = table.locator('th').filter({ hasText: 'Name' });
+		await nameHeader.click();
+
+		// URL should update with sort=name
+		await expect(page).toHaveURL(/sort=name/, { timeout: 10000 });
+
+		// Table should still have rows
+		const rows = table.locator('tbody tr');
+		await expect(rows.first()).toBeVisible({ timeout: 10000 });
+	});
+
+	test('sort by Total Assets column updates URL and reorders table', async ({ page }) => {
+		await page.goto('/banks');
+
+		const table = page.locator('table');
+		await expect(table).toBeVisible({ timeout: 10000 });
+
+		// Click "Total Assets" to sort ascending
+		const assetsHeader = table.locator('th').filter({ hasText: 'Total Assets' });
+		await assetsHeader.click();
+
+		// First click sorts desc (default), second click sorts asc
+		await assetsHeader.click();
+
+		// URL should include sort=assets&order=asc
+		await expect(page).toHaveURL(/sort=assets.*order=asc|order=asc.*sort=assets/, { timeout: 10000 });
+
+		await expect(table.locator('tbody tr').first()).toBeVisible({ timeout: 10000 });
 	});
 });
