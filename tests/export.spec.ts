@@ -50,4 +50,38 @@ test.describe('Export button', () => {
 		expect(body.length).toBeGreaterThan(0);
 		expect(body.split('\n')[0]).toContain('cert');
 	});
+
+	test('export button visible on banks list page', async ({ page }) => {
+		await page.goto('/banks');
+		await expect(page.locator('table')).toBeVisible({ timeout: 10000 });
+
+		const exportBtn = page.getByLabel('Export data');
+		await expect(exportBtn).toBeVisible();
+		await expect(exportBtn).toContainText('Export');
+	});
+
+	test('clicking export on banks list shows CSV and JSON options', async ({ page }) => {
+		await page.goto('/banks');
+		await expect(page.locator('table')).toBeVisible({ timeout: 10000 });
+
+		const exportBtn = page.getByLabel('Export data');
+		await exportBtn.click();
+
+		const menu = page.locator('[role="menu"]');
+		await expect(menu).toBeVisible({ timeout: 3000 });
+
+		await expect(page.getByRole('menuitem', { name: 'Download CSV' })).toBeVisible();
+		await expect(page.getByRole('menuitem', { name: 'Download JSON' })).toBeVisible();
+	});
+
+	test('banks list CSV API returns valid CSV', async ({ request }) => {
+		const res = await request.get('/api/v1/banks?format=csv');
+		expect(res.status()).toBe(200);
+		expect(res.headers()['content-type']).toContain('text/csv');
+		const body = await res.text();
+		expect(body.length).toBeGreaterThan(0);
+		// Should have header row with bank-related fields
+		const header = body.split('\n')[0];
+		expect(header).toContain('name');
+	});
 });

@@ -116,6 +116,50 @@ test.describe('Banks listing page', () => {
 		// since sparkline data depends on financials being populated)
 	});
 
+	test('sparkline SVGs render with polyline data in ROA Trend cells', async ({ page }) => {
+		await page.goto('/banks');
+
+		const table = page.locator('table');
+		await expect(table).toBeVisible({ timeout: 10000 });
+		await expect(table.locator('tbody tr').first()).toBeVisible({ timeout: 15000 });
+
+		// Find the ROA Trend column index
+		const headers = table.locator('thead th');
+		const headerCount = await headers.count();
+		let roaTrendColIdx = -1;
+		for (let i = 0; i < headerCount; i++) {
+			const text = await headers.nth(i).innerText();
+			if (text.includes('ROA Trend')) {
+				roaTrendColIdx = i;
+				break;
+			}
+		}
+		expect(roaTrendColIdx).toBeGreaterThanOrEqual(0);
+
+		// Check that at least one sparkline cell contains an SVG with a polyline
+		const sparklineCells = table.locator(`tbody tr td:nth-child(${roaTrendColIdx + 1})`);
+		const cellCount = await sparklineCells.count();
+		expect(cellCount).toBeGreaterThan(0);
+
+		// Look for SVG elements within sparkline cells
+		const svgs = sparklineCells.locator('svg');
+		const svgCount = await svgs.count();
+
+		// At least some banks should have sparkline data rendered as SVGs
+		expect(svgCount).toBeGreaterThan(0);
+
+		// Verify the SVG contains a polyline element (the actual sparkline path)
+		const firstSvg = svgs.first();
+		await expect(firstSvg).toBeVisible({ timeout: 10000 });
+		const polyline = firstSvg.locator('polyline');
+		await expect(polyline).toBeVisible();
+
+		// The polyline should have a non-empty points attribute
+		const points = await polyline.getAttribute('points');
+		expect(points).toBeTruthy();
+		expect(points!.length).toBeGreaterThan(0);
+	});
+
 	test('bank count indicator shows a positive total', async ({ page }) => {
 		await page.goto('/banks');
 

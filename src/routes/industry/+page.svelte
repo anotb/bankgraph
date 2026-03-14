@@ -347,6 +347,7 @@
 							{ key: 'nim', label: 'Median NIM', data: industrySeries.nim }
 						]}
 						yAxisFormat="percent"
+						showMovingAverage={mode === 'power'}
 					/>
 				</div>
 			</div>

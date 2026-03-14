@@ -2,9 +2,12 @@
 	import TimeSeriesChart from '$lib/components/charts/TimeSeriesChart.svelte';
 	import EmptyState from '$lib/components/data/EmptyState.svelte';
 	import InsightCard from '$lib/components/data/InsightCard.svelte';
+	import { getMode } from '$lib/stores/mode.svelte.js';
 	import type { MacroResponse, MacroDataPoint, CorrelationResult } from '$lib/types';
 
 	let { data } = $props();
+	let mode = $derived(getMode());
+	let isPower = $derived(mode === 'power');
 	let series = $derived(data.series);
 	let dbCorrelations = $derived(data.correlations ?? []);
 
@@ -252,7 +255,7 @@
 	<meta property="og:description" content="Federal Reserve economic data, interest rates, treasury yields, and banking sector indicators." />
 </svelte:head>
 
-<div class="space-y-5">
+<div class={isPower ? 'space-y-3' : 'space-y-5'}>
 	<!-- Header -->
 	<div class="flex items-center justify-between">
 		<div>
@@ -302,25 +305,25 @@
 				{#if fedFundsSeries.length > 0}
 					<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
 						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Fed Funds Rate</h3>
-						<TimeSeriesChart series={fedFundsSeries} yAxisFormat="percent" height="280px" markAreas={recessionBands} />
+						<TimeSeriesChart series={fedFundsSeries} yAxisFormat="percent" height="280px" markAreas={recessionBands} showMovingAverage={isPower} />
 					</div>
 				{/if}
 				{#if treasurySeries.length > 0}
 					<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
 						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Treasury Yields</h3>
-						<TimeSeriesChart series={treasurySeries} yAxisFormat="percent" height="280px" markAreas={recessionBands} />
+						<TimeSeriesChart series={treasurySeries} yAxisFormat="percent" height="280px" markAreas={recessionBands} showMovingAverage={isPower} />
 					</div>
 				{/if}
 				{#if yieldSpreadSeries.length > 0}
 					<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
 						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Yield Curve Spread (10Y-2Y)</h3>
-						<TimeSeriesChart series={yieldSpreadSeries} yAxisFormat="percent" height="280px" markAreas={recessionBands} />
+						<TimeSeriesChart series={yieldSpreadSeries} yAxisFormat="percent" height="280px" markAreas={recessionBands} showMovingAverage={isPower} />
 					</div>
 				{/if}
 				{#if mortgageSeries.length > 0}
 					<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
 						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">30Y Mortgage Rate</h3>
-						<TimeSeriesChart series={mortgageSeries} yAxisFormat="percent" height="280px" markAreas={recessionBands} />
+						<TimeSeriesChart series={mortgageSeries} yAxisFormat="percent" height="280px" markAreas={recessionBands} showMovingAverage={isPower} />
 					</div>
 				{/if}
 			</div>
@@ -336,19 +339,19 @@
 				{#if unemploymentSeries.length > 0}
 					<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
 						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Unemployment Rate</h3>
-						<TimeSeriesChart series={unemploymentSeries} yAxisFormat="percent" height="280px" markAreas={recessionBands} />
+						<TimeSeriesChart series={unemploymentSeries} yAxisFormat="percent" height="280px" markAreas={recessionBands} showMovingAverage={isPower} />
 					</div>
 				{/if}
 				{#if gdpSeries.length > 0}
 					<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
 						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">GDP</h3>
-						<TimeSeriesChart series={gdpSeries} yAxisFormat="number" height="280px" markAreas={recessionBands} />
+						<TimeSeriesChart series={gdpSeries} yAxisFormat="number" height="280px" markAreas={recessionBands} showMovingAverage={isPower} />
 					</div>
 				{/if}
 				{#if cpiSeries.length > 0}
 					<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
 						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Consumer Price Index</h3>
-						<TimeSeriesChart series={cpiSeries} yAxisFormat="number" height="280px" markAreas={recessionBands} />
+						<TimeSeriesChart series={cpiSeries} yAxisFormat="number" height="280px" markAreas={recessionBands} showMovingAverage={isPower} />
 					</div>
 				{/if}
 			</div>
@@ -364,13 +367,13 @@
 				{#if bankCreditSeries.length > 0}
 					<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
 						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Total Bank Credit</h3>
-						<TimeSeriesChart series={bankCreditSeries} yAxisFormat="number" height="280px" markAreas={recessionBands} />
+						<TimeSeriesChart series={bankCreditSeries} yAxisFormat="number" height="280px" markAreas={recessionBands} showMovingAverage={isPower} />
 					</div>
 				{/if}
 				{#if delinquencySeries.length > 0}
 					<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
 						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Credit Card Delinquency Rate</h3>
-						<TimeSeriesChart series={delinquencySeries} yAxisFormat="percent" height="280px" markAreas={recessionBands} />
+						<TimeSeriesChart series={delinquencySeries} yAxisFormat="percent" height="280px" markAreas={recessionBands} showMovingAverage={isPower} />
 					</div>
 				{/if}
 			</div>

@@ -5,6 +5,10 @@
 	import ExportButton from '$lib/components/data/ExportButton.svelte';
 	import { formatPercent, formatCurrency, formatNumber } from '$lib/utils/formatters.js';
 	import type { CompareResponse, Financial, Institution } from '$lib/types';
+	import { getMode } from '$lib/stores/mode.svelte.js';
+
+	let mode = $derived(getMode());
+	let isPower = $derived(mode === 'power');
 
 	let { data } = $props();
 
@@ -477,6 +481,9 @@
 		if (cert === worst) return 'bg-[--negative-muted]';
 		return '';
 	}
+
+	// Power mode: tighter table cell padding
+	let tableCellPy = $derived(isPower ? 'py-1' : 'py-2');
 </script>
 
 <svelte:head>
@@ -486,14 +493,16 @@
 	<meta property="og:description" content="Compare financial metrics across multiple FDIC-insured banks side by side." />
 </svelte:head>
 
-<div class="space-y-5">
+<div class="{isPower ? 'space-y-3' : 'space-y-5'}">
 	<!-- Header -->
 	<div class="flex items-center justify-between">
 		<div>
-			<h1 class="text-2xl font-semibold text-[--text-primary]">Bank Comparison</h1>
-			<p class="text-[13px] text-[--text-tertiary]">
-				Compare financial metrics across multiple banks
-			</p>
+			<h1 class="{isPower ? 'text-xl' : 'text-2xl'} font-semibold text-[--text-primary]">Bank Comparison</h1>
+			{#if !isPower}
+				<p class="text-[13px] text-[--text-tertiary]">
+					Compare financial metrics across multiple banks
+				</p>
+			{/if}
 		</div>
 		{#if exportUrl}
 			<ExportButton baseUrl={exportUrl} filename="comparison" />
@@ -624,7 +633,7 @@
 			<div class="flex flex-wrap gap-1.5 mt-2">
 				{#each selectedBanks as bank (bank.cert)}
 					<span
-						class="inline-flex items-center gap-1.5 rounded-full bg-[--accent-muted] text-[--accent-text] px-3 py-1.5 sm:px-2.5 sm:py-1 text-[12px] font-medium"
+						class="inline-flex items-center gap-1.5 rounded-full bg-[--accent-muted] text-[--accent-text] {isPower ? 'px-2 py-0.5' : 'px-3 py-1.5 sm:px-2.5 sm:py-1'} text-[12px] font-medium"
 					>
 						<a href="/banks/{bank.cert}" class="hover:underline" title={bank.name}>
 							{bank.name.length > 25 ? bank.name.slice(0, 25) + '...' : bank.name}
@@ -671,7 +680,7 @@
 		<div class="flex flex-wrap gap-1.5">
 			{#each availableMetrics as metric (metric.key)}
 				<button
-					class="px-3.5 py-2 sm:px-3 sm:py-1 text-[13px] rounded-full font-medium transition-colors
+					class="{isPower ? 'px-2.5 py-0.5' : 'px-3.5 py-2 sm:px-3 sm:py-1'} text-[13px] rounded-full font-medium transition-colors
 						{selectedMetricKeys.has(metric.key)
 						? 'bg-[--accent] text-white'
 						: 'bg-[--surface-2] text-[--text-secondary] hover:bg-[--surface-3]'}"
@@ -686,8 +695,8 @@
 	<!-- Empty / Loading / Error / Results -->
 	{#if selectedBanks.length < 2}
 		<div
-			class="rounded-md bg-[--surface-1] py-12 px-6 text-center"
-			style="box-shadow: var(--shadow-sm)"
+			class="{isPower ? 'rounded-none border border-[--border-muted]' : 'rounded-md'} bg-[--surface-1] {isPower ? 'py-8 px-4' : 'py-12 px-6'} text-center"
+			style="{isPower ? '' : 'box-shadow: var(--shadow-sm)'}"
 		>
 			<div class="max-w-md mx-auto space-y-4">
 				<div>
@@ -729,7 +738,7 @@
 							{#each popularComparisons as comp}
 								<button
 									type="button"
-									class="px-3.5 py-2.5 sm:px-3 sm:py-1.5 text-[12px] rounded-full border border-[--border-muted] bg-[--surface-2] text-[--text-secondary]
+									class="{isPower ? 'px-2.5 py-0.5' : 'px-3.5 py-2.5 sm:px-3 sm:py-1.5'} text-[12px] rounded-full border border-[--border-muted] bg-[--surface-2] text-[--text-secondary]
 										hover:border-[--accent] hover:text-[--accent-text] transition-colors"
 									onclick={() => loadPopularComparison(comp.certs)}
 								>
@@ -743,8 +752,8 @@
 		</div>
 	{:else if loading}
 		<div
-			class="rounded-md bg-[--surface-1] py-16 text-center"
-			style="box-shadow: var(--shadow-sm)"
+			class="{isPower ? 'rounded-none border border-[--border-muted]' : 'rounded-md'} bg-[--surface-1] {isPower ? 'py-10' : 'py-16'} text-center"
+			style="{isPower ? '' : 'box-shadow: var(--shadow-sm)'}"
 		>
 			<div
 				class="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[--border-muted] border-t-[--accent]"
@@ -753,8 +762,8 @@
 		</div>
 	{:else if error}
 		<div
-			class="rounded-md bg-[--negative-muted] py-8 text-center"
-			style="box-shadow: var(--shadow-sm)"
+			class="{isPower ? 'rounded-none border border-[--border-muted]' : 'rounded-md'} bg-[--negative-muted] {isPower ? 'py-5' : 'py-8'} text-center"
+			style="{isPower ? '' : 'box-shadow: var(--shadow-sm)'}"
 		>
 			<p class="text-[--negative] text-[14px]">Failed to load: {error}</p>
 		</div>
@@ -765,7 +774,7 @@
 			<div class="flex gap-1">
 				{#each rangeButtons as range}
 					<button
-						class="px-3.5 py-2 sm:px-3 sm:py-1 text-[13px] rounded font-medium transition-colors min-h-[44px] sm:min-h-0
+						class="{isPower ? 'px-2.5 py-0.5' : 'px-3.5 py-2 sm:px-3 sm:py-1'} text-[13px] rounded font-medium transition-colors {isPower ? '' : 'min-h-[44px] sm:min-h-0'}
 							{selectedRange === range
 							? 'bg-[--accent] text-white'
 							: 'bg-[--surface-2] text-[--text-secondary] hover:bg-[--surface-3]'}"
@@ -805,8 +814,8 @@
 					{@const chartSeries = buildChartSeries(metric)}
 					{#if chartSeries.length > 0}
 						<div
-							class="rounded-md bg-[--surface-1] p-3"
-							style="box-shadow: var(--shadow-sm)"
+							class="{isPower ? 'rounded-none border border-[--border-muted]' : 'rounded-md'} bg-[--surface-1] {isPower ? 'p-2' : 'p-3'}"
+							style="{isPower ? '' : 'box-shadow: var(--shadow-sm)'}"
 						>
 							<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">
 								{metric.label}
@@ -832,20 +841,20 @@
 					</h2>
 				</div>
 				<div
-					class="rounded-md bg-[--surface-1] overflow-x-auto max-h-[500px] overflow-y-auto"
-					style="box-shadow: var(--shadow-sm)"
+					class="{isPower ? 'rounded-none border border-[--border-muted]' : 'rounded-md'} bg-[--surface-1] overflow-x-auto max-h-[500px] overflow-y-auto"
+					style="{isPower ? '' : 'box-shadow: var(--shadow-sm)'}"
 				>
-					<table class="w-full text-[13px]">
+					<table class="w-full" style="font-size: {isPower ? '12px' : '13px'}">
 						<thead class="sticky top-0 z-10">
 							<tr class="bg-[--surface-3]">
 								<th
-									class="text-left px-3 py-2 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider sticky left-0 bg-[--surface-3] z-20"
+									class="text-left px-3 {tableCellPy} text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider sticky left-0 bg-[--surface-3] z-20"
 								>
 									Metric
 								</th>
 								{#each selectedBanks as bank (bank.cert)}
 									<th
-										class="text-right px-3 py-2 text-[11px] font-medium uppercase tracking-wider whitespace-nowrap"
+										class="text-right px-3 {tableCellPy} text-[11px] font-medium uppercase tracking-wider whitespace-nowrap"
 									>
 										<a
 											href="/banks/{bank.cert}"
@@ -864,14 +873,14 @@
 							{#each tableRows as row (row.metric.key)}
 								<tr class="hover:bg-[--accent-muted]/30 transition-colors">
 									<td
-										class="px-3 py-2 font-medium text-[--text-primary] sticky left-0 bg-[--surface-1] z-[5]"
+										class="px-3 {tableCellPy} font-medium text-[--text-primary] sticky left-0 bg-[--surface-1] z-[5]"
 									>
 										{row.metric.label}
 									</td>
 									{#each selectedBanks as bank (bank.cert)}
 										{@const val = row.values.get(bank.cert) ?? null}
 										<td
-											class="px-3 py-2 text-right whitespace-nowrap data-mono {cellBg(bank.cert, row.best, row.worst)}
+											class="px-3 {tableCellPy} text-right whitespace-nowrap data-mono {cellBg(bank.cert, row.best, row.worst)}
 												{bank.cert === row.best
 												? 'text-[--positive] font-semibold'
 												: ''}
@@ -900,11 +909,11 @@
 										</tr>
 									{/if}
 									<tr class="bg-[--surface-2]/30 hover:bg-[--accent-muted]/30 transition-colors">
-										<td class="px-3 py-1.5 text-[--text-tertiary] text-[12px] sticky left-0 bg-[--surface-2]/30 z-[5]">
+										<td class="px-3 {isPower ? 'py-0.5' : 'py-1.5'} text-[--text-tertiary] text-[12px] sticky left-0 bg-[--surface-2]/30 z-[5]">
 											{dr.metric.label}
 										</td>
 										<td
-											class="px-3 py-1.5 text-right whitespace-nowrap text-[12px] data-mono
+											class="px-3 {isPower ? 'py-0.5' : 'py-1.5'} text-right whitespace-nowrap text-[12px] data-mono
 												{dr.firstIsBetter === true ? 'text-[--positive] font-semibold' : ''}
 												{dr.firstIsBetter === false ? 'text-[--negative]' : ''}
 												{dr.firstIsBetter === null ? 'text-[--text-disabled]' : ''}"
