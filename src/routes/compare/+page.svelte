@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import TimeSeriesChart from '$lib/components/charts/TimeSeriesChart.svelte';
+	import GroupedBarChart from '$lib/components/charts/GroupedBarChart.svelte';
 	import ExportButton from '$lib/components/data/ExportButton.svelte';
 	import DateRangePicker from '$lib/components/data/DateRangePicker.svelte';
 	import FieldPicker from '$lib/components/data/FieldPicker.svelte';
@@ -541,6 +542,72 @@
 
 	// Power mode: tighter table cell padding
 	let tableCellPy = $derived(isPower ? 'py-1' : 'py-2');
+
+	// ── Grouped bar chart data (latest quarter snapshot) ──
+
+	/** Build series (one per bank) and categories (one per metric) for the grouped bar chart.
+	 *  Metrics with very different scales (e.g. percent vs currency) are grouped separately. */
+	type BarChartGroup = {
+		formatType: 'percent' | 'currency' | 'number';
+		label: string;
+		series: Array<{ key: string; label: string }>;
+		categories: Array<{ label: string; values: (number | null)[] }>;
+	};
+
+	let barChartGroups = $derived.by((): BarChartGroup[] => {
+		if (!compareData || tableRows.length === 0) return [];
+
+		const banksWithData = selectedBanks.filter(
+			(b) => getCompareRows(b.cert).length > 0
+		);
+		if (banksWithData.length === 0) return [];
+
+		const bankSeries = banksWithData.map((b) => ({
+			key: String(b.cert),
+			label: b.name.length > 20 ? b.name.slice(0, 20) + '...' : b.name
+		}));
+
+		// Group metrics by format type so scales make sense
+		const byFormat = new Map<string, TableRow[]>();
+		for (const row of tableRows) {
+			const fmt = row.metric.format;
+			if (!byFormat.has(fmt)) byFormat.set(fmt, []);
+			byFormat.get(fmt)!.push(row);
+		}
+
+		const formatLabels: Record<string, string> = {
+			percent: 'Ratios (%)',
+			currency: 'Dollar Values',
+			number: 'Counts'
+		};
+
+		const groups: BarChartGroup[] = [];
+		for (const [fmt, rows] of byFormat) {
+			const categories = rows.map((row) => ({
+				label: row.metric.label,
+				values: banksWithData.map((b) => row.values.get(b.cert) ?? null)
+			}));
+			groups.push({
+				formatType: fmt as 'percent' | 'currency' | 'number',
+				label: formatLabels[fmt] || fmt,
+				series: bankSeries,
+				categories
+			});
+		}
+
+		return groups;
+	});
+
+	function barValueFormatter(format: 'percent' | 'currency' | 'number'): (v: number) => string {
+		switch (format) {
+			case 'percent':
+				return formatPercent;
+			case 'currency':
+				return formatCurrency;
+			default:
+				return formatNumber;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -879,6 +946,34 @@
 				{/each}
 			</div>
 		</section>
+
+		<!-- Grouped bar chart: latest quarter snapshot -->
+		{#if barChartGroups.length > 0}
+			<section>
+				<div class="flex items-center gap-2 mb-3">
+					<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+					<h2 class="text-[15px] font-semibold text-[--text-primary]">Latest Quarter Snapshot</h2>
+				</div>
+				<div class="grid grid-cols-1 {barChartGroups.length > 1 ? 'lg:grid-cols-2' : ''} gap-2">
+					{#each barChartGroups as group (group.formatType)}
+						<div
+							class="{isPower ? 'rounded-none border border-[--border-muted]' : 'rounded-md'} bg-[--surface-1] {isPower ? 'p-2' : 'p-3'}"
+							style="{isPower ? '' : 'box-shadow: var(--shadow-sm)'}"
+						>
+							<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">
+								{group.label}
+							</h3>
+							<GroupedBarChart
+								series={group.series}
+								categories={group.categories}
+								height="{Math.max(200, group.categories.length * 60 + 80)}px"
+								valueFormatter={barValueFormatter(group.formatType)}
+							/>
+						</div>
+					{/each}
+				</div>
+			</section>
+		{/if}
 
 		<!-- Comparison table (sticky header, color-coded cells, delta row) -->
 		{#if tableRows.length > 0}

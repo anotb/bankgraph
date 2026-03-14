@@ -18,6 +18,20 @@ interface IndustryMetrics {
   repdte: string | null;
 }
 
+interface IndustryTrendQuarter {
+  repdte: string;
+  metrics: Record<string, number>;
+}
+
+interface QoQDeltas {
+  median_roa: number | null;
+  median_roe: number | null;
+  median_nim: number | null;
+  total_assets: number | null;
+  total_deposits: number | null;
+  bank_count: number | null;
+}
+
 interface RecentAnomaly {
   cert: number;
   name: string | null;
@@ -25,6 +39,7 @@ interface RecentAnomaly {
   severity: string;
   description: string | null;
   value: number | null;
+  repdte: string | null;
 }
 
 interface FailureSummary {
@@ -87,7 +102,7 @@ export const load: PageServerLoad = async ({ platform }) => {
     // Run all remaining queries in parallel (they're independent of each other)
     const fiveYearsAgo = `${new Date().getFullYear() - 5}0101`;
 
-    const [industryMetrics, recentAnomalies, failureSummary, topBanks] = await Promise.all([
+    const [industryMetrics, recentAnomalies, failureSummary, topBanks, industryTrends] = await Promise.all([
       // Industry metrics from agg_industry (latest quarter)
       (async (): Promise<IndustryMetrics> => {
         try {
@@ -112,18 +127,30 @@ export const load: PageServerLoad = async ({ platform }) => {
         } catch { return { ...EMPTY_INDUSTRY }; }
       })(),
 
-      // Recent anomalies (top 5 critical/warning)
+      // Recent anomalies (top 5 critical/warning, one per bank)
       (async (): Promise<RecentAnomaly[]> => {
         try {
-          return await queryAll<RecentAnomaly>(
+          // Fetch more rows than needed, then deduplicate in JS
+          // (D1 SQLite has limited window function support)
+          const raw = await queryAll<RecentAnomaly>(
             db,
-            `SELECT a.cert, i.name, a.metric, a.severity, a.description, a.value
+            `SELECT a.cert, i.name, a.metric, a.severity, a.description, a.value, a.repdte
              FROM anomalies a
              LEFT JOIN institutions i ON a.cert = i.cert
              WHERE a.severity IN ('critical', 'warning')
              ORDER BY CASE a.severity WHEN 'critical' THEN 0 ELSE 1 END, a.repdte DESC
-             LIMIT 5`
+             LIMIT 20`
           );
+          // Keep only the most severe anomaly per bank (first seen wins due to ORDER BY)
+          const seen = new Set<number>();
+          const deduped: RecentAnomaly[] = [];
+          for (const row of raw) {
+            if (seen.has(row.cert)) continue;
+            seen.add(row.cert);
+            deduped.push(row);
+            if (deduped.length >= 5) break;
+          }
+          return deduped;
         } catch { return []; }
       })(),
 
@@ -134,7 +161,7 @@ export const load: PageServerLoad = async ({ platform }) => {
             queryOne<{ cnt: number }>(db, 'SELECT COUNT(*) as cnt FROM failures'),
             queryOne<{ cnt: number }>(
               db,
-              `SELECT COUNT(*) as cnt FROM failures WHERE REPLACE(fail_date, '-', '') >= ?`,
+              `SELECT COUNT(*) as cnt FROM failures WHERE fail_date >= ?`,
               [fiveYearsAgo]
             ),
             queryAll<{ cert: number; name: string | null; fail_date: string | null; state: string | null }>(
@@ -189,18 +216,69 @@ export const load: PageServerLoad = async ({ platform }) => {
           }
           return banks;
         } catch { return []; }
+      })(),
+
+      // Last 12 quarters of industry-wide data for trend charts + QoQ deltas
+      (async (): Promise<IndustryTrendQuarter[]> => {
+        try {
+          const rows = await queryAll<{ repdte: string; metric: string; value: number | null }>(
+            db,
+            `SELECT repdte, metric, value FROM agg_industry WHERE segment = 'all' ORDER BY repdte DESC LIMIT 100`
+          );
+          const byQuarter = new Map<string, { repdte: string; metrics: Record<string, number> }>();
+          for (const row of rows) {
+            if (!byQuarter.has(row.repdte)) {
+              byQuarter.set(row.repdte, { repdte: row.repdte, metrics: {} });
+            }
+            if (row.value !== null) {
+              byQuarter.get(row.repdte)!.metrics[row.metric] = row.value;
+            }
+          }
+          return [...byQuarter.values()].sort((a, b) => b.repdte.localeCompare(a.repdte));
+        } catch { return []; }
       })()
     ]);
 
-    return { meta, industryMetrics, recentAnomalies, failureSummary, topBanks };
+    // Compute QoQ deltas from the first two quarters of industryTrends
+    const EMPTY_DELTAS: QoQDeltas = {
+      median_roa: null, median_roe: null, median_nim: null,
+      total_assets: null, total_deposits: null, bank_count: null
+    };
+    let deltas = EMPTY_DELTAS;
+    if (industryTrends.length >= 2) {
+      const curr = industryTrends[0].metrics;
+      const prev = industryTrends[1].metrics;
+      const delta = (key: string): number | null => {
+        const c = curr[key];
+        const p = prev[key];
+        if (c == null || p == null || p === 0) return null;
+        return ((c - p) / Math.abs(p)) * 100;
+      };
+      deltas = {
+        median_roa: delta('median_roa'),
+        median_roe: delta('median_roe'),
+        median_nim: delta('median_nim'),
+        total_assets: delta('total_assets'),
+        total_deposits: delta('total_deposits'),
+        bank_count: delta('bank_count')
+      };
+    }
+
+    return { meta, industryMetrics, recentAnomalies, failureSummary, topBanks, industryTrends, deltas };
   } catch {
     // DB not available (local dev, first deploy, etc.)
+    const EMPTY_DELTAS: QoQDeltas = {
+      median_roa: null, median_roe: null, median_nim: null,
+      total_assets: null, total_deposits: null, bank_count: null
+    };
     return {
       meta: EMPTY_META,
       industryMetrics: EMPTY_INDUSTRY,
       recentAnomalies: [] as RecentAnomaly[],
       failureSummary: { total_failures: 0, recent_5yr_count: 0, recent_failures: [] } as FailureSummary,
-      topBanks: [] as TopBank[]
+      topBanks: [] as TopBank[],
+      industryTrends: [] as IndustryTrendQuarter[],
+      deltas: EMPTY_DELTAS
     };
   }
 };

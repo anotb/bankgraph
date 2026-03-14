@@ -3,7 +3,9 @@
 	import SearchBar from '$lib/components/data/SearchBar.svelte';
 	import MetricCard from '$lib/components/data/MetricCard.svelte';
 	import Sparkline from '$lib/components/data/Sparkline.svelte';
+	import TimeSeriesChart from '$lib/components/charts/TimeSeriesChart.svelte';
 	import { formatNumber, formatDate, formatPercent, formatCurrency } from '$lib/utils/formatters.js';
+	import { getFieldLabel } from '$lib/utils/field-meta.js';
 
 	let { data } = $props();
 
@@ -17,14 +19,17 @@
 		goto(`/banks/${cert}`);
 	}
 
-	/** Navigation sections for the quick-nav cards */
-	const navSections = [
-		{ href: '/banks', label: 'Banks', description: 'Browse 4,400+ FDIC-insured institutions', icon: 'bank' },
-		{ href: '/industry', label: 'Industry', description: 'Market segments and industry trends', icon: 'chart' },
-		{ href: '/compare', label: 'Compare', description: 'Side-by-side bank comparison', icon: 'scale' },
-		{ href: '/macro', label: 'Macro', description: 'Federal Reserve economic data', icon: 'globe' },
-		{ href: '/glossary', label: 'Glossary', description: 'Financial field definitions', icon: 'book' }
-	];
+	// Build time series from industryTrends (reversed to chronological order)
+	let trendSeries = $derived.by(() => {
+		if (!data.industryTrends || data.industryTrends.length < 2) return null;
+		const quarters = [...data.industryTrends].reverse();
+
+		return {
+			roa: quarters.map((q) => ({ date: q.repdte, value: q.metrics?.median_roa ?? null })),
+			roe: quarters.map((q) => ({ date: q.repdte, value: q.metrics?.median_roe ?? null })),
+			nim: quarters.map((q) => ({ date: q.repdte, value: q.metrics?.median_nim ?? null }))
+		};
+	});
 </script>
 
 <svelte:head>
@@ -56,145 +61,112 @@
 	</div>
 </div>
 
-<!-- Explore -->
-<section class="mb-6">
+<!-- Industry Snapshot (merged metrics) -->
+<section class="mb-5">
 	<div class="flex items-center gap-2 mb-3">
 		<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
-		<h2 class="text-[15px] font-semibold text-[--text-primary]">Explore</h2>
-	</div>
-	<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-		{#each navSections as section}
-			<a
-				href={section.href}
-				class="group rounded-md bg-[--surface-1] border border-transparent px-3 py-3 transition-all duration-150 hover:border-[--accent] hover:bg-[--accent-muted]"
-				style="box-shadow: var(--shadow-sm)"
-				onmouseenter={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
-				onmouseleave={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}
-			>
-				<div class="flex flex-col items-start gap-2">
-					<div class="shrink-0 w-8 h-8 rounded-md bg-[--surface-3] flex items-center justify-center text-[--text-tertiary] group-hover:bg-[--accent] group-hover:text-white transition-colors">
-						{#if section.icon === 'bank'}
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/></svg>
-						{:else if section.icon === 'chart'}
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3v18h18M7 16l4-4 4 4 5-5"/></svg>
-						{:else if section.icon === 'globe'}
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="1.5"/><path stroke-linecap="round" stroke-width="1.5" d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10A15.3 15.3 0 0112 2z"/></svg>
-						{:else if section.icon === 'scale'}
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 6l3 1m0 0l-3 9a5 5 0 006 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5 5 0 006 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
-						{:else if section.icon === 'book'}
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg>
-						{/if}
-					</div>
-					<div class="min-w-0">
-						<span class="text-[14px] font-semibold text-[--text-primary] group-hover:text-[--accent] transition-colors">{section.label}</span>
-						<p class="text-[12px] text-[--text-tertiary] mt-0.5 leading-snug">{section.description}</p>
-					</div>
-				</div>
-			</a>
-		{/each}
-	</div>
-</section>
-
-<!-- Hero stats -->
-<section>
-	<div class="flex items-center gap-2 mb-3">
-		<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
-		<h2 class="text-[15px] font-semibold text-[--text-primary]">Industry at a Glance</h2>
+		<h2 class="text-[15px] font-semibold text-[--text-primary]">Industry Snapshot</h2>
 		{#if data.meta.latest_quarter}
 			<span class="text-[11px] text-[--text-tertiary] ml-1">as of {formatDate(data.meta.latest_quarter)}</span>
 		{/if}
 	</div>
-	<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5">
+	<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-px bg-[--border-muted] rounded-md overflow-hidden" style="box-shadow: var(--shadow-sm)">
 		<MetricCard
+			compact
 			label="Active Banks"
 			value={data.meta.active_count ? formatNumber(data.meta.active_count) : '...'}
 			sublabel="FDIC-insured"
-			borderless={true}
+			trend={data.deltas.bank_count}
+			trendLabel="QoQ change"
 		/>
 		<MetricCard
+			compact
 			label="Total Assets"
-			value={data.meta.total_assets ? formatCurrency(data.meta.total_assets) : '...'}
+			value={data.industryMetrics.total_assets !== null ? formatCurrency(data.industryMetrics.total_assets) : (data.meta.total_assets ? formatCurrency(data.meta.total_assets) : '...')}
 			sublabel="Industry-wide"
-			borderless={true}
+			trend={data.deltas.total_assets}
+			trendLabel="QoQ change"
 		/>
 		<MetricCard
+			compact
 			label="Total Deposits"
-			value={data.meta.total_deposits ? formatCurrency(data.meta.total_deposits) : '...'}
+			value={data.industryMetrics.total_deposits !== null ? formatCurrency(data.industryMetrics.total_deposits) : (data.meta.total_deposits ? formatCurrency(data.meta.total_deposits) : '...')}
 			sublabel="Industry-wide"
-			borderless={true}
+			trend={data.deltas.total_deposits}
+			trendLabel="QoQ change"
 		/>
-		{#if data.meta.bank_count > data.meta.active_count}
+		{#if data.industryMetrics.median_roa !== null}
 			<MetricCard
-				label="Total Banks"
-				value={formatNumber(data.meta.bank_count)}
-				sublabel="Including inactive"
-				borderless={true}
+				compact
+				label="Median ROA"
+				value={formatPercent(data.industryMetrics.median_roa)}
+				sublabel="Return on Assets"
+				trend={data.deltas.median_roa}
+				trendLabel="QoQ change"
+			/>
+		{/if}
+		{#if data.industryMetrics.median_roe !== null}
+			<MetricCard
+				compact
+				label="Median ROE"
+				value={formatPercent(data.industryMetrics.median_roe)}
+				sublabel="Return on Equity"
+				trend={data.deltas.median_roe}
+				trendLabel="QoQ change"
+			/>
+		{/if}
+		{#if data.industryMetrics.median_nim !== null}
+			<MetricCard
+				compact
+				label="Median NIM"
+				value={formatPercent(data.industryMetrics.median_nim)}
+				sublabel="Net Interest Margin"
+				trend={data.deltas.median_nim}
+				trendLabel="QoQ change"
 			/>
 		{/if}
 		<MetricCard
+			compact
 			label="Latest Data"
 			value={data.meta.latest_quarter ? formatDate(data.meta.latest_quarter) : '...'}
 			sublabel="Most recent quarter"
-			borderless={true}
 		/>
 	</div>
+	<a href="/industry" class="inline-flex items-center gap-1 mt-2 text-[13px] font-medium text-[--accent] hover:text-[--accent-hover]">
+		Full industry breakdown &rarr;
+	</a>
 </section>
 
-<!-- Industry health metrics (only show if we have agg data) -->
-{#if data.industryMetrics.median_roa !== null || data.industryMetrics.median_roe !== null || data.industryMetrics.median_nim !== null}
-	<section class="mt-5">
+<!-- Industry Trend Charts -->
+{#if trendSeries}
+	<section class="mb-5">
 		<div class="flex items-center gap-2 mb-3">
 			<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
-			<h2 class="text-[15px] font-semibold text-[--text-primary]">Industry Health</h2>
-			{#if data.industryMetrics.repdte}
-				<span class="text-[11px] text-[--text-tertiary] ml-1">Q{Math.ceil(parseInt(data.industryMetrics.repdte.slice(4, 6)) / 3)} {data.industryMetrics.repdte.slice(0, 4)}</span>
-			{/if}
+			<h2 class="text-[15px] font-semibold text-[--text-primary]">Industry Trends</h2>
 		</div>
-		<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5">
-			{#if data.industryMetrics.total_assets !== null}
-				<MetricCard
-					label="Agg. Total Assets"
-					value={formatCurrency(data.industryMetrics.total_assets)}
-					sublabel="From quarterly filings"
-					borderless={true}
+		<div class="grid grid-cols-1 lg:grid-cols-2 gap-2">
+			<div class="borderless-card p-3">
+				<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">ROA & NIM</h3>
+				<TimeSeriesChart
+					series={[
+						{ key: 'roa', label: 'Median ROA', data: trendSeries.roa },
+						{ key: 'nim', label: 'Median NIM', data: trendSeries.nim }
+					]}
+					yAxisFormat="percent"
+					height="200px"
 				/>
-			{/if}
-			{#if data.industryMetrics.total_deposits !== null}
-				<MetricCard
-					label="Agg. Deposits"
-					value={formatCurrency(data.industryMetrics.total_deposits)}
-					sublabel="From quarterly filings"
-					borderless={true}
+			</div>
+			<div class="borderless-card p-3">
+				<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">ROE</h3>
+				<TimeSeriesChart
+					series={[
+						{ key: 'roe', label: 'Median ROE', data: trendSeries.roe }
+					]}
+					yAxisFormat="percent"
+					height="200px"
 				/>
-			{/if}
-			{#if data.industryMetrics.median_roa !== null}
-				<MetricCard
-					label="Median ROA"
-					value={formatPercent(data.industryMetrics.median_roa)}
-					sublabel="Return on Assets"
-					borderless={true}
-				/>
-			{/if}
-			{#if data.industryMetrics.median_roe !== null}
-				<MetricCard
-					label="Median ROE"
-					value={formatPercent(data.industryMetrics.median_roe)}
-					sublabel="Return on Equity"
-					borderless={true}
-				/>
-			{/if}
-			{#if data.industryMetrics.median_nim !== null}
-				<MetricCard
-					label="Median NIM"
-					value={formatPercent(data.industryMetrics.median_nim)}
-					sublabel="Net Interest Margin"
-					borderless={true}
-				/>
-			{/if}
+			</div>
 		</div>
-		<a href="/industry" class="inline-flex items-center gap-1 mt-2 text-[13px] font-medium text-[--accent] hover:text-[--accent-hover]">
-			Full industry breakdown &rarr;
-		</a>
 	</section>
 {/if}
 
@@ -211,15 +183,27 @@
 				</div>
 				<div class="rounded-md bg-[--surface-1] divide-y divide-[--surface-2]" style="box-shadow: var(--shadow-sm)">
 					{#each data.recentAnomalies as anomaly}
-						<a href="/banks/{anomaly.cert}/risk" class="flex items-center justify-between px-3 py-2.5 hover:bg-[--accent-muted] transition-colors">
-							<div class="flex items-center gap-2 min-w-0">
-								<span class="inline-flex shrink-0 items-center rounded-sm px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase
-									{anomaly.severity === 'critical' ? 'bg-[--negative-muted] text-[--negative]' : 'bg-[--warning-muted] text-[--warning]'}">
-									{anomaly.severity}
-								</span>
-								<span class="text-[13px] font-medium text-[--text-primary] truncate">{anomaly.name ?? `CERT ${anomaly.cert}`}</span>
+						<a href="/banks/{anomaly.cert}/risk" class="block px-3 py-2.5 hover:bg-[--accent-muted] transition-colors">
+							<div class="flex items-center justify-between">
+								<div class="flex items-center gap-2 min-w-0">
+									<span class="inline-flex shrink-0 items-center rounded-sm px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase
+										{anomaly.severity === 'critical' ? 'bg-[--negative-muted] text-[--negative]' : 'bg-[--warning-muted] text-[--warning]'}">
+										{anomaly.severity}
+									</span>
+									<span class="text-[13px] font-medium text-[--text-primary] truncate">{anomaly.name ?? `CERT ${anomaly.cert}`}</span>
+								</div>
+								<span class="text-[12px] font-medium text-[--text-secondary] shrink-0 ml-2">{getFieldLabel(anomaly.metric)}</span>
 							</div>
-							<span class="text-[12px] text-[--text-tertiary] shrink-0 ml-2 data-mono">{anomaly.metric}</span>
+							{#if anomaly.description || anomaly.value !== null}
+								<div class="mt-1 pl-7 text-[11px] text-[--text-tertiary] leading-snug">
+									{#if anomaly.value !== null}
+										<span class="data-mono font-medium text-[--text-secondary]">{formatPercent(anomaly.value)}</span>
+									{/if}
+									{#if anomaly.description}
+										<span>{anomaly.value !== null ? ' · ' : ''}{anomaly.description}</span>
+									{/if}
+								</div>
+							{/if}
 						</a>
 					{/each}
 				</div>
@@ -231,17 +215,25 @@
 			<section>
 				<div class="flex items-center gap-2 mb-3">
 					<div class="w-0.5 h-4 bg-[--warning] rounded-full"></div>
-					<h2 class="text-[15px] font-semibold text-[--text-primary]">Recent Bank Failures</h2>
+					<h2 class="text-[15px] font-semibold text-[--text-primary]">Bank Failures</h2>
 					<span class="text-[11px] text-[--text-tertiary]">{formatNumber(data.failureSummary.total_failures)} total</span>
 				</div>
-				{#if data.failureSummary.recent_5yr_count > 0}
-					<div class="rounded-md bg-[--surface-1] px-3 py-2.5 mb-2" style="box-shadow: var(--shadow-sm)">
-						<div class="flex items-center justify-between">
-							<span class="text-[13px] text-[--text-secondary]">Last 5 years</span>
-							<span class="text-[15px] font-semibold text-[--warning] data-mono">{data.failureSummary.recent_5yr_count}</span>
-						</div>
-					</div>
-				{/if}
+				<div class="grid grid-cols-2 gap-1.5 mb-2">
+					{#if data.failureSummary.recent_failures[0]?.fail_date}
+						<MetricCard
+							label="Most Recent"
+							value={formatDate(data.failureSummary.recent_failures[0].fail_date)}
+							sublabel="Latest failure"
+							borderless={true}
+						/>
+					{/if}
+					<MetricCard
+						label="Last 5 Years"
+						value={formatNumber(data.failureSummary.recent_5yr_count)}
+						sublabel="failures recorded"
+						borderless={true}
+					/>
+				</div>
 				<div class="rounded-md bg-[--surface-1] divide-y divide-[--surface-2]" style="box-shadow: var(--shadow-sm)">
 					{#each data.failureSummary.recent_failures as failure}
 						<div class="flex items-center justify-between px-3 py-2.5">
@@ -250,7 +242,7 @@
 								{#if failure.state}
 									<span class="text-[12px] text-[--text-tertiary]">{failure.state}</span>
 								{/if}
-								<span class="text-[12px] text-[--text-tertiary] data-mono">{formatDate(failure.fail_date)}</span>
+								<span class="text-[12px] font-medium text-[--text-secondary] data-mono">{formatDate(failure.fail_date)}</span>
 							</div>
 						</div>
 					{/each}
@@ -304,16 +296,3 @@
 	{/if}
 </div>
 
-<!-- Data Status -->
-<footer class="mt-10 border-t border-[--border] pt-6 pb-4">
-	<div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-[11px] text-[--text-tertiary]">
-		{#if data.meta.latest_quarter}
-			<span>Latest quarter: <span class="data-mono font-medium text-[--text-secondary]">{formatDate(data.meta.latest_quarter)}</span></span>
-		{/if}
-		{#if data.meta.active_count}
-			<span>Institutions: <span class="data-mono font-medium text-[--text-secondary]">{formatNumber(data.meta.active_count)}</span></span>
-		{/if}
-		<span>Source: FDIC BankFind Suite</span>
-	</div>
-	<p class="mt-2 text-center text-[11px] text-[--text-tertiary]">Not financial advice. Data provided as-is for educational purposes.</p>
-</footer>

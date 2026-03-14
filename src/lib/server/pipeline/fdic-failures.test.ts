@@ -20,7 +20,7 @@ describe('mapFailure', () => {
 		expect(result.name).toBe('Failed National Bank');
 		expect(result.city).toBe('Springfield');
 		expect(result.state).toBe('IL');
-		expect(result.fail_date).toBe('03/15/2023');
+		expect(result.fail_date).toBe('20230315');
 		expect(result.acquiring_institution).toBe('Acquiring Bank, Inc.');
 		expect(result.cost).toBe(150000);
 		expect(result.total_assets).toBe(500000);

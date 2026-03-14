@@ -46,6 +46,27 @@ interface FDICFailuresResponse {
   totals: { count: number };
 }
 
+/** Convert FDIC date formats (M/D/YYYY, MM/DD/YYYY, etc.) to YYYYMMDD for sortable storage */
+function normalizeDate(raw: unknown): string | null {
+  if (raw == null) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+
+  // Already YYYYMMDD
+  if (/^\d{8}$/.test(s)) return s;
+
+  // Try parsing as a date (handles M/D/YYYY, YYYY-MM-DD, etc.)
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}${m}${day}`;
+  }
+
+  return null;
+}
+
 /** Map a raw FDIC failure record to our schema */
 export function mapFailure(raw: Record<string, unknown>): Record<string, unknown> {
   const cityst = String(raw.CITYST ?? '');
@@ -58,7 +79,7 @@ export function mapFailure(raw: Record<string, unknown>): Record<string, unknown
     name: raw.NAME != null ? String(raw.NAME) : null,
     city,
     state,
-    fail_date: raw.FAILDATE != null ? String(raw.FAILDATE) : null,
+    fail_date: normalizeDate(raw.FAILDATE),
     acquiring_institution: raw.SAVR != null ? String(raw.SAVR) : null,
     cost: raw.COST != null ? Number(raw.COST) : null,
     total_deposits: raw.QBFDEP != null ? Number(raw.QBFDEP) : null,

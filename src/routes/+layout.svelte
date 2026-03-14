@@ -7,6 +7,7 @@
 	import NavigationProgress from '$lib/components/layout/NavigationProgress.svelte';
 	import ScrollToTop from '$lib/components/layout/ScrollToTop.svelte';
 	import { getMode } from '$lib/stores/mode.svelte.js';
+	import { formatNumber, formatDate } from '$lib/utils/formatters.js';
 
 	let { children, data } = $props();
 	let currentMode = $derived(getMode());
@@ -79,10 +80,16 @@
 
 	<!-- Footer -->
 	<footer class="border-t border-[--border-muted] px-4 py-3 text-[11px] text-[--text-tertiary]">
-		<div class="max-w-[1400px] mx-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-			<p>Data from <a href="https://banks.data.fdic.gov" class="underline hover:text-[--text-secondary]">FDIC BankFind</a> & <a href="https://fred.stlouisfed.org" class="underline hover:text-[--text-secondary]">FRED</a></p>
-			<p>Built with SvelteKit</p>
+		<div class="max-w-[1400px] mx-auto flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+			{#if data.latestQuarter}
+				<span>Q{Math.ceil(parseInt(data.latestQuarter.slice(4, 6)) / 3)} {data.latestQuarter.slice(0, 4)}</span>
+			{/if}
+			{#if data.activeBankCount}
+				<span>{formatNumber(data.activeBankCount)} institutions</span>
+			{/if}
+			<span>Source: <a href="https://banks.data.fdic.gov" class="underline hover:text-[--text-secondary]">FDIC BankFind</a> & <a href="https://fred.stlouisfed.org" class="underline hover:text-[--text-secondary]">FRED</a></span>
 		</div>
+		<p class="mt-1 text-center text-[11px] text-[--text-tertiary]">Not financial advice. Data provided as-is for educational purposes.</p>
 	</footer>
 </div>
 

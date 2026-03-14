@@ -4,12 +4,18 @@
 	import ExportButton from '$lib/components/data/ExportButton.svelte';
 	import TimeSeriesChart from '$lib/components/charts/TimeSeriesChart.svelte';
 	import HorizontalBarChart from '$lib/components/charts/HorizontalBarChart.svelte';
+	import DonutChart from '$lib/components/charts/DonutChart.svelte';
 	import { formatCurrency, formatPercent, formatDate, formatNumber } from '$lib/utils/formatters.js';
 	import { getMode } from '$lib/stores/mode.svelte.js';
 
 	let { data } = $props();
 	let meta = $derived(data.meta);
 	let mode = $derived(getMode());
+
+	// Segment filter state
+	type SegmentFilter = 'All' | 'Community' | 'Regional' | 'Large';
+	const SEGMENT_FILTERS: SegmentFilter[] = ['All', 'Community', 'Regional', 'Large'];
+	let selectedSegment: SegmentFilter = $state('All');
 
 	interface SegmentQuarter {
 		repdte: string;
@@ -29,6 +35,29 @@
 
 	let allMetrics = $derived(latestMetrics(data.allSegment));
 
+	/** Metrics for the currently selected segment filter */
+	let activeSegmentData = $derived.by((): SegmentData | null => {
+		if (selectedSegment === 'All') return data.allSegment;
+		if (selectedSegment === 'Community') return data.communitySegment;
+		if (selectedSegment === 'Regional') return data.regionalSegment;
+		if (selectedSegment === 'Large') return data.largeSegment;
+		return data.allSegment;
+	});
+	let activeMetrics = $derived(latestMetrics(activeSegmentData));
+
+	/** Stats row for the selected segment (for bank count, assets, deposits) */
+	let activeSegmentStats = $derived.by(() => {
+		if (selectedSegment === 'All') return allBanksStats;
+		const seg = data.segmentStats.find((s) => s.segment === selectedSegment);
+		if (!seg) return null;
+		return {
+			bank_count: seg.bank_count,
+			total_assets: seg.total_assets,
+			total_deposits: seg.total_deposits,
+			avg_assets: seg.avg_assets
+		};
+	});
+
 	let latestQuarter = $derived(
 		data.allSegment?.data?.[0]?.repdte ?? meta?.latest_quarter ?? null
 	);
@@ -36,6 +65,23 @@
 	function getVal(metrics: Record<string, number> | null, key: string): number | null {
 		if (!metrics) return null;
 		return metrics[key] ?? null;
+	}
+
+	/** Compare a segment metric against the All Banks baseline. Returns 'above' | 'below' | 'equal' */
+	function trendVsAll(segMetrics: Record<string, number> | null, key: string): 'above' | 'below' | 'equal' {
+		const segVal = getVal(segMetrics, key);
+		const allVal = getVal(allMetrics, key);
+		if (segVal == null || allVal == null) return 'equal';
+		if (segVal > allVal) return 'above';
+		if (segVal < allVal) return 'below';
+		return 'equal';
+	}
+
+	/** CSS class for trend coloring */
+	function trendColor(direction: 'above' | 'below' | 'equal'): string {
+		if (direction === 'above') return 'text-[--positive]';
+		if (direction === 'below') return 'text-[--negative]';
+		return 'text-[--text-primary]';
 	}
 
 	// Build time series from allSegment data (reversed to chronological order)
@@ -88,6 +134,14 @@
 		}))
 	);
 
+	// Donut data: asset tiers by total assets (shows concentration)
+	let tierAssetDonutData = $derived(
+		data.assetTiers.map((t) => ({
+			label: TIER_LABELS[t.asset_tier] ?? `Tier ${t.asset_tier}`,
+			value: t.total_assets
+		}))
+	);
+
 	// Horizontal bar data for top states
 	let stateBarData = $derived(
 		data.topStates.map((s) => ({
@@ -96,8 +150,8 @@
 		}))
 	);
 
-	// Horizontal bar data for regulators
-	let regulatorBarData = $derived(
+	// Donut data for regulators
+	let regulatorDonutData = $derived(
 		data.regulators.map((r) => ({
 			label: r.regulator,
 			value: r.bank_count
@@ -108,14 +162,43 @@
 	let tierTotalBanks = $derived(data.assetTiers.reduce((s, t) => s + t.bank_count, 0));
 	let tierTotalAssets = $derived(data.assetTiers.reduce((s, t) => s + t.total_assets, 0));
 
-	// Format fail_date for display
+	// Distribution summary stats
+	let assetConcentrationSummary = $derived.by(() => {
+		if (data.assetTiers.length === 0 || tierTotalAssets === 0) return null;
+		const top = data.assetTiers.find((t) => t.asset_tier === 7);
+		if (!top) return null;
+		const pct = ((top.total_assets / tierTotalAssets) * 100).toFixed(1);
+		return `>$250B holds ${pct}% of all assets`;
+	});
+
+	let topStateSummary = $derived.by(() => {
+		if (data.topStates.length === 0) return null;
+		const top = data.topStates[0];
+		return `${top.state} leads with ${formatNumber(top.bank_count)} banks`;
+	});
+
+	let regulatorSummary = $derived.by(() => {
+		if (data.regulators.length === 0) return null;
+		const totalBanks = data.regulators.reduce((s, r) => s + r.bank_count, 0);
+		// Find FDIC
+		const fdic = data.regulators.find((r) => r.regulator === 'FDIC');
+		if (!fdic || totalBanks === 0) return null;
+		const pct = ((fdic.bank_count / totalBanks) * 100).toFixed(0);
+		return `FDIC regulates ${pct}% of banks`;
+	});
+
+	// Format fail_date (YYYYMMDD) for display
 	function formatFailDate(v: string | null): string {
 		if (!v) return '\u2014';
-		const d = new Date(v);
-		if (!isNaN(d.getTime())) {
-			return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+		// YYYYMMDD format
+		if (/^\d{8}$/.test(v)) {
+			const y = v.slice(0, 4);
+			const m = parseInt(v.slice(4, 6), 10);
+			const d = parseInt(v.slice(6, 8), 10);
+			const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+			return `${months[m - 1]} ${d}, ${y}`;
 		}
-		return v;
+		return formatDate(v);
 	}
 </script>
 
@@ -141,40 +224,64 @@
 	<!-- Top stats cards -->
 	{#if meta || allBanksStats}
 		<section>
-			<div class="flex items-center gap-2 mb-3">
-				<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
-				<h2 class="text-[15px] font-semibold text-[--text-primary]">Industry Snapshot</h2>
+			<div class="flex items-center justify-between mb-3">
+				<div class="flex items-center gap-2">
+					<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+					<h2 class="text-[15px] font-semibold text-[--text-primary]">Industry Snapshot</h2>
+				</div>
+				<!-- Segment filter pills -->
+				<div class="flex items-center gap-1">
+					{#each SEGMENT_FILTERS as seg (seg)}
+						<button
+							class="px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors
+								{selectedSegment === seg
+									? 'bg-[--accent] text-white'
+									: 'bg-[--surface-2] text-[--text-secondary] hover:bg-[--surface-3]'}"
+							onclick={() => { selectedSegment = seg; }}
+						>
+							{seg}
+						</button>
+					{/each}
+				</div>
 			</div>
 			<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-px bg-[--border-muted] rounded-md overflow-hidden" style="box-shadow: var(--shadow-sm)">
 				<MetricCard
 					compact
-					label="Total Banks"
-					value={formatNumber(meta?.bank_count ?? allBanksStats?.bank_count ?? null)}
+					label="{selectedSegment === 'All' ? 'Total' : selectedSegment} Banks"
+					value={formatNumber(
+						selectedSegment === 'All'
+							? (meta?.bank_count ?? allBanksStats?.bank_count ?? null)
+							: (activeSegmentStats?.bank_count ?? null)
+					)}
 				/>
 				<MetricCard
 					compact
-					label="Active Banks"
-					value={formatNumber(meta?.active_count ?? allBanksStats?.bank_count ?? null)}
+					label="{selectedSegment === 'All' ? 'Active' : selectedSegment} Banks"
+					value={formatNumber(
+						selectedSegment === 'All'
+							? (meta?.active_count ?? allBanksStats?.bank_count ?? null)
+							: (activeSegmentStats?.bank_count ?? null)
+					)}
 				/>
 				<MetricCard
 					compact
 					label="Total Assets"
-					value={formatCurrency(allMetrics ? getVal(allMetrics, 'total_assets') : (allBanksStats?.total_assets ?? null))}
-					sublabel="Industry-wide"
+					value={formatCurrency(activeMetrics ? getVal(activeMetrics, 'total_assets') : (activeSegmentStats?.total_assets ?? null))}
+					sublabel={selectedSegment === 'All' ? 'Industry-wide' : selectedSegment}
 				/>
-				{#if allMetrics}
+				{#if activeMetrics}
 					<MetricCard
 						compact
 						label="Median ROA"
-						value={formatPercent(getVal(allMetrics, 'median_roa'))}
-						sublabel="All banks"
+						value={formatPercent(getVal(activeMetrics, 'median_roa'))}
+						sublabel={selectedSegment === 'All' ? 'All banks' : selectedSegment}
 					/>
 				{:else}
 					<MetricCard
 						compact
 						label="Total Deposits"
-						value={formatCurrency(allBanksStats?.total_deposits ?? null)}
-						sublabel="Industry-wide"
+						value={formatCurrency(activeSegmentStats?.total_deposits ?? null)}
+						sublabel={selectedSegment === 'All' ? 'Industry-wide' : selectedSegment}
 					/>
 				{/if}
 			</div>
@@ -214,7 +321,7 @@
 					<tbody class="divide-y divide-[--surface-2]">
 						<!-- All Banks row -->
 						{#if allBanksStats}
-							<tr class="bg-[--surface-2]/50">
+							<tr class="bg-[--surface-2]/50 {selectedSegment === 'All' ? 'ring-1 ring-inset ring-[--accent]' : ''}">
 								<td class="px-3 py-2 font-semibold text-[--text-primary] sticky left-0 bg-[--surface-2]/50 z-[5]">All Banks</td>
 								<td class="px-3 py-2 text-right text-[--text-primary]" data-mono>{formatNumber(allBanksStats.bank_count)}</td>
 								<td class="px-3 py-2 text-right text-[--text-primary]" data-mono>{formatCurrency(allBanksStats.total_assets)}</td>
@@ -235,8 +342,9 @@
 								: seg.segment === 'Regional' ? data.regionalSegment
 								: seg.segment === 'Large' ? data.largeSegment
 								: null}
-							<tr class="hover:bg-[--accent-muted] transition-colors">
-								<td class="px-3 py-2 font-medium text-[--text-primary] sticky left-0 bg-[--surface-1] z-[5]">
+							{@const isSelected = selectedSegment === seg.segment}
+							<tr class="transition-colors {isSelected ? 'bg-[--accent-muted] ring-1 ring-inset ring-[--accent]' : 'hover:bg-[--accent-muted]'}">
+								<td class="px-3 py-2 font-medium text-[--text-primary] sticky left-0 z-[5] {isSelected ? 'bg-[--accent-muted]' : 'bg-[--surface-1]'}">
 									{seg.segment}
 									<span class="text-[11px] text-[--text-tertiary] ml-1">
 										{#if seg.segment === 'Community'}(&lt;$1B){:else if seg.segment === 'Regional'}($1-50B){:else if seg.segment === 'Large'}(&gt;$50B){/if}
@@ -248,9 +356,18 @@
 								<td class="px-3 py-2 text-right text-[--text-primary]" data-mono>{formatCurrency(seg.total_deposits)}</td>
 								{#if hasAnalyticsData && mode !== 'accessible'}
 									{@const metrics = latestMetrics(aggSegment)}
-									<td class="px-3 py-2 text-right text-[--text-primary]" data-mono>{formatPercent(getVal(metrics, 'median_roa'))}</td>
-									<td class="px-3 py-2 text-right text-[--text-primary]" data-mono>{formatPercent(getVal(metrics, 'median_roe'))}</td>
-									<td class="px-3 py-2 text-right text-[--text-primary]" data-mono>{formatPercent(getVal(metrics, 'median_nim'))}</td>
+									{@const roaTrend = trendVsAll(metrics, 'median_roa')}
+									{@const roeTrend = trendVsAll(metrics, 'median_roe')}
+									{@const nimTrend = trendVsAll(metrics, 'median_nim')}
+									<td class="px-3 py-2 text-right {trendColor(roaTrend)}" data-mono>
+										{#if roaTrend === 'above'}<span aria-label="Above industry median">&#9650; </span>{:else if roaTrend === 'below'}<span aria-label="Below industry median">&#9660; </span>{/if}{formatPercent(getVal(metrics, 'median_roa'))}
+									</td>
+									<td class="px-3 py-2 text-right {trendColor(roeTrend)}" data-mono>
+										{#if roeTrend === 'above'}<span aria-label="Above industry median">&#9650; </span>{:else if roeTrend === 'below'}<span aria-label="Below industry median">&#9660; </span>{/if}{formatPercent(getVal(metrics, 'median_roe'))}
+									</td>
+									<td class="px-3 py-2 text-right {trendColor(nimTrend)}" data-mono>
+										{#if nimTrend === 'above'}<span aria-label="Above industry median">&#9650; </span>{:else if nimTrend === 'below'}<span aria-label="Below industry median">&#9660; </span>{/if}{formatPercent(getVal(metrics, 'median_nim'))}
+									</td>
 								{/if}
 							</tr>
 						{/each}
@@ -269,27 +386,36 @@
 			</div>
 
 			<div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
-				<!-- Asset tier distribution -->
-				{#if tierBarData.length > 0}
+				<!-- Asset tier distribution (donut by total assets shows concentration) -->
+				{#if tierAssetDonutData.length > 0}
 					<div class="borderless-card p-3">
-						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Banks by Asset Size</h3>
-						<HorizontalBarChart data={tierBarData} height="220px" />
+						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Asset Concentration</h3>
+						<DonutChart data={tierAssetDonutData} height="220px" valueFormatter={formatCurrency} innerLabel="Assets" />
+						{#if assetConcentrationSummary}
+							<p class="mt-2 text-[11px] text-[--text-tertiary] text-center">{assetConcentrationSummary}</p>
+						{/if}
 					</div>
 				{/if}
 
-				<!-- Geographic distribution -->
+				<!-- Geographic distribution (bar chart works best for ranked list) -->
 				{#if stateBarData.length > 0}
 					<div class="borderless-card p-3">
 						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Top States by Bank Count</h3>
 						<HorizontalBarChart data={stateBarData} height="220px" />
+						{#if topStateSummary}
+							<p class="mt-2 text-[11px] text-[--text-tertiary] text-center">{topStateSummary}</p>
+						{/if}
 					</div>
 				{/if}
 
-				<!-- Regulator distribution -->
-				{#if regulatorBarData.length > 0}
+				<!-- Regulator distribution (donut for categorical split) -->
+				{#if regulatorDonutData.length > 0}
 					<div class="borderless-card p-3">
 						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Primary Regulator</h3>
-						<HorizontalBarChart data={regulatorBarData} height="220px" />
+						<DonutChart data={regulatorDonutData} height="220px" innerLabel="Banks" />
+						{#if regulatorSummary}
+							<p class="mt-2 text-[11px] text-[--text-tertiary] text-center">{regulatorSummary}</p>
+						{/if}
 					</div>
 				{/if}
 			</div>

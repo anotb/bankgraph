@@ -53,7 +53,7 @@ export const POST: RequestHandler = async ({ platform, url, request }) => {
   const stage = url.searchParams.get('stage');
   const resetParam = url.searchParams.get('reset');
 
-  const VALID_STAGES = ['institutions', 'financials', 'failures', 'snapshot', 'analytics', 'trends', 'anomalies', 'risk', 'fred', 'correlations'];
+  const VALID_STAGES = ['institutions', 'financials', 'failures', 'snapshot', 'analytics', 'trends', 'anomalies', 'risk', 'fred', 'correlations', 'fix-dates'];
   if (stage && !VALID_STAGES.includes(stage)) {
     return pipelineJson({ ok: false, error: `Unknown stage: ${stage}` }, 400);
   }
@@ -261,6 +261,37 @@ export const POST: RequestHandler = async ({ platform, url, request }) => {
       const corrRows = await computeCorrelations(db);
       results.correlations = {
         rows_inserted: corrRows,
+        elapsed_seconds: Number(((Date.now() - t0) / 1000).toFixed(1))
+      };
+    }
+
+    // Stage: fix-dates (normalize fail_date from M/D/YYYY to YYYYMMDD)
+    if (stage === 'fix-dates') {
+      console.log('=== Stage: fix-dates ===');
+      const t0 = Date.now();
+      const { execute } = await import('$lib/server/db');
+
+      // Fetch all rows with non-YYYYMMDD fail_dates
+      const badRows = await queryAll<{ cert: number; fail_date: string }>(
+        db,
+        `SELECT cert, fail_date FROM failures WHERE fail_date IS NOT NULL AND fail_date NOT GLOB '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'`
+      );
+
+      let fixed = 0;
+      for (const row of badRows) {
+        const d = new Date(row.fail_date);
+        if (isNaN(d.getTime())) continue;
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const normalized = `${y}${m}${day}`;
+        await execute(db, 'UPDATE failures SET fail_date = ? WHERE cert = ? AND fail_date = ?', [normalized, row.cert, row.fail_date]);
+        fixed++;
+      }
+
+      results['fix-dates'] = {
+        total_bad: badRows.length,
+        fixed,
         elapsed_seconds: Number(((Date.now() - t0) / 1000).toFixed(1))
       };
     }
