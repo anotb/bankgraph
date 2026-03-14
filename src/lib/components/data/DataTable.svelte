@@ -263,7 +263,7 @@
 			<tbody class="data-table-body bg-[--surface-1]" class:sorting>
 				{#each data as row, rowIdx}
 					<tr
-						class="relative {onrowclick ? 'cursor-pointer group transition-colors duration-75' : ''}"
+						class="relative {onrowclick ? 'cursor-pointer group transition-colors duration-75' : ''} {rowIdx % 2 === 1 ? 'stripe-row' : ''}"
 						class:hover-row={!!onrowclick}
 						class:kb-selected={mode === 'power' && rowIdx === selectedRowIdx}
 						onclick={() => onrowclick?.(row)}
@@ -317,6 +317,15 @@
 
 	.data-table-body:not(.sorting) {
 		transition: opacity 100ms ease;
+	}
+
+	/* Subtle alternating row stripe */
+	tr.stripe-row {
+		background-color: color-mix(in srgb, var(--surface-2) 40%, transparent);
+	}
+
+	tr.stripe-row td.bg-inherit {
+		background-color: color-mix(in srgb, var(--surface-2) 40%, var(--surface-1));
 	}
 
 	/* Only show inactive sort icons on hover */

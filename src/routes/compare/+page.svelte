@@ -4,7 +4,9 @@
 	import TimeSeriesChart from '$lib/components/charts/TimeSeriesChart.svelte';
 	import ExportButton from '$lib/components/data/ExportButton.svelte';
 	import DateRangePicker from '$lib/components/data/DateRangePicker.svelte';
+	import FieldPicker from '$lib/components/data/FieldPicker.svelte';
 	import { formatPercent, formatCurrency, formatNumber } from '$lib/utils/formatters.js';
+	import { fieldDefs } from '$lib/utils/field-meta.js';
 	import type { CompareResponse, Financial, Institution } from '$lib/types';
 	import { getMode } from '$lib/stores/mode.svelte.js';
 
@@ -54,9 +56,39 @@
 		selectedMetricKeys = next;
 	}
 
-	let selectedMetrics = $derived(
-		availableMetrics.filter((m) => selectedMetricKeys.has(m.key))
-	);
+	// In power mode, FieldPicker may add keys not in the hardcoded list.
+	// Build MetricOption on-the-fly from field-meta for those.
+	const CURRENCY_CATEGORIES = new Set(['balance_sheet', 'income']);
+
+	function fieldToMetric(key: string): MetricOption | null {
+		// Check hardcoded list first
+		const existing = availableMetrics.find((m) => m.key === key);
+		if (existing) return existing;
+		// Build from field-meta
+		const def = fieldDefs[key];
+		if (!def) return null;
+		const format = CURRENCY_CATEGORIES.has(def.category) ? 'currency' : 'percent';
+		return { key, label: def.label, format, field: key as keyof Financial };
+	}
+
+	// FieldPicker selected keys (power mode)
+	let fieldPickerKeys = $state<string[]>([...selectedMetricKeys]);
+
+	// Sync FieldPicker → selectedMetricKeys
+	function handleFieldPickerChange(keys: string[]): void {
+		selectedMetricKeys = new Set(keys);
+	}
+
+	// Keep fieldPickerKeys in sync when pills toggle (accessible mode)
+	$effect(() => {
+		fieldPickerKeys = [...selectedMetricKeys];
+	});
+
+	let selectedMetrics = $derived.by(() => {
+		return [...selectedMetricKeys]
+			.map(fieldToMetric)
+			.filter((m): m is MetricOption => m !== null);
+	});
 
 	// ── Date range (uses DateRangePicker component for consistency) ──
 	let dateRange = $state<{ from: string; to: string }>({ from: '', to: '' });
@@ -696,9 +728,18 @@
 
 	<!-- Metric selector -->
 	<section>
-		<div class="flex items-center gap-2 mb-3">
-			<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
-			<h2 class="text-[15px] font-semibold text-[--text-primary]">Metrics</h2>
+		<div class="flex items-center justify-between mb-3">
+			<div class="flex items-center gap-2">
+				<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+				<h2 class="text-[15px] font-semibold text-[--text-primary]">Metrics</h2>
+			</div>
+			{#if isPower}
+				<FieldPicker
+					bind:selected={fieldPickerKeys}
+					onchange={handleFieldPickerChange}
+					maxSelections={10}
+				/>
+			{/if}
 		</div>
 		<div class="flex flex-wrap gap-1.5">
 			{#each availableMetrics as metric (metric.key)}

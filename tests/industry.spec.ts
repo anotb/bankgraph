@@ -137,6 +137,39 @@ test.describe('Industry page', () => {
 		expect(meta.bank_count).toBeGreaterThan(0);
 	});
 
+	test('export button is visible on industry page', async ({ page }) => {
+		await page.goto('/industry');
+
+		await expect(page.getByText('Industry Snapshot')).toBeVisible({ timeout: 15000 });
+
+		const exportBtn = page.getByLabel('Export data');
+		await expect(exportBtn).toBeVisible();
+		await expect(exportBtn).toContainText('Export');
+		await expect(exportBtn).toHaveAttribute('aria-haspopup', 'true');
+		await expect(exportBtn).toHaveAttribute('aria-expanded', 'false');
+	});
+
+	test('clicking export button on industry page opens CSV/JSON menu', async ({ page }) => {
+		await page.goto('/industry');
+
+		await expect(page.getByText('Industry Snapshot')).toBeVisible({ timeout: 15000 });
+
+		const exportBtn = page.getByLabel('Export data');
+		await expect(exportBtn).toBeVisible();
+		// Small wait for hydration before clicking
+		await page.waitForTimeout(300);
+		await exportBtn.click();
+
+		const menu = page.locator('[role="menu"]');
+		await expect(menu).toBeVisible({ timeout: 5000 });
+
+		await expect(page.getByRole('menuitem', { name: 'Download CSV' })).toBeVisible();
+		await expect(page.getByRole('menuitem', { name: 'Download JSON' })).toBeVisible();
+
+		// aria-expanded should now be true
+		await expect(exportBtn).toHaveAttribute('aria-expanded', 'true');
+	});
+
 	test('navigation to failures sub-page works', async ({ page }) => {
 		await page.goto('/industry');
 
@@ -250,6 +283,35 @@ test.describe('Industry failures sub-page', () => {
 
 		await backLink.click();
 		await expect(page).toHaveURL(/\/industry$/, { timeout: 10000 });
+	});
+
+	test('export button is visible on failures page', async ({ page }) => {
+		await page.goto('/industry/failures');
+
+		await expect(page.locator('h1')).toContainText('Bank Failures', { timeout: 15000 });
+
+		const exportBtn = page.getByLabel('Export data');
+		await expect(exportBtn).toBeVisible();
+		await expect(exportBtn).toContainText('Export');
+		await expect(exportBtn).toHaveAttribute('aria-haspopup', 'true');
+	});
+
+	test('clicking export button on failures page opens CSV/JSON menu', async ({ page }) => {
+		await page.goto('/industry/failures');
+
+		await expect(page.locator('h1')).toContainText('Bank Failures', { timeout: 15000 });
+
+		const exportBtn = page.getByLabel('Export data');
+		await expect(exportBtn).toBeVisible();
+		// Small wait for hydration before clicking
+		await page.waitForTimeout(300);
+		await exportBtn.click();
+
+		const menu = page.locator('[role="menu"]');
+		await expect(menu).toBeVisible({ timeout: 5000 });
+
+		await expect(page.getByRole('menuitem', { name: 'Download CSV' })).toBeVisible();
+		await expect(page.getByRole('menuitem', { name: 'Download JSON' })).toBeVisible();
 	});
 
 	test('sort by column updates table order', async ({ page }) => {

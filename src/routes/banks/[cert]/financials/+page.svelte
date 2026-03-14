@@ -244,11 +244,14 @@
 				data={filtered}
 				rowKey="repdte"
 				rowLabel="Quarter"
-				columns={pivotFields.map(f => ({
-					key: f,
-					label: getFieldLabel(f).replace(/\s*\(.*\)/, ''),
-					format: (['roa','roe','nimy','nclnlsr','lnatresr','rbcrwaj','rbc1rwaj','rbc1aaj'].includes(f) ? 'percent' : 'currency') as 'percent' | 'currency' | 'number'
-				}))}
+				columns={pivotFields.map(f => {
+					const def = fieldDefs[f];
+					return {
+						key: f,
+						label: getFieldLabel(f).replace(/\s*\(.*\)/, ''),
+						format: def ? categoryFormat(def.category) : 'number'
+					};
+				})}
 			/>
 		{:else}
 			<!-- Charts grid, driven by FieldPicker selection -->

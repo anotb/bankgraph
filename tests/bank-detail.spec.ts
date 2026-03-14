@@ -383,6 +383,16 @@ test.describe('Bank detail page', () => {
 			expect(meterCount).toBeGreaterThanOrEqual(5);
 		});
 
+		test('risk tab shows either risk data or empty state', async ({ page }) => {
+			// General resilience test: verify the risk tab always renders meaningfully
+			const riskContent = page
+				.getByText('Financial Health Summary')
+				.or(page.getByText('No risk analysis data'))
+				.or(page.getByText('No risk data'));
+
+			await expect(riskContent.first()).toBeVisible({ timeout: 15000 });
+		});
+
 		test('shows detected anomalies section', async ({ page }) => {
 			await expect(page.getByText('Detected Anomalies')).toBeVisible({ timeout: 15000 });
 
@@ -412,6 +422,51 @@ test.describe('Bank detail page', () => {
 				const count = await severityBadges.count();
 				expect(count).toBeGreaterThanOrEqual(1);
 			}
+		});
+	});
+
+	test.describe('Back navigation', () => {
+		test('navigating from /banks shows back link and clicking returns to /banks', async ({ page }) => {
+			await page.goto('/banks');
+
+			// Wait for table to load and click first bank row
+			const clickableRow = page.locator('table tbody tr.cursor-pointer').first();
+			await expect(clickableRow).toBeVisible({ timeout: 15000 });
+			await page.waitForTimeout(500);
+
+			await clickableRow.click();
+			await expect(page).toHaveURL(/\/banks\/\d+/, { timeout: 15000 });
+			await expect(page.locator('h1')).toBeVisible({ timeout: 15000 });
+
+			// Back link should show "Banks" (no search params)
+			const backLink = page.getByRole('link', { name: /Banks/i }).first();
+			await expect(backLink).toBeVisible();
+
+			await backLink.click();
+			await expect(page).toHaveURL(/\/banks$/, { timeout: 10000 });
+		});
+
+		test('navigating from /banks with search shows "Back to search results" link', async ({ page }) => {
+			// Navigate directly to /banks with a search query to avoid timing issues
+			await page.goto('/banks?q=JPMorgan');
+
+			await expect(page).toHaveURL(/q=JPMorgan/i, { timeout: 10000 });
+
+			// Click first result row
+			const clickableRow = page.locator('table tbody tr.cursor-pointer').first();
+			await expect(clickableRow).toBeVisible({ timeout: 15000 });
+			await page.waitForTimeout(500);
+
+			await clickableRow.click();
+			await expect(page).toHaveURL(/\/banks\/\d+/, { timeout: 15000 });
+			await expect(page.locator('h1')).toBeVisible({ timeout: 15000 });
+
+			// Back link should contain "Back to search results"
+			const backLink = page.getByRole('link', { name: /Back to search results/i });
+			await expect(backLink).toBeVisible();
+
+			await backLink.click();
+			await expect(page).toHaveURL(/\/banks\?.*q=JPMorgan/i, { timeout: 10000 });
 		});
 	});
 

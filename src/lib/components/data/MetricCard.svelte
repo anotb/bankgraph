@@ -7,6 +7,7 @@
 		sublabel,
 		trend,
 		trendLabel,
+		invertTrend = false,
 		compact = false,
 		borderless = false,
 		variant = 'default',
@@ -18,6 +19,8 @@
 		sublabel?: string;
 		trend?: number | null;
 		trendLabel?: string;
+		/** When true, a positive trend is bad (e.g. rising NPL ratio) */
+		invertTrend?: boolean;
 		compact?: boolean;
 		borderless?: boolean;
 		variant?: 'default' | 'dense';
@@ -28,7 +31,10 @@
 	let isDense = $derived(variant === 'dense');
 
 	let trendDirection = $derived(
-		trend == null ? 'neutral' : trend > 0 ? 'positive' : trend < 0 ? 'negative' : 'neutral'
+		trend == null ? 'neutral'
+		: trend > 0 ? (invertTrend ? 'negative' : 'positive')
+		: trend < 0 ? (invertTrend ? 'positive' : 'negative')
+		: 'neutral'
 	);
 
 	let trendFormatted = $derived(

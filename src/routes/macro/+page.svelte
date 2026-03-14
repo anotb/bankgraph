@@ -1,6 +1,7 @@
 <script lang="ts">
 	import TimeSeriesChart from '$lib/components/charts/TimeSeriesChart.svelte';
 	import EmptyState from '$lib/components/data/EmptyState.svelte';
+	import DateRangePicker from '$lib/components/data/DateRangePicker.svelte';
 	import InsightCard from '$lib/components/data/InsightCard.svelte';
 	import { getMode } from '$lib/stores/mode.svelte.js';
 	import type { MacroResponse, MacroDataPoint, CorrelationResult } from '$lib/types';
@@ -11,33 +12,56 @@
 	let series = $derived(data.series);
 	let dbCorrelations = $derived(data.correlations ?? []);
 
-	type DateRange = '1Y' | '5Y' | '10Y' | 'All';
-	let selectedRange: DateRange = $state('10Y');
-	const rangeButtons: DateRange[] = ['1Y', '5Y', '10Y', 'All'];
-
-	/** Convert YYYY-MM-DD macro date to a sortable string for cutoff comparison */
-	function macroDateToSortable(d: string): string {
-		return d; // already YYYY-MM-DD, sorts lexicographically
+	/** Convert YYYY-MM-DD to YYYYMMDD */
+	function toYMD(d: string): string {
+		return d.replace(/-/g, '');
 	}
 
-	let cutoffDate = $derived.by((): string | null => {
-		if (selectedRange === 'All') return null;
-		const now = new Date();
-		const years = selectedRange === '1Y' ? 1 : selectedRange === '5Y' ? 5 : 10;
-		const cutoff = new Date(now.getFullYear() - years, now.getMonth(), now.getDate());
-		return cutoff.toISOString().slice(0, 10);
+	// Compute available date range across all macro series (as YYYYMMDD)
+	let availableRange = $derived.by(() => {
+		let earliest = '';
+		let latest = '';
+		for (const s of Object.values(series)) {
+			if (!s || !s.data || s.data.length === 0) continue;
+			const first = toYMD(s.data[0].date);
+			const last = toYMD(s.data[s.data.length - 1].date);
+			if (!earliest || first < earliest) earliest = first;
+			if (!latest || last > latest) latest = last;
+		}
+		if (!earliest || !latest) return undefined;
+		return { earliest, latest };
 	});
 
-	/** Filter macro data points by the selected range */
+	// Date range state (YYYYMMDD from/to)
+	let dateRange = $state<{ from: string; to: string }>({ from: '', to: '' });
+
+	// Initialize date range to 10Y when data first arrives
+	let dateRangeInitialized = false;
+	$effect(() => {
+		if (dateRangeInitialized || !availableRange) return;
+		dateRangeInitialized = true;
+		const latest = availableRange.latest;
+		const latestYear = parseInt(latest.slice(0, 4), 10);
+		const from = `${latestYear - 10}${latest.slice(4)}`;
+		dateRange = {
+			from: from < availableRange.earliest ? availableRange.earliest : from,
+			to: latest
+		};
+	});
+
+	/** Filter macro data points by the selected date range */
 	function filterData(points: MacroDataPoint[]): MacroDataPoint[] {
-		if (!cutoffDate) return points;
-		return points.filter((p) => macroDateToSortable(p.date) >= cutoffDate!);
+		if (!dateRange.from || !dateRange.to) return points;
+		return points.filter((p) => {
+			const d = toYMD(p.date);
+			return d >= dateRange.from && d <= dateRange.to;
+		});
 	}
 
 	/** Convert MacroDataPoint[] to the format TimeSeriesChart expects (YYYYMMDD dates) */
 	function toChartData(points: MacroDataPoint[]): Array<{ date: string; value: number | null }> {
 		return filterData(points).map((p) => ({
-			date: p.date.replace(/-/g, ''),
+			date: toYMD(p.date),
 			value: p.value
 		}));
 	}
@@ -272,21 +296,8 @@
 		/>
 	{:else}
 		<!-- Date range selector -->
-		<div class="flex items-center gap-2">
-			<span class="text-[13px] text-[--text-tertiary]">Period:</span>
-			<div class="flex gap-1">
-				{#each rangeButtons as range}
-					<button
-						class="px-3 py-1 text-[13px] rounded font-medium transition-colors
-							{selectedRange === range
-								? 'bg-[--accent] text-white'
-								: 'bg-[--surface-2] text-[--text-secondary] hover:bg-[--surface-3]'}"
-						onclick={() => (selectedRange = range)}
-					>
-						{range}
-					</button>
-				{/each}
-			</div>
+		<div class="flex items-center gap-2 flex-wrap">
+			<DateRangePicker bind:value={dateRange} {availableRange} />
 			{#if recessionBands.length > 0}
 				<span class="flex items-center gap-1.5 ml-3 text-[11px] text-[--text-tertiary]">
 					<span class="inline-block w-3 h-2.5 bg-[--surface-3] rounded-sm"></span>

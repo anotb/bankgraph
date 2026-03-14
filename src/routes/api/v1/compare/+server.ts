@@ -13,6 +13,7 @@ import type { RequestHandler } from './$types';
 import { getDB, queryAll } from '$lib/server/db';
 import { cacheWrap } from '$lib/server/cache';
 import { jsonResponse, errorResponse } from '$lib/server/response';
+import { fieldDefs } from '$lib/utils/field-meta.js';
 import type { Financial, CompareResponse } from '$lib/types';
 
 const ONE_HOUR = 3600;
@@ -27,11 +28,8 @@ function csvEscape(val: unknown): string {
   return s;
 }
 
-const VALID_METRICS = new Set([
-  'roa', 'roe', 'nimy', 'eeffr', 'rbcrwaj', 'rbc1rwaj', 'rbc1aaj',
-  'eqv', 'nclnlsr', 'lnatresr', 'nco_ratio', 'lnlsdepr',
-  'asset', 'dep', 'eq', 'lnlsnet', 'netinc', 'nim', 'numemp'
-]);
+// Accept all fields defined in field-meta as valid comparison metrics
+const VALID_METRICS = new Set(Object.keys(fieldDefs));
 
 export const GET: RequestHandler = async ({ platform, url }) => {
   const certsRaw = url.searchParams.get('certs');

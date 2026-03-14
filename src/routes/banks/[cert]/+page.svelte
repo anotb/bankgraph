@@ -72,6 +72,12 @@
 		};
 	});
 
+	/** Derive semantic for growth metrics: shrinking = warning, flat/growing = neutral */
+	function getGrowthSemantic(trend: number | null | undefined): 'warning' | undefined {
+		if (trend == null) return undefined;
+		return trend < -5 ? 'warning' : undefined;
+	}
+
 	/** Employee count: prefer institution field, fallback to latest quarter */
 	let employeeCount = $derived(bank.num_employees ?? latestQ?.numemp ?? null);
 
@@ -241,13 +247,14 @@
 		</div>
 
 		{#if hasFinancials && metricsSource}
-			<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-px bg-[--border-muted] {isPower ? 'rounded-none' : 'rounded-[5px]'} overflow-hidden border border-[--border-muted]" style="{isPower ? '' : 'box-shadow: var(--shadow-sm)'}">
+			<div class="grid grid-cols-2 md:grid-cols-4 gap-px bg-[--border-muted] {isPower ? 'rounded-none' : 'rounded-md'} overflow-hidden" style="{isPower ? '' : 'box-shadow: var(--shadow-sm)'}">
 				<MetricCard
 					compact
 					variant={isPower ? 'dense' : 'default'}
 					label="Total Assets"
 					value={formatCurrency(metricsSource.total_assets)}
 					trend={effectiveTrends.total_assets}
+					semantic={getGrowthSemantic(effectiveTrends.total_assets)}
 				/>
 				<MetricCard
 					compact
@@ -255,6 +262,7 @@
 					label="Total Deposits"
 					value={formatCurrency(metricsSource.total_deposits)}
 					trend={effectiveTrends.total_deposits}
+					semantic={getGrowthSemantic(effectiveTrends.total_deposits)}
 				/>
 				<MetricCard
 					compact
@@ -290,6 +298,7 @@
 					value={formatPercent(metricsSource.npl_ratio)}
 					sublabel="Non-Performing Loans"
 					trend={effectiveTrends.npl_ratio}
+					invertTrend
 					semantic={getMetricStatus('npl_ratio', metricsSource.npl_ratio)}
 				/>
 				<MetricCard
