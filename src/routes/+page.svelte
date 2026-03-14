@@ -260,7 +260,7 @@
 				</div>
 				<div class="rounded-md bg-[--surface-1] divide-y divide-[--surface-2]" style="box-shadow: var(--shadow-sm)">
 					{#each data.failureSummary.recent_failures as failure}
-						<div class="flex items-center justify-between px-3 py-2.5">
+						<a href={failure.cert ? `/banks/${failure.cert}` : '/industry/failures'} class="flex items-center justify-between px-3 py-2.5 hover:bg-[--accent-muted] transition-colors">
 							<span class="text-[13px] font-medium text-[--text-primary] truncate">{failure.name ?? 'Unknown'}</span>
 							<div class="flex items-center gap-2 shrink-0 ml-2">
 								{#if failure.state}
@@ -268,7 +268,7 @@
 								{/if}
 								<span class="text-[12px] font-medium text-[--text-secondary] data-mono">{formatDate(failure.fail_date)}</span>
 							</div>
-						</div>
+						</a>
 					{/each}
 				</div>
 				<a href="/industry/failures" class="inline-flex items-center gap-1 mt-2 text-[13px] font-medium text-[--accent] hover:text-[--accent-hover]">

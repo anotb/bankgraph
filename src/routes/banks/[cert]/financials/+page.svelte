@@ -100,8 +100,9 @@
 		return url;
 	});
 
-	// View toggle: 'chart' or 'table' (power mode only)
-	let view = $state<'chart' | 'table'>('chart');
+	// View toggle: 'chart' or 'table'
+	// Power mode defaults to table, accessible mode defaults to chart
+	let view = $state<'chart' | 'table'>(getMode() === 'power' ? 'table' : 'chart');
 
 	// Map category to y-axis format
 	function categoryFormat(cat: FieldCategory): 'currency' | 'percent' | 'number' {
@@ -203,31 +204,29 @@
 				{filtered.length} quarters
 			</span>
 			<div class="ml-auto flex items-center gap-2">
-				{#if mode === 'power'}
-					<!-- Chart / Table toggle -->
-					<div class="inline-flex rounded border border-[--border-muted] overflow-hidden">
-						<button
-							type="button"
-							class="px-2 py-1 text-[11px] font-medium transition-colors
-								{view === 'chart'
-									? 'bg-[--accent] text-white'
-									: 'bg-[--surface-2] text-[--text-secondary] hover:text-[--text-primary]'}"
-							onclick={() => (view = 'chart')}
-						>
-							Chart
-						</button>
-						<button
-							type="button"
-							class="px-2 py-1 text-[11px] font-medium transition-colors border-l border-[--border-muted]
-								{view === 'table'
-									? 'bg-[--accent] text-white'
-									: 'bg-[--surface-2] text-[--text-secondary] hover:text-[--text-primary]'}"
-							onclick={() => (view = 'table')}
-						>
-							Table
-						</button>
-					</div>
-				{/if}
+				<!-- Chart / Table toggle -->
+				<div class="inline-flex rounded border border-[--border-muted] overflow-hidden">
+					<button
+						type="button"
+						class="px-2 py-1 text-[11px] font-medium transition-colors
+							{view === 'chart'
+								? 'bg-[--accent] text-white'
+								: 'bg-[--surface-2] text-[--text-secondary] hover:text-[--text-primary]'}"
+						onclick={() => (view = 'chart')}
+					>
+						Chart
+					</button>
+					<button
+						type="button"
+						class="px-2 py-1 text-[11px] font-medium transition-colors border-l border-[--border-muted]
+							{view === 'table'
+								? 'bg-[--accent] text-white'
+								: 'bg-[--surface-2] text-[--text-secondary] hover:text-[--text-primary]'}"
+						onclick={() => (view = 'table')}
+					>
+						Table
+					</button>
+				</div>
 				<FieldPicker
 					bind:selected={selectedFields}
 					onchange={handleFieldsChange}
@@ -237,9 +236,12 @@
 			</div>
 		</div>
 
-		{#if mode === 'power' && view === 'table'}
-			<!-- Pivot Table view (power mode, table toggle) -->
+		{#if view === 'table'}
+			<!-- Pivot Table view -->
 			{@const pivotFields = selectedFields.length > 0 ? selectedFields : DEFAULT_FIELDS}
+			<div class="flex justify-end">
+				<ExportButton baseUrl={exportBaseUrl} filename="bank_{cert}_financials" />
+			</div>
 			<PivotTable
 				data={filtered}
 				rowKey="repdte"

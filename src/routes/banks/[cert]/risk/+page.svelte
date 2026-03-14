@@ -7,6 +7,7 @@
 	import Disclaimer from '$lib/components/data/Disclaimer.svelte';
 	import { formatDate, formatPercent } from '$lib/utils/formatters.js';
 	import { getMode } from '$lib/stores/mode.svelte.js';
+	import { invalidateAll } from '$app/navigation';
 	import type { Anomaly } from '$lib/types';
 	import type { RiskHistoryPoint } from './+page.server.js';
 
@@ -105,6 +106,7 @@
 			icon="error"
 			title="No risk analysis data available"
 			message="This bank may not have financials for the latest quarter. Risk scores require at least one quarter of data."
+			onRetry={() => invalidateAll()}
 		/>
 	{:else}
 		<!-- Financial Health Summary -->

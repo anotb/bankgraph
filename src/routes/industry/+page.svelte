@@ -7,6 +7,7 @@
 	import DonutChart from '$lib/components/charts/DonutChart.svelte';
 	import { formatCurrency, formatPercent, formatDate, formatNumber } from '$lib/utils/formatters.js';
 	import { getMode } from '$lib/stores/mode.svelte.js';
+	import { invalidateAll } from '$app/navigation';
 	import { onMount } from 'svelte';
 
 	let { data } = $props();
@@ -369,6 +370,7 @@
 			icon="data"
 			title="No industry metadata available"
 			message="Run the aggregation pipeline to populate industry-wide statistics."
+			onRetry={() => invalidateAll()}
 		/>
 	{/if}
 

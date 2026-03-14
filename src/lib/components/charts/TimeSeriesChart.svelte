@@ -10,6 +10,8 @@
 		label: string;
 		color?: string;
 		data: SeriesDataPoint[];
+		/** Which y-axis this series binds to: 0 (left, default) or 1 (right) */
+		yAxisIndex?: number;
 	};
 	type MarkAreaRange = [string, string]; // [start ISO date, end ISO date]
 	type MarkLineConfig = { value: number; label?: string };
@@ -24,7 +26,8 @@
 		showMovingAverage = false,
 		yAxisMin,
 		yAxisMax,
-		yAxisFormatter
+		yAxisFormatter,
+		dualAxis,
 	}: {
 		series: SeriesConfig[];
 		title?: string;
@@ -36,6 +39,14 @@
 		yAxisMin?: number;
 		yAxisMax?: number;
 		yAxisFormatter?: (value: number) => string;
+		/** Configuration for a second (right) y-axis */
+		dualAxis?: {
+			format: 'currency' | 'percent' | 'number';
+			label?: string;
+			formatter?: (value: number) => string;
+			min?: number;
+			max?: number;
+		};
 	} = $props();
 
 	let chartContainer = $state<HTMLDivElement | null>(null);
@@ -61,6 +72,25 @@
 			default:
 				return String(value);
 		}
+	}
+
+	function formatRightYValue(value: number): string {
+		if (dualAxis?.formatter) return dualAxis.formatter(value);
+		switch (dualAxis?.format) {
+			case 'currency':
+				return formatCurrency(value);
+			case 'percent':
+				return formatPercent(value);
+			case 'number':
+				return formatNumber(value);
+			default:
+				return String(value);
+		}
+	}
+
+	/** Format a value based on which axis index it belongs to */
+	function formatByAxis(value: number, axisIndex: number): string {
+		return axisIndex === 1 ? formatRightYValue(value) : formatYValue(value);
 	}
 
 	/** Compute a simple moving average over `period` data points */
@@ -132,6 +162,9 @@
 			const accentArea = isDark ? 'rgba(45,181,168,0.08)' : 'rgba(13,125,125,0.06)';
 			const accentAreaSelected = isDark ? 'rgba(45,181,168,0.15)' : 'rgba(13,125,125,0.12)';
 
+			// Build a map from ECharts series index -> yAxisIndex for tooltip formatting
+			const seriesAxisMap = new Map<number, number>();
+
 			const option: any = {
 				backgroundColor: 'transparent',
 				animation: true,
@@ -184,10 +217,13 @@
 						let html = `<div style="font-weight:600;margin-bottom:4px;font-size:12px">${dateStr}</div>`;
 						for (const p of params) {
 							if (p.value == null || p.value[1] == null) continue;
+							// Use the yAxisIndex from the ECharts series config via seriesIndex lookup
+							const axisIdx = seriesAxisMap.get(p.seriesIndex) ?? 0;
+							const formatted = formatByAxis(p.value[1], axisIdx);
 							html += `<div style="display:flex;align-items:center;gap:6px;margin:2px 0;font-size:12px">`;
 							html += `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color}"></span>`;
 							html += `<span style="color:${textSecondary}">${p.seriesName}</span>`;
-							html += `<span style="margin-left:auto;font-weight:600;font-variant-numeric:tabular-nums">${formatYValue(p.value[1])}</span>`;
+							html += `<span style="margin-left:auto;font-weight:600;font-variant-numeric:tabular-nums">${formatted}</span>`;
 							html += `</div>`;
 						}
 						return html;
@@ -207,7 +243,7 @@
 				},
 				grid: {
 					left: 8,
-					right: 8,
+					right: dualAxis ? 16 : 8,
 					top: title ? 40 : 12,
 					bottom: 60,
 					containLabel: true
@@ -265,7 +301,38 @@
 					},
 					splitLine: { show: false }
 				},
-				yAxis: {
+				yAxis: dualAxis
+				? [
+					{
+						type: 'value',
+						min: yAxisMin,
+						max: yAxisMax,
+						axisLine: { show: false },
+						axisTick: { show: false },
+						axisLabel: {
+							color: textTertiary,
+							fontSize: 11,
+							fontFamily: "'Inter', system-ui, sans-serif",
+							formatter: (value: number) => formatYValue(value)
+						},
+						splitLine: { lineStyle: { color: borderMuted, type: 'dashed' } }
+					},
+					{
+						type: 'value',
+						min: dualAxis.min,
+						max: dualAxis.max,
+						axisLine: { show: false },
+						axisTick: { show: false },
+						axisLabel: {
+							color: textTertiary,
+							fontSize: 11,
+							fontFamily: "'Inter', system-ui, sans-serif",
+							formatter: (value: number) => formatRightYValue(value)
+						},
+						splitLine: { show: false }
+					}
+				]
+				: {
 					type: 'value',
 					min: yAxisMin,
 					max: yAxisMax,
@@ -292,6 +359,7 @@
 						const base: any = {
 							name: s.label,
 							type: 'line',
+							yAxisIndex: s.yAxisIndex ?? 0,
 							symbolSize: 4,
 							symbol: 'none',
 							smooth: false,
@@ -343,14 +411,17 @@
 								])
 							};
 						}
+						seriesAxisMap.set(allSeries.length, s.yAxisIndex ?? 0);
 						allSeries.push(base);
 
 						// Add SMA overlay if enabled and enough data
 						if (showMovingAverage && chartData.length > SMA_PERIOD) {
 							const smaData = computeSMA(chartData, SMA_PERIOD);
+							seriesAxisMap.set(allSeries.length, s.yAxisIndex ?? 0);
 							allSeries.push({
 								name: `${s.label} (${SMA_PERIOD}Q SMA)`,
 								type: 'line',
+								yAxisIndex: s.yAxisIndex ?? 0,
 								symbol: 'none',
 								smooth: false,
 								lineStyle: {

@@ -778,6 +778,39 @@
 			</section>
 		{/if}
 
+		<!-- At a Glance: best bank per metric -->
+		{#if tableRows.length > 0 && selectedBanks.length >= 2}
+			<section>
+				<div class="flex items-center gap-2 mb-3">
+					<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+					<h2 class="text-[15px] font-semibold text-[--text-primary]">At a Glance</h2>
+				</div>
+				<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+					{#each tableRows as row (row.metric.key)}
+						{@const bestCert = row.best}
+						{@const bestBank = bestCert !== null ? selectedBanks.find((b) => b.cert === bestCert) : null}
+						{@const bestValue = bestCert !== null ? row.values.get(bestCert) ?? null : null}
+						{#if bestBank}
+							<div
+								class="{isPower ? 'rounded-none border border-[--border-muted]' : 'rounded-md'} bg-[--surface-1] {isPower ? 'px-2.5 py-2' : 'px-3 py-2.5'}"
+								style="{isPower ? '' : 'box-shadow: var(--shadow-xs)'}"
+							>
+								<p class="text-[11px] text-[--text-tertiary] font-medium uppercase tracking-wider">
+									Best {row.metric.label}
+								</p>
+								<p class="text-[14px] font-semibold text-[--accent] mt-0.5 truncate" title={bestBank.name}>
+									{bestBank.name}
+								</p>
+								<p class="text-[13px] text-[--text-secondary] data-mono">
+									{formatValue(bestValue, row.metric.format)}
+								</p>
+							</div>
+						{/if}
+					{/each}
+				</div>
+			</section>
+		{/if}
+
 		<!-- Comparison table (sticky header, color-coded cells, delta row) -->
 		{#if tableRows.length > 0}
 			<section>

@@ -3,8 +3,9 @@
 	import EmptyState from '$lib/components/data/EmptyState.svelte';
 	import DateRangePicker from '$lib/components/data/DateRangePicker.svelte';
 	import InsightCard from '$lib/components/data/InsightCard.svelte';
+	import SearchBar from '$lib/components/data/SearchBar.svelte';
 	import { getMode } from '$lib/stores/mode.svelte.js';
-	import type { MacroResponse, MacroDataPoint, CorrelationResult } from '$lib/types';
+	import type { MacroResponse, MacroDataPoint, CorrelationResult, Institution, Financial } from '$lib/types';
 
 	let { data } = $props();
 	let mode = $derived(getMode());
@@ -270,6 +271,130 @@
 	});
 
 	let usingFallback = $derived(dbCorrelations.length === 0);
+
+	// --- Bank Overlay ---
+	let selectedBank = $state<Institution | null>(null);
+	let bankFinancials = $state<Financial[]>([]);
+	let bankLoading = $state(false);
+	let bankError = $state<string | null>(null);
+
+	function handleBankSelect(bank: Institution) {
+		selectedBank = bank;
+		fetchBankFinancials(bank.cert);
+	}
+
+	function clearBank() {
+		selectedBank = null;
+		bankFinancials = [];
+		bankError = null;
+	}
+
+	async function fetchBankFinancials(cert: number) {
+		bankLoading = true;
+		bankError = null;
+		bankFinancials = [];
+		try {
+			const res = await fetch(`/api/v1/banks/${cert}/financials?fields=nimy,nclnlsr,roa&limit=200`);
+			if (!res.ok) {
+				bankError = 'Failed to load financial data';
+				return;
+			}
+			const json = (await res.json()) as { data?: Financial[] };
+			bankFinancials = json.data ?? [];
+		} catch {
+			bankError = 'Failed to load financial data';
+		} finally {
+			bankLoading = false;
+		}
+	}
+
+	/** Convert bank financials to chart data for a given field */
+	function bankMetricToChartData(
+		field: keyof Financial
+	): Array<{ date: string; value: number | null }> {
+		return bankFinancials
+			.filter((f) => {
+				const d = f.repdte;
+				if (!dateRange.from || !dateRange.to) return true;
+				return d >= dateRange.from && d <= dateRange.to;
+			})
+			.map((f) => ({
+				date: f.repdte,
+				value: f[field] as number | null
+			}));
+	}
+
+	/** Overlay chart configs: FRED series + bank metric on dual y-axes */
+	interface OverlayConfig {
+		title: string;
+		fredKey: string;
+		fredLabel: string;
+		fredFormat: 'percent' | 'number';
+		bankField: keyof Financial;
+		bankLabel: string;
+		bankFormat: 'percent' | 'number';
+		bankColor: string;
+		description: string;
+	}
+
+	const OVERLAY_CONFIGS: OverlayConfig[] = [
+		{
+			title: 'Fed Funds Rate vs Net Interest Margin',
+			fredKey: 'FEDFUNDS',
+			fredLabel: 'Fed Funds Rate',
+			fredFormat: 'percent',
+			bankField: 'nimy',
+			bankLabel: 'NIM',
+			bankFormat: 'percent',
+			bankColor: '#e67e22',
+			description: 'Rate hikes tend to widen NIM as loan repricing outpaces deposit costs.'
+		},
+		{
+			title: 'Unemployment Rate vs Non-Performing Loans',
+			fredKey: 'UNRATE',
+			fredLabel: 'Unemployment Rate',
+			fredFormat: 'percent',
+			bankField: 'nclnlsr',
+			bankLabel: 'NPL Ratio',
+			bankFormat: 'percent',
+			bankColor: '#e74c3c',
+			description: 'Job losses drive loan defaults, typically with a 1-2 quarter lag.'
+		},
+		{
+			title: 'GDP Growth vs Return on Assets',
+			fredKey: 'GDP',
+			fredLabel: 'GDP (billions)',
+			fredFormat: 'number',
+			bankField: 'roa',
+			bankLabel: 'ROA',
+			bankFormat: 'percent',
+			bankColor: '#2ecc71',
+			description: 'Economic expansion lifts bank earnings through higher loan demand and lower defaults.'
+		}
+	];
+
+	/** Build the dual-axis series array for a given overlay config */
+	function buildOverlaySeries(config: OverlayConfig) {
+		const fredData = series[config.fredKey];
+		if (!fredData || !fredData.data.length) return null;
+
+		const bankData = bankMetricToChartData(config.bankField);
+		if (bankData.length === 0) return null;
+
+		const fredSeries = buildSeries(fredData, config.fredKey.toLowerCase(), config.fredLabel);
+		if (!fredSeries) return null;
+
+		return [
+			fredSeries,
+			{
+				key: `bank_${String(config.bankField)}`,
+				label: `${selectedBank!.name} ${config.bankLabel}`,
+				color: config.bankColor,
+				data: bankData,
+				yAxisIndex: 1
+			}
+		];
+	}
 </script>
 
 <svelte:head>
@@ -281,10 +406,39 @@
 
 <div class={isPower ? 'space-y-3' : 'space-y-5'}>
 	<!-- Header -->
-	<div class="flex items-center justify-between">
+	<div class="flex items-center justify-between gap-4 flex-wrap">
 		<div>
 			<h1 class="text-2xl font-semibold text-[--text-primary]">Macro Environment</h1>
 			<p class="text-[13px] text-[--text-tertiary]">Federal Reserve economic data and banking sector indicators</p>
+		</div>
+		<!-- Bank Overlay Search -->
+		<div class="flex items-center gap-2 shrink-0">
+			{#if selectedBank}
+				<div class="flex items-center gap-1.5 rounded-md border border-[--border-muted] bg-[--surface-1] px-2.5 py-1 text-[12px]" style="box-shadow: var(--shadow-xs)">
+					<span class="text-[--text-secondary]">Overlay:</span>
+					<span class="font-medium text-[--text-primary]">{selectedBank.name}</span>
+					<button
+						type="button"
+						onclick={clearBank}
+						aria-label="Remove bank overlay"
+						class="ml-1 text-[--text-disabled] hover:text-[--text-secondary] transition-colors"
+					>
+						<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						</svg>
+					</button>
+				</div>
+			{:else}
+				<div class="w-56">
+					<SearchBar
+						compact
+						autocomplete
+						placeholder="Overlay a bank..."
+						onsearch={() => {}}
+						onselect={handleBankSelect}
+					/>
+				</div>
+			{/if}
 		</div>
 	</div>
 
@@ -389,6 +543,53 @@
 				{/if}
 			</div>
 		</section>
+
+		<!-- Bank vs Macro Overlay -->
+		{#if selectedBank}
+			<section>
+				<div class="flex items-center gap-2 mb-1">
+					<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+					<h2 class="text-[15px] font-semibold text-[--text-primary]">Bank vs Macro</h2>
+					<span class="text-[12px] text-[--text-tertiary]">{selectedBank.name}</span>
+				</div>
+				<p class="text-[12px] text-[--text-tertiary] mb-3 ml-2.5">
+					Bank metrics (right axis) overlaid on macro indicators (left axis). Quarterly bank data may be sparser than daily/monthly FRED series.
+				</p>
+
+				{#if bankLoading}
+					<div class="flex items-center justify-center py-8 text-[13px] text-[--text-tertiary]">
+						Loading financial data...
+					</div>
+				{:else if bankError}
+					<div class="flex items-center justify-center py-8 text-[13px] text-[--text-tertiary]">
+						{bankError}
+					</div>
+				{:else if bankFinancials.length === 0}
+					<div class="flex items-center justify-center py-8 text-[13px] text-[--text-tertiary]">
+						No financial data available for this bank.
+					</div>
+				{:else}
+					<div class="grid grid-cols-1 lg:grid-cols-2 gap-2">
+						{#each OVERLAY_CONFIGS as config}
+							{@const overlaySeries = buildOverlaySeries(config)}
+							{#if overlaySeries}
+								<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
+									<h3 class="text-[13px] font-semibold text-[--text-primary] mb-0.5">{config.title}</h3>
+									<p class="text-[11px] text-[--text-tertiary] mb-2">{config.description}</p>
+									<TimeSeriesChart
+										series={overlaySeries}
+										yAxisFormat={config.fredFormat}
+										dualAxis={{ format: config.bankFormat }}
+										height="280px"
+										markAreas={recessionBands}
+									/>
+								</div>
+							{/if}
+						{/each}
+					</div>
+				{/if}
+			</section>
+		{/if}
 
 		<!-- Macro-Bank Correlations -->
 		<section>

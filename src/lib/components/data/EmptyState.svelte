@@ -2,11 +2,13 @@
 	let {
 		title,
 		message,
-		icon = 'data'
+		icon = 'data',
+		onRetry
 	}: {
 		title: string;
 		message?: string;
 		icon?: 'chart' | 'search' | 'data' | 'error';
+		onRetry?: () => void;
 	} = $props();
 </script>
 
@@ -44,5 +46,13 @@
 	<p class="text-[--text-tertiary] text-[15px]">{title}</p>
 	{#if message}
 		<p class="text-[--text-disabled] text-[13px] mt-1 max-w-md mx-auto">{message}</p>
+	{/if}
+	{#if onRetry}
+		<button
+			onclick={onRetry}
+			class="mt-4 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium text-[--accent] bg-[--accent-muted] hover:bg-[--surface-2] transition-colors cursor-pointer"
+		>
+			Try again
+		</button>
 	{/if}
 </div>

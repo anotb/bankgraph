@@ -6,6 +6,7 @@
 	import { formatPercent, formatDate } from '$lib/utils/formatters.js';
 	import { getFieldLabel } from '$lib/utils/field-meta.js';
 	import { getMode } from '$lib/stores/mode.svelte.js';
+	import { invalidateAll } from '$app/navigation';
 	import type { PeerMetricComparison, PercentileHistoryPoint } from '$lib/types';
 
 	let { data } = $props();
@@ -100,6 +101,7 @@
 			icon="data"
 			title="No peer comparison data available"
 			message="This bank may not have financials for the latest quarter. Run the peer aggregation pipeline to generate comparisons."
+			onRetry={() => invalidateAll()}
 		/>
 	{:else}
 		<!-- Peer group header -->
