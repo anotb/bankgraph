@@ -235,10 +235,11 @@
 		await loadBanksFromCerts(certs);
 	}
 
-	// ── Fetch comparison data when banks or metrics change ──
+	// ── Fetch comparison data when banks, metrics, or date range change ──
 	$effect(() => {
 		const certs = selectedBanks.map((b) => b.cert);
 		const metrics = [...selectedMetricKeys];
+		const range = selectedRange; // track reactively
 
 		if (certs.length < 2) {
 			compareData = null;
@@ -249,7 +250,14 @@
 		error = null;
 		let cancelled = false;
 
-		fetch(`/api/v1/compare?certs=${certs.join(',')}&metrics=${metrics.join(',')}`)
+		const fromDate = getCutoffDate();
+		const params = new URLSearchParams({
+			certs: certs.join(','),
+			metrics: metrics.join(',')
+		});
+		if (fromDate) params.set('from', fromDate);
+
+		fetch(`/api/v1/compare?${params.toString()}`)
 			.then(async (res) => {
 				if (cancelled) return;
 				if (!res.ok) {
@@ -320,9 +328,9 @@
 		if (!compareData) return [];
 
 		return selectedBanks
-			.filter((bank) => getCompareRows(bank.cert))
+			.filter((bank) => getCompareRows(bank.cert).length > 0)
 			.map((bank) => {
-				const rows = filterFinancials(getCompareRows(bank.cert));
+				const rows = getCompareRows(bank.cert);
 				return {
 					key: `${bank.cert}-${metric.key}`,
 					label: bank.name.length > 20 ? bank.name.slice(0, 20) + '...' : bank.name,

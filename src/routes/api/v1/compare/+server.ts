@@ -57,13 +57,20 @@ export const GET: RequestHandler = async ({ platform, url }) => {
     if (!/^[a-z0-9_]+$/.test(m)) return errorResponse(`Invalid metric name: ${m}`, 400);
   }
 
-  const from = url.searchParams.get('from');
+  let from = url.searchParams.get('from');
   const to = url.searchParams.get('to');
   if (from && !DATE_RE.test(from)) {
     return errorResponse('from must be YYYYMMDD format', 400);
   }
   if (to && !DATE_RE.test(to)) {
     return errorResponse('to must be YYYYMMDD format', 400);
+  }
+
+  // Default to last 20 years to avoid D1 result size limits on wide queries
+  if (!from) {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 20);
+    from = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
   }
 
   const kv = platform?.env?.CACHE;
