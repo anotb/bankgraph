@@ -3,12 +3,16 @@
 		title,
 		description,
 		correlation,
-		metric
+		metric,
+		lagQuarters,
+		periodStart
 	}: {
 		title: string;
 		description: string;
 		correlation?: number | null;
 		metric?: string;
+		lagQuarters?: number | null;
+		periodStart?: string | null;
 	} = $props();
 
 	let corrColor = $derived.by(() => {
@@ -34,6 +38,17 @@
 		if (abs >= 0.4) return 'Moderate';
 		return 'Weak';
 	});
+
+	let metaLine = $derived.by(() => {
+		const parts: string[] = [];
+		if (lagQuarters != null && lagQuarters > 0) {
+			parts.push(`${lagQuarters}Q lag`);
+		}
+		if (periodStart) {
+			parts.push(`from ${periodStart}`);
+		}
+		return parts.length > 0 ? parts.join(' · ') : null;
+	});
 </script>
 
 <div class="rounded-md bg-[--surface-1] p-3 transition-shadow hover:shadow-md" style="box-shadow: var(--shadow-sm)">
@@ -54,4 +69,7 @@
 		{/if}
 	</div>
 	<p class="text-[12px] text-[--text-secondary] mt-1.5 leading-relaxed">{description}</p>
+	{#if metaLine}
+		<p class="text-[10px] text-[--text-tertiary] mt-1">{metaLine}</p>
+	{/if}
 </div>

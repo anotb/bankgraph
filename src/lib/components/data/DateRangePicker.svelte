@@ -144,6 +144,7 @@
 	{#if showCustom && quarterOptions.length > 0}
 		<div class="flex items-center gap-1.5">
 			<select
+				aria-label="Start quarter"
 				class="px-2 py-1 text-[12px] rounded bg-[--surface-2] text-[--text-primary] border border-[--border-muted]
 					focus:border-[--accent] focus:outline-none focus:ring-1 focus:ring-[--accent]/30
 					data-mono cursor-pointer"
@@ -158,6 +159,7 @@
 			</select>
 			<span class="text-[11px] text-[--text-disabled]">to</span>
 			<select
+				aria-label="End quarter"
 				class="px-2 py-1 text-[12px] rounded bg-[--surface-2] text-[--text-primary] border border-[--border-muted]
 					focus:border-[--accent] focus:outline-none focus:ring-1 focus:ring-[--accent]/30
 					data-mono cursor-pointer"

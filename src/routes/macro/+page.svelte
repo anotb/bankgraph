@@ -2,10 +2,11 @@
 	import TimeSeriesChart from '$lib/components/charts/TimeSeriesChart.svelte';
 	import EmptyState from '$lib/components/data/EmptyState.svelte';
 	import InsightCard from '$lib/components/data/InsightCard.svelte';
-	import type { MacroResponse, MacroDataPoint } from '$lib/types';
+	import type { MacroResponse, MacroDataPoint, CorrelationResult } from '$lib/types';
 
 	let { data } = $props();
 	let series = $derived(data.series);
+	let dbCorrelations = $derived(data.correlations ?? []);
 
 	type DateRange = '1Y' | '5Y' | '10Y' | 'All';
 	let selectedRange: DateRange = $state('10Y');
@@ -132,8 +133,67 @@
 		Object.values(series).some((s) => s && s.data && s.data.length > 0)
 	);
 
-	// Correlation insights (hardcoded based on known correlation pairs from the pipeline)
-	const correlationInsights = [
+	/** Human-readable names for FRED series and bank metrics */
+	const SERIES_LABELS: Record<string, string> = {
+		FEDFUNDS: 'Fed Funds Rate',
+		UNRATE: 'Unemployment',
+		T10Y2Y: 'Yield Curve Spread',
+		DGS10: '10Y Treasury',
+		DGS2: '2Y Treasury',
+		MORTGAGE30US: '30Y Mortgage',
+		GDP: 'GDP',
+		CPIAUCSL: 'CPI',
+		TOTBKCR: 'Bank Credit',
+		DRCCLACBS: 'CC Delinquency',
+		median_nim: 'Net Interest Margin',
+		median_npl: 'Non-Performing Loans',
+		median_roa: 'Return on Assets',
+		median_roe: 'Return on Equity'
+	};
+
+	/** Short descriptions for known correlation pairs */
+	const PAIR_DESCRIPTIONS: Record<string, string> = {
+		'FEDFUNDS:median_nim': 'Higher federal funds rate tends to widen bank net interest margins, as lending rates adjust faster than deposit rates.',
+		'UNRATE:median_npl': 'Rising unemployment historically leads to increased loan delinquencies, with effects lagging 1-2 quarters.',
+		'T10Y2Y:median_roa': 'A steeper yield curve (positive 10Y-2Y spread) benefits bank ROA through maturity transformation.',
+		'DGS10:median_nim': 'Long-term rates influence loan pricing. Higher 10Y yields generally support wider margins for banks with fixed-rate assets.'
+	};
+
+	function labelFor(key: string): string {
+		return SERIES_LABELS[key] ?? key;
+	}
+
+	function descriptionFor(metricA: string, metricB: string, corr: number): string {
+		const known = PAIR_DESCRIPTIONS[`${metricA}:${metricB}`];
+		if (known) return known;
+		const dir = corr > 0 ? 'positive' : 'negative';
+		return `${labelFor(metricA)} shows a ${dir} correlation with ${labelFor(metricB)}.`;
+	}
+
+	/** Map DB correlation rows to InsightCard-compatible objects */
+	function mapCorrelation(row: CorrelationResult): CorrelationInsight {
+		return {
+			title: `${labelFor(row.metric_a)} vs ${labelFor(row.metric_b)}`,
+			description: descriptionFor(row.metric_a, row.metric_b, row.correlation ?? 0),
+			correlation: row.correlation,
+			metric: `${row.metric_a} vs ${row.metric_b}`,
+			lagQuarters: row.lag_quarters,
+			periodStart: row.period_start
+		};
+	}
+
+	interface CorrelationInsight {
+		title: string;
+		description: string;
+		correlation: number | null;
+		metric: string;
+		lagQuarters?: number | null;
+		periodStart?: string | null;
+	}
+
+	// Hardcoded fallback when the correlations pipeline hasn't run yet
+	// (requires agg_industry data which may not be populated)
+	const FALLBACK_INSIGHTS: CorrelationInsight[] = [
 		{
 			title: 'Fed Funds Rate vs Net Interest Margin',
 			description: 'Higher federal funds rate tends to widen bank net interest margins, as lending rates adjust faster than deposit rates.',
@@ -159,6 +219,30 @@
 			metric: 'DGS10 vs NIM'
 		}
 	];
+
+	/** Use DB correlations if available; pick the best lag per pair (highest |r|), else fallback */
+	let correlationInsights = $derived.by(() => {
+		if (dbCorrelations.length === 0) return FALLBACK_INSIGHTS;
+
+		// For each (metric_a, metric_b) pair, pick the lag with the strongest |correlation|
+		const bestByPair = new Map<string, CorrelationResult>();
+		for (const row of dbCorrelations) {
+			const key = `${row.metric_a}:${row.metric_b}`;
+			const existing = bestByPair.get(key);
+			if (!existing || Math.abs(row.correlation ?? 0) > Math.abs(existing.correlation ?? 0)) {
+				bestByPair.set(key, row);
+			}
+		}
+
+		// Sort by |correlation| descending
+		const sorted = [...bestByPair.values()].sort(
+			(a, b) => Math.abs(b.correlation ?? 0) - Math.abs(a.correlation ?? 0)
+		);
+
+		return sorted.map(mapCorrelation);
+	});
+
+	let usingFallback = $derived(dbCorrelations.length === 0);
 </script>
 
 <svelte:head>
@@ -294,10 +378,16 @@
 
 		<!-- Macro-Bank Correlations -->
 		<section>
-			<div class="flex items-center gap-2 mb-3">
+			<div class="flex items-center gap-2 mb-1">
 				<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
 				<h2 class="text-[15px] font-semibold text-[--text-primary]">Macro-Bank Correlations</h2>
 			</div>
+			<p class="text-[12px] text-[--text-tertiary] mb-3 ml-2.5">
+				Pearson correlation between FRED macro indicators and industry-aggregate bank metrics over overlapping quarters.
+				{#if usingFallback}
+					<span class="italic">Showing representative estimates. Run the correlations pipeline to compute from real data.</span>
+				{/if}
+			</p>
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-2">
 				{#each correlationInsights as insight}
 					<InsightCard
@@ -305,6 +395,8 @@
 						description={insight.description}
 						correlation={insight.correlation}
 						metric={insight.metric}
+						lagQuarters={insight.lagQuarters ?? null}
+						periodStart={insight.periodStart ?? null}
 					/>
 				{/each}
 			</div>

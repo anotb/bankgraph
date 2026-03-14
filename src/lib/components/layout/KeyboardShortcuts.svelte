@@ -116,11 +116,44 @@
 		}
 	];
 
+	let dialogRef: HTMLDivElement | undefined = $state();
+	let previousFocus: HTMLElement | null = null;
+
 	function handleBackdropClick(e: MouseEvent) {
 		if (e.target === e.currentTarget) {
 			showHelp = false;
 		}
 	}
+
+	function trapFocus(e: KeyboardEvent) {
+		if (e.key !== 'Tab' || !dialogRef) return;
+		const focusable = dialogRef.querySelectorAll<HTMLElement>(
+			'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+		);
+		if (focusable.length === 0) return;
+		const first = focusable[0];
+		const last = focusable[focusable.length - 1];
+		if (e.shiftKey && document.activeElement === first) {
+			e.preventDefault();
+			last.focus();
+		} else if (!e.shiftKey && document.activeElement === last) {
+			e.preventDefault();
+			first.focus();
+		}
+	}
+
+	$effect(() => {
+		if (showHelp) {
+			previousFocus = document.activeElement as HTMLElement;
+			requestAnimationFrame(() => {
+				const closeBtn = dialogRef?.querySelector<HTMLElement>('button');
+				closeBtn?.focus();
+			});
+		} else if (previousFocus) {
+			previousFocus.focus();
+			previousFocus = null;
+		}
+	});
 </script>
 
 <svelte:document onkeydown={handleKeydown} />
@@ -130,14 +163,18 @@
 	<div
 		class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
 		onclick={handleBackdropClick}
-		onkeydown={(e) => e.key === 'Escape' && (showHelp = false)}
+		onkeydown={(e) => { if (e.key === 'Escape') showHelp = false; trapFocus(e); }}
 	>
 		<div
 			class="bg-[--surface-1] rounded-md w-full max-w-[420px] mx-4 overflow-hidden"
 			style="box-shadow: var(--shadow-lg)"
+			bind:this={dialogRef}
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="keyboard-shortcuts-title"
 		>
 			<div class="px-5 py-4 border-b border-[--border-muted] flex items-center justify-between">
-				<h2 class="text-[15px] font-semibold text-[--text-primary]">Keyboard Shortcuts</h2>
+				<h2 id="keyboard-shortcuts-title" class="text-[15px] font-semibold text-[--text-primary]">Keyboard Shortcuts</h2>
 				<button
 					onclick={() => (showHelp = false)}
 					class="text-[--text-tertiary] hover:text-[--text-primary] transition-colors"

@@ -58,7 +58,7 @@
 </script>
 
 {#if points}
-	<svg {width} {height} class="inline-block align-middle">
+	<svg {width} {height} class="inline-block align-middle" aria-hidden="true">
 		<polyline
 			{points}
 			fill="none"

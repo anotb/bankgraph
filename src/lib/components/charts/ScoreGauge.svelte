@@ -34,7 +34,7 @@
 		<div class="flex items-center justify-between mb-1">
 			<span class="text-[13px] font-medium text-[--text-primary]">{label}</span>
 		</div>
-		<div class="bar-track-lg" style="background-color: {bgColor}">
+		<div class="bar-track-lg" style="background-color: {bgColor}" role="meter" aria-valuenow={clampedScore} aria-valuemin={0} aria-valuemax={100} aria-label="{label}: {clampedScore.toFixed(0)} out of 100">
 			<div
 				class="bar-fill-lg"
 				style="width: {pct}; background-color: {color}"
@@ -47,7 +47,7 @@
 	<div class="score-gauge-sm">
 		<div class="flex items-center gap-2">
 			<span class="text-[13px] text-[--text-tertiary] min-w-[100px]">{label}</span>
-			<div class="bar-track-sm" style="background-color: {bgColor}">
+			<div class="bar-track-sm" style="background-color: {bgColor}" role="meter" aria-valuenow={clampedScore} aria-valuemin={0} aria-valuemax={100} aria-label="{label}: {clampedScore.toFixed(0)} out of 100">
 				<div
 					class="bar-fill-sm"
 					style="width: {pct}; background-color: {color}"

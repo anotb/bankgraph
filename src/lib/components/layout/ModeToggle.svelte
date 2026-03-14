@@ -11,6 +11,7 @@
 			? 'bg-[--accent]/10 text-[--accent] border-[--accent]/30'
 			: 'text-[--text-tertiary] hover:text-[--text-primary] border-[--border]'}"
 	title="Switch to {currentMode === 'accessible' ? 'Power' : 'Accessible'} mode"
+	aria-label="Current mode: {currentMode}. Switch to {currentMode === 'accessible' ? 'Power' : 'Accessible'} mode"
 >
 	{currentMode === 'accessible' ? 'Power Mode' : 'Accessible'}
 </button>

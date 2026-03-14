@@ -117,6 +117,13 @@ async function getQuarterlyIndustryValues(
  * Compute correlations between FRED series and bank industry metrics.
  * Tests lag 0 through MAX_LAG_QUARTERS.
  * Returns total number of correlation rows inserted.
+ *
+ * Prerequisites:
+ *   - macro_data table must be populated (run `fred` pipeline stage)
+ *   - agg_industry table must have rows for segment='all' with metrics:
+ *     median_nim, median_npl, median_roa (run `analytics` pipeline stage)
+ *   If agg_industry is empty, all correlation pairs will be skipped and
+ *   the macro page will fall back to hardcoded representative values.
  */
 export async function computeCorrelations(db: D1Database): Promise<number> {
   let totalInserted = 0;

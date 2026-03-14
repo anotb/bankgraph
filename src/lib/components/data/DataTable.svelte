@@ -131,6 +131,8 @@
 	tabindex={mode === 'power' ? 0 : undefined}
 	onkeydown={handleKeydown}
 	role={mode === 'power' ? 'grid' : undefined}
+	aria-live="polite"
+	aria-busy={loading}
 >
 	{#if mode === 'power'}
 		<!-- Column visibility toggle -->
@@ -139,6 +141,8 @@
 				class="p-2 sm:p-1 rounded text-[--text-disabled] hover:text-[--text-secondary] hover:bg-[--surface-3] transition-colors"
 				onclick={() => (showColumnPicker = !showColumnPicker)}
 				title="Toggle columns"
+				aria-label="Toggle column visibility"
+				aria-expanded={showColumnPicker}
 			>
 				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 					<circle cx="12" cy="12" r="3" />
@@ -147,10 +151,12 @@
 			</button>
 
 			{#if showColumnPicker}
-				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 				<div
 					class="absolute right-0 top-7 bg-[--surface-2] border border-[--border] rounded-md shadow-lg py-1 min-w-[160px]"
 					onkeydown={(e) => e.stopPropagation()}
+					role="group"
+					aria-label="Column visibility"
 				>
 					{#each columns as col}
 						<label class="flex items-center gap-2 px-3 py-2 sm:py-1 text-[12px] text-[--text-secondary] hover:bg-[--surface-3] cursor-pointer select-none">
@@ -176,6 +182,7 @@
 					<tr class="bg-[--surface-3] border-b border-[--border]">
 						{#each visibleColumns as col, i}
 							<th
+								scope="col"
 								class="px-3 py-2.5 text-[11px] font-semibold tracking-wider uppercase
 									{col.align === 'right' ? 'text-right' : 'text-left'}
 									{i === 0 ? 'sticky left-0 z-20 bg-[--surface-3]' : ''}
@@ -210,18 +217,23 @@
 				<tr class="bg-[--surface-3] border-b border-[--border]">
 					{#each visibleColumns as col, i}
 						<th
+							scope="col"
+							aria-sort={col.sortable && currentSort === col.key ? (currentOrder === 'asc' ? 'ascending' : 'descending') : col.sortable ? 'none' : undefined}
+							tabindex={col.sortable ? 0 : undefined}
 							class="px-3 py-2.5 text-[11px] font-semibold tracking-wider uppercase
 								{col.align === 'right' ? 'text-right' : 'text-left'}
 								{col.sortable ? 'cursor-pointer select-none hover:text-[--text-primary] transition-colors' : ''}
 								{i === 0 ? 'sticky left-0 z-20 bg-[--surface-3]' : ''}
 								{col.sortable && currentSort === col.key ? 'text-[--accent]' : 'text-[--text-secondary]'}"
 							onclick={() => handleHeaderClick(col)}
+							onkeydown={(e) => { if (col.sortable && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleHeaderClick(col); } }}
 						>
 							<span class="inline-flex items-center gap-1 sort-header">
 								{col.label}
 								{#if col.sortable && currentSort === col.key}
 									<span class="text-[--accent]">
 										{currentOrder === 'asc' ? '\u25B2' : '\u25BC'}
+									<span class="sr-only">{currentOrder === 'asc' ? 'sorted ascending' : 'sorted descending'}</span>
 									</span>
 								{:else if col.sortable}
 									<span class="sort-hint text-[--text-disabled]">{'\u25B2'}</span>
@@ -238,6 +250,8 @@
 						class:hover-row={!!onrowclick}
 						class:kb-selected={mode === 'power' && rowIdx === selectedRowIdx}
 						onclick={() => onrowclick?.(row)}
+						onkeydown={(e) => { if (onrowclick && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onrowclick(row); } }}
+						tabindex={onrowclick ? 0 : undefined}
 					>
 						{#each visibleColumns as col, i}
 							<td

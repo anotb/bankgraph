@@ -138,7 +138,7 @@
 
 <div class="relative">
 	<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-		<svg class="h-4 w-4 text-[--text-disabled]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+		<svg class="h-4 w-4 text-[--text-disabled]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
 			<path
 				stroke-linecap="round"
 				stroke-linejoin="round"
@@ -155,6 +155,11 @@
 		onblur={handleBlur}
 		onfocus={handleFocus}
 		{placeholder}
+		role={autocomplete ? 'combobox' : undefined}
+		aria-expanded={autocomplete ? showDropdown : undefined}
+		aria-controls={autocomplete ? 'search-listbox' : undefined}
+		aria-activedescendant={autocomplete && highlightedIndex >= 0 ? `search-option-${highlightedIndex}` : undefined}
+		aria-autocomplete={autocomplete ? 'list' : undefined}
 		class="block w-full rounded-[5px] border border-[--border-muted] bg-[--surface-1] py-2 pr-9 pl-9
 			text-[14px] text-[--text-primary] placeholder:text-[--text-disabled]
 			focus:border-[--accent] focus:ring-2 focus:ring-[--accent]/20 focus:outline-none
@@ -184,6 +189,7 @@
 			class="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-[--border-muted] bg-[--surface-1] max-h-[320px] overflow-y-auto"
 			style="box-shadow: var(--shadow-md)"
 			role="listbox"
+			id="search-listbox"
 		>
 			{#if loading && suggestions.length === 0}
 				<div class="px-3 py-2.5 text-[13px] text-[--text-tertiary]">Searching...</div>

@@ -65,15 +65,15 @@
 				<span class="inline-flex items-center gap-0.5 text-xs font-medium data-mono rounded-sm px-1 py-0.5
 					{trendDirection === 'positive' ? 'text-[--positive] bg-[--positive-muted]' : trendDirection === 'negative' ? 'text-[--negative] bg-[--negative-muted]' : 'text-[--neutral] bg-[--surface-2]'}">
 					{#if trendDirection === 'positive'}
-						<svg class="w-3 h-3" viewBox="0 0 12 12" fill="currentColor">
+						<svg class="w-3 h-3" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
 							<path d="M6 2L10 7H2L6 2Z"/>
 						</svg>
 					{:else if trendDirection === 'negative'}
-						<svg class="w-3 h-3" viewBox="0 0 12 12" fill="currentColor">
+						<svg class="w-3 h-3" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
 							<path d="M6 10L2 5H10L6 10Z"/>
 						</svg>
 					{:else}
-						<svg class="w-3 h-3" viewBox="0 0 12 12" fill="currentColor">
+						<svg class="w-3 h-3" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
 							<rect x="2" y="5" width="8" height="2" rx="0.5"/>
 						</svg>
 					{/if}
@@ -110,15 +110,15 @@
 				<span class="inline-flex items-center gap-0.5 text-xs font-medium data-mono rounded-sm px-1 py-0.5
 					{trendDirection === 'positive' ? 'text-[--positive] bg-[--positive-muted]' : trendDirection === 'negative' ? 'text-[--negative] bg-[--negative-muted]' : 'text-[--neutral] bg-[--surface-2]'}">
 					{#if trendDirection === 'positive'}
-						<svg class="w-3 h-3" viewBox="0 0 12 12" fill="currentColor">
+						<svg class="w-3 h-3" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
 							<path d="M6 2L10 7H2L6 2Z"/>
 						</svg>
 					{:else if trendDirection === 'negative'}
-						<svg class="w-3 h-3" viewBox="0 0 12 12" fill="currentColor">
+						<svg class="w-3 h-3" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
 							<path d="M6 10L2 5H10L6 10Z"/>
 						</svg>
 					{:else}
-						<svg class="w-3 h-3" viewBox="0 0 12 12" fill="currentColor">
+						<svg class="w-3 h-3" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
 							<rect x="2" y="5" width="8" height="2" rx="0.5"/>
 						</svg>
 					{/if}

@@ -18,9 +18,12 @@
 </script>
 
 <NavigationProgress />
+<a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:px-4 focus:py-2 focus:rounded focus:bg-[--accent] focus:text-white focus:text-sm focus:font-medium">
+	Skip to content
+</a>
 <div class="min-h-screen bg-[--surface-0] flex flex-col">
 	<!-- Nav -->
-	<nav class="bg-[--surface-1] sticky top-0 z-50" style="box-shadow: var(--shadow-md)">
+	<nav class="bg-[--surface-1] sticky top-0 z-50" aria-label="Main" style="box-shadow: var(--shadow-md)">
 		<!-- Power mode indicator -->
 		{#if currentMode === 'power'}
 			<div class="h-[1px] bg-gradient-to-r from-transparent via-[--accent] to-transparent"></div>
@@ -41,6 +44,7 @@
 				] as link}
 					<a
 						href={link.href}
+						aria-current={isActive(link.href) ? "page" : undefined}
 						class="relative py-3 sm:py-0 px-2 sm:px-0 sm:pb-[9px] sm:-mb-[9px] transition-colors duration-150 whitespace-nowrap
 							{isActive(link.href) ? 'text-[--accent-text] font-semibold' : 'text-[--text-secondary] hover:text-[--text-primary] font-medium'}"
 					>
@@ -60,7 +64,7 @@
 	</nav>
 
 	<!-- Main content -->
-	<main class="max-w-[1400px] mx-auto w-full px-4 py-5 flex-1">
+	<main id="main-content" class="max-w-[1400px] mx-auto w-full px-4 py-5 flex-1">
 		{#key $page.url.pathname}
 			<div class="animate-fade-in">
 				{@render children()}

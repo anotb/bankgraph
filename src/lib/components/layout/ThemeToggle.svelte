@@ -8,7 +8,7 @@
 	onclick={toggleTheme}
 	class="p-1.5 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 flex items-center justify-center rounded text-[--text-tertiary] hover:text-[--text-primary] transition-colors"
 	title="Switch to {currentTheme === 'light' ? 'dark' : 'light'} mode"
-	aria-label="Toggle dark mode"
+	aria-label="Switch to {currentTheme === 'light' ? 'dark' : 'light'} mode"
 >
 	{#if currentTheme === 'light'}
 		<!-- Moon icon -->

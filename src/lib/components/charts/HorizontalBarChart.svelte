@@ -155,7 +155,8 @@
 </script>
 
 {#if data.length > 0}
-	<div bind:this={chartContainer} style="width:100%;height:{height}"></div>
+	<div bind:this={chartContainer} style="width:100%;height:{height}" aria-hidden="true"></div>
+	<p class="sr-only">Horizontal bar chart showing {data.length} items. Use the data table for exact values.</p>
 {:else}
 	<div
 		class="flex items-center justify-center text-[13px] text-[--text-tertiary]"
