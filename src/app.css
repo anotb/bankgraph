@@ -227,17 +227,6 @@ th[class*="text-right"] {
   background: var(--text-disabled);
 }
 
-/* Power mode density adjustments */
-.dark .dense-table td {
-  padding-top: 0.25rem;
-  padding-bottom: 0.25rem;
-  font-size: 0.75rem;
-}
-
-.dark .dense-grid {
-  gap: 1px;
-}
-
 /* ============================================================
    CARD STYLES
    ============================================================ */

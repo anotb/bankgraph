@@ -5,8 +5,11 @@
 	import DataTable from '$lib/components/data/DataTable.svelte';
 	import Sparkline from '$lib/components/data/Sparkline.svelte';
 	import Pagination from '$lib/components/data/Pagination.svelte';
-	import { formatCurrency } from '$lib/utils/formatters.js';
+	import { formatCurrency, formatPercent } from '$lib/utils/formatters.js';
+	import { getMode } from '$lib/stores/mode.svelte.js';
 	import type { Column } from '$lib/components/data/DataTable.svelte';
+
+	let mode = $derived(getMode());
 
 	let { data } = $props();
 
@@ -45,7 +48,32 @@
 		{
 			key: 'roa_trend',
 			label: 'ROA Trend',
-			align: 'right'
+			align: 'right',
+			tooltip: 'UBPR2170'
+		},
+		{
+			key: 'latest_roe',
+			label: 'ROE',
+			align: 'right',
+			powerOnly: true,
+			tooltip: 'UBPR2180',
+			format: (v: number | null) => formatPercent(v)
+		},
+		{
+			key: 'latest_nim',
+			label: 'NIM',
+			align: 'right',
+			powerOnly: true,
+			tooltip: 'UBPRE591',
+			format: (v: number | null) => formatPercent(v)
+		},
+		{
+			key: 'latest_npl_ratio',
+			label: 'NPL',
+			align: 'right',
+			powerOnly: true,
+			tooltip: 'UBPR3506 - Noncurrent Loan Ratio',
+			format: (v: number | null) => formatPercent(v)
 		},
 		{
 			key: 'total_deposits',
@@ -230,6 +258,7 @@
 		<DataTable
 			{columns}
 			data={data.banks}
+			dense={mode === 'power'}
 			{currentSort}
 			{currentOrder}
 			onsort={handleSort}

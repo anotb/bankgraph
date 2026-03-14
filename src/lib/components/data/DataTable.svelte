@@ -12,6 +12,10 @@
 		sortable?: boolean;
 		format?: (val: any) => string;
 		align?: 'left' | 'right';
+		/** Tooltip text shown on header hover (e.g. MDRM code in power mode) */
+		tooltip?: string;
+		/** If true, column is only visible in power mode */
+		powerOnly?: boolean;
 	}
 
 	let {
@@ -20,6 +24,7 @@
 		currentSort = '',
 		currentOrder = 'asc',
 		loading = false,
+		dense = false,
 		onsort,
 		onrowclick,
 		customColumns
@@ -29,10 +34,18 @@
 		currentSort?: string;
 		currentOrder?: 'asc' | 'desc';
 		loading?: boolean;
+		/** Compact layout: tighter padding, smaller font */
+		dense?: boolean;
 		onsort?: (key: string) => void;
 		onrowclick?: (row: any) => void;
 		customColumns?: Record<string, Snippet<[Record<string, any>]>>;
 	} = $props();
+
+	// Density-derived classes
+	let tableFontClass = $derived(dense ? 'text-[12px]' : 'text-[13px]');
+	let headerPadClass = $derived(dense ? 'px-2 py-1.5' : 'px-3 py-2.5');
+	let cellPadClass = $derived(dense ? 'px-2 py-1' : 'px-3 py-1.5');
+	let skeletonPadClass = $derived(dense ? 'px-2 py-1' : 'px-3 py-2');
 
 	// Column visibility (power mode)
 	let hiddenColumns = $state<Set<string>>(new Set());
@@ -41,7 +54,7 @@
 	let visibleColumns = $derived(
 		mode === 'power'
 			? columns.filter((c) => !hiddenColumns.has(c.key))
-			: columns
+			: columns.filter((c) => !c.powerOnly)
 	);
 
 	function toggleColumnVisibility(key: string) {
@@ -177,13 +190,13 @@
 	{#if loading || data.length === 0}
 		{#if loading}
 			<!-- Skeleton loading rows -->
-			<table class="min-w-full text-[13px]">
+			<table class="min-w-full {tableFontClass}">
 				<thead>
 					<tr class="bg-[--surface-3] border-b border-[--border]">
 						{#each visibleColumns as col, i}
 							<th
 								scope="col"
-								class="px-3 py-2.5 text-[11px] font-semibold tracking-wider uppercase
+								class="{headerPadClass} text-[11px] font-semibold tracking-wider uppercase
 									{col.align === 'right' ? 'text-right' : 'text-left'}
 									{i === 0 ? 'sticky left-0 z-20 bg-[--surface-3]' : ''}
 									text-[--text-secondary]"
@@ -197,7 +210,7 @@
 					{#each { length: 5 } as _, rowIdx}
 						<tr>
 							{#each visibleColumns as col, i}
-								<td class="px-3 py-2 {i === 0 ? 'sticky left-0 z-10 bg-inherit' : ''}">
+								<td class="{skeletonPadClass} {i === 0 ? 'sticky left-0 z-10 bg-inherit' : ''}">
 									<Skeleton
 										width={i === 0 ? '60%' : col.align === 'right' ? '50%' : '45%'}
 										height="14px"
@@ -212,7 +225,7 @@
 			<EmptyState title="No data" icon="data" />
 		{/if}
 	{:else}
-		<table class="min-w-full text-[13px]">
+		<table class="min-w-full {tableFontClass}">
 			<thead>
 				<tr class="bg-[--surface-3] border-b border-[--border]">
 					{#each visibleColumns as col, i}
@@ -220,11 +233,12 @@
 							scope="col"
 							aria-sort={col.sortable && currentSort === col.key ? (currentOrder === 'asc' ? 'ascending' : 'descending') : col.sortable ? 'none' : undefined}
 							tabindex={col.sortable ? 0 : undefined}
-							class="px-3 py-2.5 text-[11px] font-semibold tracking-wider uppercase
+							class="{headerPadClass} text-[11px] font-semibold tracking-wider uppercase
 								{col.align === 'right' ? 'text-right' : 'text-left'}
 								{col.sortable ? 'cursor-pointer select-none hover:text-[--text-primary] transition-colors' : ''}
 								{i === 0 ? 'sticky left-0 z-20 bg-[--surface-3]' : ''}
 								{col.sortable && currentSort === col.key ? 'text-[--accent]' : 'text-[--text-secondary]'}"
+							title={col.tooltip ?? undefined}
 							onclick={() => handleHeaderClick(col)}
 							onkeydown={(e) => { if (col.sortable && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); handleHeaderClick(col); } }}
 						>
@@ -255,7 +269,7 @@
 					>
 						{#each visibleColumns as col, i}
 							<td
-								class="whitespace-nowrap {mode === 'power' ? 'px-2 py-0.5 text-[12px]' : 'px-3 py-1.5'}
+								class="whitespace-nowrap {cellPadClass}
 									{col.align === 'right' ? 'text-right data-mono' : 'text-left'}
 									{i === 0 ? 'font-medium text-[--text-primary] sticky left-0 z-10 bg-inherit' : 'text-[--text-secondary]'}"
 							>
@@ -272,7 +286,7 @@
 		</table>
 
 		<!-- Row count footer -->
-		<div class="px-3 py-1.5 text-[11px] text-[--text-tertiary] border-t border-[--border]">
+		<div class="{dense ? 'px-2 py-1' : 'px-3 py-1.5'} text-[11px] text-[--text-tertiary] border-t border-[--border]">
 			Showing {data.length} {data.length === 1 ? 'row' : 'rows'}
 		</div>
 	{/if}

@@ -1,0 +1,75 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - link "Skip to content" [ref=e3] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e4]:
+    - navigation "Main" [ref=e5]:
+      - generic [ref=e6]:
+        - link "BDE Bank Data Explorer" [ref=e7] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e8]: BDE
+          - generic [ref=e9]: Bank Data Explorer
+        - generic [ref=e10]:
+          - link "Banks" [ref=e11] [cursor=pointer]:
+            - /url: /banks
+          - link "Industry" [ref=e12] [cursor=pointer]:
+            - /url: /industry
+          - link "Macro" [ref=e13] [cursor=pointer]:
+            - /url: /macro
+          - link "Compare" [ref=e14] [cursor=pointer]:
+            - /url: /compare
+            - text: Compare
+          - link "Glossary" [ref=e16] [cursor=pointer]:
+            - /url: /glossary
+        - generic [ref=e17]:
+          - button "Switch to dark mode" [ref=e18]:
+            - img [ref=e19]
+          - 'button "Current mode: accessible. Switch to Power mode" [ref=e21]': Power Mode
+    - main [ref=e22]:
+      - generic [ref=e24]:
+        - generic [ref=e26]:
+          - heading "Bank Comparison" [level=1] [ref=e27]
+          - paragraph [ref=e28]: Compare financial metrics across multiple banks
+        - generic [ref=e29]:
+          - generic [ref=e30]:
+            - heading "Select Banks" [level=2] [ref=e32]
+            - generic [ref=e33]: (0/10)
+          - generic [ref=e34]:
+            - generic:
+              - img
+            - textbox "Search banks by name or cert..." [ref=e35]
+        - generic [ref=e36]:
+          - heading "Metrics" [level=2] [ref=e39]
+          - generic [ref=e40]:
+            - button "ROA" [ref=e41]
+            - button "ROE" [ref=e42]
+            - button "NIM" [ref=e43]
+            - button "Efficiency Ratio" [ref=e44]
+            - button "NPL Ratio" [ref=e45]
+            - button "Capital Ratio" [ref=e46]
+            - button "Assets" [ref=e47]
+            - button "Deposits" [ref=e48]
+        - generic [ref=e50]:
+          - generic [ref=e51]:
+            - img [ref=e52]
+            - paragraph [ref=e54]: Compare up to 10 banks side-by-side
+            - paragraph [ref=e55]: Start by searching for a bank above, or try a popular comparison
+          - generic [ref=e56]:
+            - paragraph [ref=e57]: Popular comparisons
+            - generic [ref=e58]:
+              - button "JPMorgan vs Bank of America" [active] [ref=e59]
+              - button "Wells Fargo vs Citibank" [ref=e60]
+              - button "Top 4 Banks" [ref=e61]
+    - contentinfo [ref=e62]:
+      - generic [ref=e63]:
+        - paragraph [ref=e64]:
+          - text: Data from
+          - link "FDIC BankFind" [ref=e65] [cursor=pointer]:
+            - /url: https://banks.data.fdic.gov
+          - text: "&"
+          - link "FRED" [ref=e66] [cursor=pointer]:
+            - /url: https://fred.stlouisfed.org
+        - paragraph [ref=e67]: Built with SvelteKit
+```

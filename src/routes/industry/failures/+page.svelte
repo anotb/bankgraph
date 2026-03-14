@@ -2,9 +2,11 @@
 	import DataTable from '$lib/components/data/DataTable.svelte';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
 	import { formatCurrency } from '$lib/utils/formatters.js';
+	import { getMode } from '$lib/stores/mode.svelte.js';
 	import type { Column } from '$lib/components/data/DataTable.svelte';
 
 	let { data } = $props();
+	let mode = $derived(getMode());
 
 	let barChartData = $derived(
 		data.yearlyData.map((d: { year: string; count: number }) => ({ label: d.year, value: d.count }))
@@ -95,6 +97,7 @@
 	<DataTable
 		{columns}
 		data={sortedFailures}
+		dense={mode === 'power'}
 		currentSort={sortKey}
 		currentOrder={sortOrder}
 		onsort={handleSort}

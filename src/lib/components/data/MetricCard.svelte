@@ -47,7 +47,10 @@
 </script>
 
 {#if compact}
-<div class="bg-[--surface-1] px-2.5 py-2">
+<div class="relative bg-[--surface-1] {semantic ? 'pl-3.5' : 'px-2.5'} pr-2.5 py-2">
+	{#if semantic}
+		<div class="absolute top-0 left-0 bottom-0 w-[2px] {semanticBarColor}"></div>
+	{/if}
 	<p class="text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">{label}</p>
 	{#if loading}
 		<div class="mt-0.5">
@@ -89,7 +92,7 @@
 {:else}
 <div class="group relative overflow-hidden rounded-md {borderless ? 'borderless-card' : 'border border-[--border-muted] bg-[--surface-1] card-shadow'} px-3 py-3 hover:-translate-y-px">
 	{#if semantic}
-		<div class="absolute top-0 left-0 bottom-0 w-[3px] {semanticBarColor} rounded-l-md"></div>
+		<div class="absolute top-0 left-0 bottom-0 w-[2px] {semanticBarColor} rounded-l-md"></div>
 	{:else}
 		<div class="absolute top-0 left-0 right-0 h-[2px] bg-[--accent] rounded-t-md opacity-0 group-hover:opacity-100 transition-opacity duration-150"></div>
 	{/if}

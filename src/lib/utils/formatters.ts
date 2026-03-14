@@ -65,3 +65,49 @@ export function formatNumber(value: number | null): string {
   if (value === null || value === undefined) return '—';
   return value.toLocaleString('en-US');
 }
+
+/**
+ * Derive semantic status for a bank metric based on regulatory health thresholds.
+ *
+ * Thresholds:
+ *   ROA:         > 1.0% good, 0.5-1.0% warning, < 0.5% danger
+ *   ROE:         > 10%  good, 5-10%    warning, < 5%   danger
+ *   NIM:         > 3.0% good, 2.0-3.0% warning, < 2.0% danger
+ *   NPL Ratio:   < 1.0% good, 1.0-3.0% warning, > 3.0% danger (inverted)
+ *   Tier 1 Cap:  > 10%  good, 8-10%    warning, < 8%   danger
+ */
+export function getMetricStatus(
+  metric: string,
+  value: number | null
+): 'positive' | 'warning' | 'negative' | undefined {
+  if (value === null || value === undefined) return undefined;
+
+  const thresholds: Record<string, { good: number; warn: number; inverse?: boolean }> = {
+    roa: { good: 1.0, warn: 0.5 },
+    roe: { good: 10, warn: 5 },
+    nim: { good: 3.0, warn: 2.0 },
+    npl_ratio: { good: 1.0, warn: 3.0, inverse: true },
+    tier1_ratio: { good: 10, warn: 8 }
+  };
+
+  const t = thresholds[metric];
+  if (!t) return undefined;
+
+  if (t.inverse) {
+    if (value < t.good) return 'positive';
+    if (value > t.warn) return 'negative';
+    return 'warning';
+  }
+
+  if (value >= t.good) return 'positive';
+  if (value >= t.warn) return 'warning';
+  return 'negative';
+}
+
+/** Map a semantic status to a Tailwind text-color class */
+export function semanticColor(semantic: string | undefined): string {
+  if (semantic === 'positive') return 'text-[--positive]';
+  if (semantic === 'negative') return 'text-[--negative]';
+  if (semantic === 'warning') return 'text-[--warning]';
+  return 'text-[--text-primary]';
+}

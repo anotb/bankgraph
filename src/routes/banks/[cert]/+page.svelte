@@ -2,7 +2,7 @@
 	import MetricCard from '$lib/components/data/MetricCard.svelte';
 	import QuickCompare from '$lib/components/data/QuickCompare.svelte';
 	import EmptyState from '$lib/components/data/EmptyState.svelte';
-	import { formatCurrency, formatPercent, formatDate, formatNumber } from '$lib/utils/formatters.js';
+	import { formatCurrency, formatPercent, formatDate, formatNumber, getMetricStatus, semanticColor } from '$lib/utils/formatters.js';
 	import { getRegulatorName, getCharterClassName } from '$lib/utils/field-meta.js';
 
 	let { data } = $props();
@@ -80,27 +80,6 @@
 		return `${q} ${year}`;
 	}
 
-	function getMetricSemantic(metric: string, value: number | null): 'positive' | 'negative' | 'warning' | undefined {
-		if (value === null || value === undefined) return undefined;
-		const thresholds: Record<string, { good: number; warn: number; inverse?: boolean }> = {
-			roa: { good: 1.0, warn: 0.5 },
-			roe: { good: 10, warn: 5 },
-			nim: { good: 3.0, warn: 2.0 },
-			npl_ratio: { good: 1.0, warn: 3.0, inverse: true },
-			tier1_ratio: { good: 10, warn: 8 }
-		};
-		const t = thresholds[metric];
-		if (!t) return undefined;
-		if (t.inverse) {
-			if (value < t.good) return 'positive';
-			if (value > t.warn) return 'negative';
-			return 'warning';
-		}
-		if (value >= t.good) return 'positive';
-		if (value >= t.warn) return 'warning';
-		return 'negative';
-	}
-
 	/** Fields that are commonly null and should go in "Additional Details" */
 	let additionalFields = $derived.by(() => {
 		const fields: Array<{ label: string; value: string }> = [];
@@ -118,14 +97,6 @@
 		}
 		return fields;
 	});
-
-	/** Helper to get a semantic color class */
-	function semanticColor(semantic: string | undefined): string {
-		if (semantic === 'positive') return 'text-[--positive]';
-		if (semantic === 'negative') return 'text-[--negative]';
-		if (semantic === 'warning') return 'text-[--warning]';
-		return 'text-[--text-primary]';
-	}
 
 	const detailRow = 'flex justify-between items-center px-3 py-2 gap-2';
 	const detailLabel = 'text-[13px] text-[--text-tertiary] shrink-0';
@@ -273,7 +244,7 @@
 					value={formatPercent(metricsSource.roa)}
 					sublabel="Return on Assets"
 					trend={effectiveTrends.roa}
-					semantic={getMetricSemantic('roa', metricsSource.roa)}
+					semantic={getMetricStatus('roa', metricsSource.roa)}
 				/>
 				<MetricCard
 					compact
@@ -281,7 +252,7 @@
 					value={formatPercent(metricsSource.roe)}
 					sublabel="Return on Equity"
 					trend={effectiveTrends.roe}
-					semantic={getMetricSemantic('roe', metricsSource.roe)}
+					semantic={getMetricStatus('roe', metricsSource.roe)}
 				/>
 				<MetricCard
 					compact
@@ -289,7 +260,7 @@
 					value={formatPercent(metricsSource.nim)}
 					sublabel="Net Interest Margin"
 					trend={effectiveTrends.nim}
-					semantic={getMetricSemantic('nim', metricsSource.nim)}
+					semantic={getMetricStatus('nim', metricsSource.nim)}
 				/>
 				<MetricCard
 					compact
@@ -297,7 +268,7 @@
 					value={formatPercent(metricsSource.npl_ratio)}
 					sublabel="Non-Performing Loans"
 					trend={effectiveTrends.npl_ratio}
-					semantic={getMetricSemantic('npl_ratio', metricsSource.npl_ratio)}
+					semantic={getMetricStatus('npl_ratio', metricsSource.npl_ratio)}
 				/>
 				<MetricCard
 					compact
@@ -305,7 +276,7 @@
 					value={formatPercent(metricsSource.tier1_ratio)}
 					sublabel="Risk-Based Capital"
 					trend={effectiveTrends.tier1_ratio}
-					semantic={getMetricSemantic('tier1_ratio', metricsSource.tier1_ratio)}
+					semantic={getMetricStatus('tier1_ratio', metricsSource.tier1_ratio)}
 				/>
 			</div>
 		{:else}
@@ -353,17 +324,17 @@
 								<td class="px-3 py-1.5 font-medium text-[--text-primary] data-mono sticky left-0 bg-inherit z-[5]">{formatQuarter(q.repdte)}</td>
 								<td class="px-3 py-1.5 text-right text-[--text-primary] data-mono">{formatCurrency(q.asset)}</td>
 								<td class="px-3 py-1.5 text-right data-mono">
-									<span class="{semanticColor(getMetricSemantic('roa', q.roa))}">
+									<span class="{semanticColor(getMetricStatus('roa', q.roa))}">
 										{formatPercent(q.roa)}
 									</span>
 								</td>
 								<td class="px-3 py-1.5 text-right data-mono">
-									<span class="{semanticColor(getMetricSemantic('roe', q.roe))}">
+									<span class="{semanticColor(getMetricStatus('roe', q.roe))}">
 										{formatPercent(q.roe)}
 									</span>
 								</td>
 								<td class="px-3 py-1.5 text-right data-mono">
-									<span class="{semanticColor(getMetricSemantic('nim', q.nimy))}">
+									<span class="{semanticColor(getMetricStatus('nim', q.nimy))}">
 										{formatPercent(q.nimy)}
 									</span>
 								</td>
