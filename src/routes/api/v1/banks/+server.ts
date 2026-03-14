@@ -117,18 +117,19 @@ export const GET: RequestHandler = async (event) => {
       const sortColumn = SORT_COLUMN_MAP[sort];
       const offset = (page - 1) * limit;
 
-      // Get total count
-      const countSql = `SELECT COUNT(*) as total FROM institutions ${whereClause}`;
-      const countRow = await queryOne<{ total: number }>(db, countSql, params);
-      const total = countRow?.total ?? 0;
-
-      // Get page of results
+      // Run count and data queries in parallel
       // SAFETY: sortColumn and order are interpolated directly into SQL, but both are
       // validated against allowlists above (SORT_COLUMN_MAP keys and 'asc'/'desc')
       // so there is no SQL injection risk here.
+      const countSql = `SELECT COUNT(*) as total FROM institutions ${whereClause}`;
       const dataSql = `SELECT * FROM institutions ${whereClause} ORDER BY ${sortColumn} ${order.toUpperCase()} LIMIT ? OFFSET ?`;
-      const data = await queryAll<Institution>(db, dataSql, [...params, limit, offset]);
 
+      const [countRow, data] = await Promise.all([
+        queryOne<{ total: number }>(db, countSql, params),
+        queryAll<Institution>(db, dataSql, [...params, limit, offset])
+      ]);
+
+      const total = countRow?.total ?? 0;
       return { data, total, page, limit };
     });
 

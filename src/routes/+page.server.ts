@@ -39,6 +39,7 @@ interface TopBank {
   state: string | null;
   total_assets: number | null;
   total_deposits: number | null;
+  roa_trend: (number | null)[];
 }
 
 const EMPTY_INDUSTRY: IndustryMetrics = {
@@ -83,82 +84,113 @@ export const load: PageServerLoad = async ({ platform }) => {
       latest_quarter: quarter?.latest_quarter ?? null
     };
 
-    // Industry metrics from agg_industry (latest quarter)
-    let industryMetrics: IndustryMetrics = { ...EMPTY_INDUSTRY };
-    try {
-      const latestRepdte = await queryOne<{ repdte: string }>(
-        db, 'SELECT MAX(repdte) as repdte FROM agg_industry'
-      );
-      if (latestRepdte?.repdte) {
-        industryMetrics.repdte = latestRepdte.repdte;
-        const aggRows = await queryAll<{ metric: string; value: number | null }>(
-          db,
-          'SELECT metric, value FROM agg_industry WHERE repdte = ? AND segment = ?',
-          [latestRepdte.repdte, 'all']
-        );
-        for (const row of aggRows) {
-          if (row.metric === 'median_roa') industryMetrics.median_roa = row.value;
-          else if (row.metric === 'median_roe') industryMetrics.median_roe = row.value;
-          else if (row.metric === 'median_nim') industryMetrics.median_nim = row.value;
-          else if (row.metric === 'total_assets') industryMetrics.total_assets = row.value;
-          else if (row.metric === 'total_deposits') industryMetrics.total_deposits = row.value;
-        }
-      }
-    } catch { /* agg_industry may be empty */ }
+    // Run all remaining queries in parallel (they're independent of each other)
+    const fiveYearsAgo = `${new Date().getFullYear() - 5}0101`;
 
-    // Recent anomalies (top 5 critical/warning)
-    let recentAnomalies: RecentAnomaly[] = [];
-    try {
-      recentAnomalies = await queryAll<RecentAnomaly>(
-        db,
-        `SELECT a.cert, i.name, a.metric, a.severity, a.description, a.value
-         FROM anomalies a
-         LEFT JOIN institutions i ON a.cert = i.cert
-         WHERE a.severity IN ('critical', 'warning')
-         ORDER BY CASE a.severity WHEN 'critical' THEN 0 ELSE 1 END, a.repdte DESC
-         LIMIT 5`
-      );
-    } catch { /* anomalies table may be empty */ }
+    const [industryMetrics, recentAnomalies, failureSummary, topBanks] = await Promise.all([
+      // Industry metrics from agg_industry (latest quarter)
+      (async (): Promise<IndustryMetrics> => {
+        try {
+          const latestRepdte = await queryOne<{ repdte: string }>(
+            db, 'SELECT MAX(repdte) as repdte FROM agg_industry'
+          );
+          if (!latestRepdte?.repdte) return { ...EMPTY_INDUSTRY };
+          const aggRows = await queryAll<{ metric: string; value: number | null }>(
+            db,
+            'SELECT metric, value FROM agg_industry WHERE repdte = ? AND segment = ?',
+            [latestRepdte.repdte, 'all']
+          );
+          const result: IndustryMetrics = { ...EMPTY_INDUSTRY, repdte: latestRepdte.repdte };
+          for (const row of aggRows) {
+            if (row.metric === 'median_roa') result.median_roa = row.value;
+            else if (row.metric === 'median_roe') result.median_roe = row.value;
+            else if (row.metric === 'median_nim') result.median_nim = row.value;
+            else if (row.metric === 'total_assets') result.total_assets = row.value;
+            else if (row.metric === 'total_deposits') result.total_deposits = row.value;
+          }
+          return result;
+        } catch { return { ...EMPTY_INDUSTRY }; }
+      })(),
 
-    // Failures summary with 5-year count
-    let failureSummary: FailureSummary = { total_failures: 0, recent_5yr_count: 0, recent_failures: [] };
-    try {
-      // Total failures
-      const failCount = await queryOne<{ cnt: number }>(
-        db, 'SELECT COUNT(*) as cnt FROM failures'
-      );
-      // Failures in last 5 years (fail_date can be YYYYMMDD or YYYY-MM-DD)
-      const fiveYearsAgo = `${new Date().getFullYear() - 5}0101`;
-      const recent5yr = await queryOne<{ cnt: number }>(
-        db,
-        `SELECT COUNT(*) as cnt FROM failures
-         WHERE REPLACE(fail_date, '-', '') >= ?`,
-        [fiveYearsAgo]
-      );
-      // Recent failures list
-      const recentFails = await queryAll<{ cert: number; name: string | null; fail_date: string | null; state: string | null }>(
-        db,
-        'SELECT cert, name, fail_date, state FROM failures ORDER BY fail_date DESC LIMIT 5'
-      );
-      failureSummary = {
-        total_failures: failCount?.cnt ?? 0,
-        recent_5yr_count: recent5yr?.cnt ?? 0,
-        recent_failures: recentFails
-      };
-    } catch { /* failures table may be empty */ }
+      // Recent anomalies (top 5 critical/warning)
+      (async (): Promise<RecentAnomaly[]> => {
+        try {
+          return await queryAll<RecentAnomaly>(
+            db,
+            `SELECT a.cert, i.name, a.metric, a.severity, a.description, a.value
+             FROM anomalies a
+             LEFT JOIN institutions i ON a.cert = i.cert
+             WHERE a.severity IN ('critical', 'warning')
+             ORDER BY CASE a.severity WHEN 'critical' THEN 0 ELSE 1 END, a.repdte DESC
+             LIMIT 5`
+          );
+        } catch { return []; }
+      })(),
 
-    // Top 8 banks by total assets
-    let topBanks: TopBank[] = [];
-    try {
-      topBanks = await queryAll<TopBank>(
-        db,
-        `SELECT cert, name, state, total_assets, total_deposits
-         FROM institutions
-         WHERE active = 1 AND total_assets IS NOT NULL
-         ORDER BY total_assets DESC
-         LIMIT 8`
-      );
-    } catch { /* institutions may be empty */ }
+      // Failures summary (3 sub-queries parallelized)
+      (async (): Promise<FailureSummary> => {
+        try {
+          const [failCount, recent5yr, recentFails] = await Promise.all([
+            queryOne<{ cnt: number }>(db, 'SELECT COUNT(*) as cnt FROM failures'),
+            queryOne<{ cnt: number }>(
+              db,
+              `SELECT COUNT(*) as cnt FROM failures WHERE REPLACE(fail_date, '-', '') >= ?`,
+              [fiveYearsAgo]
+            ),
+            queryAll<{ cert: number; name: string | null; fail_date: string | null; state: string | null }>(
+              db, 'SELECT cert, name, fail_date, state FROM failures ORDER BY fail_date DESC LIMIT 5'
+            )
+          ]);
+          return {
+            total_failures: failCount?.cnt ?? 0,
+            recent_5yr_count: recent5yr?.cnt ?? 0,
+            recent_failures: recentFails
+          };
+        } catch { return { total_failures: 0, recent_5yr_count: 0, recent_failures: [] }; }
+      })(),
+
+      // Top 8 banks by total assets + ROA sparkline trends
+      (async (): Promise<TopBank[]> => {
+        try {
+          const rawBanks = await queryAll<Omit<TopBank, 'roa_trend'>>(
+            db,
+            `SELECT cert, name, state, total_assets, total_deposits
+             FROM institutions
+             WHERE active = 1 AND total_assets IS NOT NULL
+             ORDER BY total_assets DESC
+             LIMIT 8`
+          );
+          const banks: TopBank[] = rawBanks.map(b => ({ ...b, roa_trend: [] }));
+
+          if (banks.length > 0) {
+            try {
+              const certs = banks.map(b => b.cert);
+              const placeholders = certs.map(() => '?').join(',');
+              const roaRows = await queryAll<{ cert: number; repdte: string; roa: number | null }>(
+                db,
+                `SELECT cert, repdte, roa FROM (
+                  SELECT cert, repdte, roa,
+                    ROW_NUMBER() OVER (PARTITION BY cert ORDER BY repdte DESC) as rn
+                  FROM financials
+                  WHERE cert IN (${placeholders})
+                ) WHERE rn <= 8
+                ORDER BY cert, repdte ASC`,
+                certs
+              );
+              const roaByCert = new Map<number, (number | null)[]>();
+              for (const row of roaRows) {
+                if (!roaByCert.has(row.cert)) roaByCert.set(row.cert, []);
+                roaByCert.get(row.cert)!.push(row.roa);
+              }
+              for (const bank of banks) {
+                bank.roa_trend = roaByCert.get(bank.cert) ?? [];
+              }
+            } catch { /* financials table may not exist yet */ }
+          }
+          return banks;
+        } catch { return []; }
+      })()
+    ]);
 
     return { meta, industryMetrics, recentAnomalies, failureSummary, topBanks };
   } catch {

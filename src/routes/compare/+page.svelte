@@ -303,6 +303,12 @@
 		return rows.filter((f) => f.repdte >= cutoff);
 	}
 
+	/** Look up compare data by cert (JSON keys are strings, cert is number) */
+	function getCompareRows(cert: number): Financial[] {
+		if (!compareData) return [];
+		return compareData.data[cert] || compareData.data[String(cert) as unknown as number] || [];
+	}
+
 	// ── Chart series ──
 	function buildChartSeries(
 		metric: MetricOption
@@ -314,9 +320,9 @@
 		if (!compareData) return [];
 
 		return selectedBanks
-			.filter((bank) => compareData!.data[bank.cert])
+			.filter((bank) => getCompareRows(bank.cert))
 			.map((bank) => {
-				const rows = filterFinancials(compareData!.data[bank.cert]);
+				const rows = filterFinancials(getCompareRows(bank.cert));
 				return {
 					key: `${bank.cert}-${metric.key}`,
 					label: bank.name.length > 20 ? bank.name.slice(0, 20) + '...' : bank.name,
@@ -332,7 +338,7 @@
 	let banksWithNoData = $derived.by(() => {
 		if (!compareData) return [];
 		return selectedBanks.filter((bank) => {
-			const rows = compareData!.data[bank.cert];
+			const rows = getCompareRows(bank.cert);
 			return !rows || rows.length === 0;
 		});
 	});
@@ -354,7 +360,7 @@
 			const values = new Map<number, number | null>();
 
 			for (const bank of selectedBanks) {
-				const rows = compareData!.data[bank.cert];
+				const rows = getCompareRows(bank.cert);
 				if (!rows || rows.length === 0) {
 					values.set(bank.cert, null);
 					continue;
@@ -397,8 +403,8 @@
 		const [certA, certB] = [selectedBanks[0].cert, selectedBanks[1].cert];
 
 		return selectedMetrics.map((metric) => {
-			const rowsA = compareData!.data[certA];
-			const rowsB = compareData!.data[certB];
+			const rowsA = getCompareRows(certA);
+			const rowsB = getCompareRows(certB);
 			const valA = rowsA?.length
 				? (rowsA[rowsA.length - 1][metric.field] as number | null)
 				: null;

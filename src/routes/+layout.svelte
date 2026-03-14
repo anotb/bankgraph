@@ -73,10 +73,10 @@
 	</main>
 
 	<!-- Footer -->
-	<footer class="border-t border-[--border] bg-[--surface-2]">
-		<div class="max-w-[1400px] mx-auto px-4 py-4 text-center text-[11px] text-[--text-tertiary] space-y-0.5">
-			<p>Data sourced from FDIC BankFind, Federal Reserve, and FFIEC.</p>
-			<p>Not financial advice. Data provided as-is for educational purposes.</p>
+	<footer class="border-t border-[--border-muted] px-4 py-3 text-[11px] text-[--text-tertiary]">
+		<div class="max-w-[1400px] mx-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+			<p>Data from <a href="https://banks.data.fdic.gov" class="underline hover:text-[--text-secondary]">FDIC BankFind</a> & <a href="https://fred.stlouisfed.org" class="underline hover:text-[--text-secondary]">FRED</a></p>
+			<p>Built with SvelteKit</p>
 		</div>
 	</footer>
 </div>

@@ -155,20 +155,22 @@ export const load: PageServerLoad = async ({ fetch, platform }) => {
 		const regionalSegment: IndustryData | null = regionalRes.ok ? await regionalRes.json() : null;
 		const largeSegment: IndustryData | null = largeRes.ok ? await largeRes.json() : null;
 
-		// Failure count + recent failures
+		// Failure count + recent failures (parallel)
 		let failureCount = 0;
 		let recentFailures: RecentFailure[] = [];
 		try {
-			const result = await queryOne<{ cnt: number }>(db, 'SELECT COUNT(*) as cnt FROM failures');
-			failureCount = result?.cnt ?? 0;
-
-			recentFailures = await queryAll<RecentFailure>(
-				db,
-				`SELECT cert, name, city, state, fail_date, total_assets
-				 FROM failures
-				 ORDER BY fail_date DESC
-				 LIMIT 5`
-			);
+			const [countResult, failRows] = await Promise.all([
+				queryOne<{ cnt: number }>(db, 'SELECT COUNT(*) as cnt FROM failures'),
+				queryAll<RecentFailure>(
+					db,
+					`SELECT cert, name, city, state, fail_date, total_assets
+					 FROM failures
+					 ORDER BY fail_date DESC
+					 LIMIT 5`
+				)
+			]);
+			failureCount = countResult?.cnt ?? 0;
+			recentFailures = failRows;
 		} catch { /* table may not exist */ }
 
 		return {

@@ -83,6 +83,9 @@
 			return () => { disposed = true; };
 		}
 
+		// TODO: perf: import('echarts') pulls the full ~1MB bundle. Switch to echarts/core
+		// with individual component imports (LineChart, BarChart, TooltipComponent, etc.)
+		// to cut chart bundle size by ~60%. See: https://echarts.apache.org/handbook/en/basics/import
 		import('echarts').then((echarts) => {
 			if (disposed || !chartContainer) return;
 

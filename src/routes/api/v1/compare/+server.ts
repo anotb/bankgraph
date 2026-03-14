@@ -62,33 +62,37 @@ export const GET: RequestHandler = async ({ platform, url }) => {
     const result = await cacheWrap<CompareResponse>(kv, cacheKey, ONE_HOUR, async () => {
       const db = getDB(platform);
 
-      // Build select columns: always include cert + repdte + requested metrics
+      // Single query for all certs instead of N sequential queries
       const columns = ['cert', 'repdte', ...metrics];
       const selectFields = columns.join(', ');
 
+      const conditions: string[] = [`cert IN (${certs.map(() => '?').join(',')})`];
+      const bindParams: unknown[] = [...certs];
+
+      if (from) {
+        conditions.push('repdte >= ?');
+        bindParams.push(from);
+      }
+      if (to) {
+        conditions.push('repdte <= ?');
+        bindParams.push(to);
+      }
+
+      const where = conditions.join(' AND ');
+      const allRows = await queryAll<Financial>(
+        db,
+        `SELECT ${selectFields} FROM financials WHERE ${where} ORDER BY cert, repdte ASC`,
+        bindParams
+      );
+
+      // Group rows by cert
       const data: Record<number, Financial[]> = {};
-
       for (const cert of certs) {
-        const conditions: string[] = ['cert = ?'];
-        const bindParams: unknown[] = [cert];
-
-        if (from) {
-          conditions.push('repdte >= ?');
-          bindParams.push(from);
-        }
-        if (to) {
-          conditions.push('repdte <= ?');
-          bindParams.push(to);
-        }
-
-        const where = conditions.join(' AND ');
-        const rows = await queryAll<Financial>(
-          db,
-          `SELECT ${selectFields} FROM financials WHERE ${where} ORDER BY repdte ASC`,
-          bindParams
-        );
-
-        data[cert] = rows;
+        data[cert] = [];
+      }
+      for (const row of allRows) {
+        if (!data[row.cert]) data[row.cert] = [];
+        data[row.cert].push(row);
       }
 
       return {

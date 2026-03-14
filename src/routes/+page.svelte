@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import SearchBar from '$lib/components/data/SearchBar.svelte';
 	import MetricCard from '$lib/components/data/MetricCard.svelte';
+	import Sparkline from '$lib/components/data/Sparkline.svelte';
 	import { formatNumber, formatDate, formatPercent, formatCurrency } from '$lib/utils/formatters.js';
 
 	let { data } = $props();
@@ -241,11 +242,18 @@
 								{/if}
 							</div>
 						</div>
-						<div class="text-right shrink-0 ml-2">
-							<span class="text-[13px] font-medium text-[--text-primary] data-mono">{formatCurrency(bank.total_assets)}</span>
-							{#if bank.total_deposits}
-								<span class="block text-[11px] text-[--text-tertiary] data-mono">{formatCurrency(bank.total_deposits)} dep</span>
+						<div class="flex items-center gap-3 shrink-0 ml-2">
+							{#if bank.roa_trend?.length >= 2}
+								<div class="hidden sm:block" title="ROA trend (8 quarters)">
+									<Sparkline data={bank.roa_trend} width={56} height={18} showDot={true} />
+								</div>
 							{/if}
+							<div class="text-right">
+								<span class="text-[13px] font-medium text-[--text-primary] data-mono">{formatCurrency(bank.total_assets)}</span>
+								{#if bank.total_deposits}
+									<span class="block text-[11px] text-[--text-tertiary] data-mono">{formatCurrency(bank.total_deposits)} dep</span>
+								{/if}
+							</div>
 						</div>
 					</a>
 				{/each}
