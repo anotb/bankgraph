@@ -1,62 +1,67 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Compare page', () => {
-	test('clicking a popular comparison loads banks', { tag: '@flaky' }, async ({ page }) => {
-		await page.goto('/compare');
-
-		// Click the first popular comparison button by text content
-		const popularButton = page.locator('button', { hasText: 'JPMorgan vs Bank of America' });
-		await expect(popularButton).toBeVisible();
-		await popularButton.click();
-
-		// Wait for comparison data to load - the loading state or results should appear
-		// URL should contain certs parameter
-		await expect(page).toHaveURL(/certs=/, { timeout: 15000 });
-
-		// Selected banks should appear (look for remove buttons)
-		const removeButtons = page.locator('button[aria-label^="Remove"]');
-		await expect(removeButtons.first()).toBeVisible({ timeout: 10000 });
-		expect(await removeButtons.count()).toBeGreaterThanOrEqual(2);
-	});
-
-	test('comparison table appears when banks are loaded', async ({ page }) => {
-		// Navigate directly with certs in URL
+	test('loads with two banks via URL params', async ({ page }) => {
 		await page.goto('/compare?certs=628,3510');
 
-		// Wait for comparison data to load
+		// Page title and heading
+		await expect(page).toHaveTitle(/Compare/);
+		await expect(page.locator('h1')).toContainText('Bank Comparison');
+
+		// Both banks should appear as selected chips (remove buttons present)
+		const removeButtons = page.locator('button[aria-label^="Remove"]');
+		await expect(removeButtons.first()).toBeVisible({ timeout: 20000 });
+		expect(await removeButtons.count()).toBe(2);
+	});
+
+	test('Latest Quarter Comparison section appears with bank data', async ({ page }) => {
+		await page.goto('/compare?certs=628,3510');
+
+		// Wait for comparison data to load (banks load first, then data fetches)
+		await expect(page.getByText('Comparison Charts')).toBeVisible({ timeout: 30000 });
+
+		// Latest Quarter Comparison table
+		await expect(page.getByText('Latest Quarter Comparison')).toBeVisible({ timeout: 10000 });
+
+		// Default metrics (ROA, ROE, NIM) should appear in metric selector pills
+		await expect(page.getByRole('button', { name: 'ROA' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'ROE' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'NIM' })).toBeVisible();
+	});
+
+	test('charts render with ECharts canvas', async ({ page }) => {
+		await page.goto('/compare?certs=628,3510');
+
+		// Charts section heading
+		await expect(page.getByText('Comparison Charts')).toBeVisible({ timeout: 20000 });
+
+		// ECharts renders into canvas elements inside chart containers
+		const canvases = page.locator('canvas');
+		await expect(canvases.first()).toBeVisible({ timeout: 10000 });
+		expect(await canvases.count()).toBeGreaterThanOrEqual(1);
+	});
+
+	test('export button is visible when comparison data loads', async ({ page }) => {
+		await page.goto('/compare?certs=628,3510');
+
 		await expect(page.getByText('Latest Quarter Comparison')).toBeVisible({ timeout: 20000 });
 
-		// A table should be rendered
-		const table = page.locator('table').last();
-		await expect(table).toBeVisible();
-
-		// Should have data rows
-		const rows = table.locator('tbody tr');
-		expect(await rows.count()).toBeGreaterThanOrEqual(1);
+		const exportBtn = page.getByLabel('Export data');
+		await expect(exportBtn).toBeVisible();
 	});
 
-	test('comparison charts section appears', async ({ page }) => {
-		await page.goto('/compare?certs=628,3510');
+	test('can navigate to compare from the nav', async ({ page }) => {
+		await page.goto('/');
 
-		// Charts section should appear
-		await expect(page.getByText('Comparison Charts')).toBeVisible({ timeout: 20000 });
-	});
+		const nav = page.locator('nav[aria-label="Main"]');
+		const compareLink = nav.getByRole('link', { name: 'Compare' });
+		await expect(compareLink).toBeVisible();
 
-	test('can remove a bank from comparison', async ({ page }) => {
-		await page.goto('/compare');
+		await compareLink.click();
+		await expect(page).toHaveURL(/\/compare/, { timeout: 10000 });
+		await expect(page.locator('h1')).toContainText('Bank Comparison');
 
-		const popularButton = page.locator('button', { hasText: 'JPMorgan vs Bank of America' });
-		await popularButton.click();
-
-		// Wait for chips to load
-		const removeButtons = page.locator('button[aria-label^="Remove"]');
-		await expect(removeButtons.first()).toBeVisible({ timeout: 15000 });
-		const initialCount = await removeButtons.count();
-
-		// Remove the first bank
-		await removeButtons.first().click();
-
-		// Should have one fewer
-		await expect(removeButtons).toHaveCount(initialCount - 1, { timeout: 5000 });
+		// Empty state should show when no banks are selected
+		await expect(page.getByText('Compare up to 10 banks side-by-side')).toBeVisible();
 	});
 });

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { formatNumber } from '$lib/utils/formatters.js';
 	import { isDark as getIsDark } from '$lib/stores/theme.svelte.js';
+	import { echarts } from './echarts-setup.js';
 
 	let {
 		data,
@@ -25,9 +26,9 @@
 
 		if (!currentData.length) return;
 
-		import('echarts').then((echarts) => {
-			if (disposed || !chartContainer) return;
+		if (!chartContainer) return;
 
+		{
 			if (!chart) {
 				chart = echarts.init(chartContainer);
 			}
@@ -129,7 +130,7 @@
 			};
 
 			chart.setOption(option, true);
-		});
+		}
 
 		return () => {
 			disposed = true;

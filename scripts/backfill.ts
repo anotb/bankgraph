@@ -308,6 +308,20 @@ async function main(): Promise<void> {
     console.log(`Backfill complete in ${totalElapsed}`);
     console.log(`  Succeeded: ${succeeded}`);
     if (failed > 0) console.log(`  Failed: ${failed}`);
+
+    // Show table health summary
+    console.log('\nTable health check:');
+    try {
+      const res = await fetch(`${BASE_URL}/api/v1/meta`);
+      if (res.ok) {
+        const meta = await res.json() as Record<string, unknown>;
+        console.log(`  institutions: ${meta.bank_count ?? '?'} rows`);
+        console.log(`  active banks: ${meta.active_count ?? '?'}`);
+        console.log(`  latest quarter: ${meta.latest_quarter ?? '?'}`);
+      }
+    } catch {
+      console.log('  (could not fetch table stats)');
+    }
   }
 }
 

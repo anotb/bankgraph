@@ -9,10 +9,12 @@
 
 	let {
 		selected = $bindable<string[]>([]),
+		id,
 		onchange,
 		maxSelections = 6
 	}: {
 		selected: string[];
+		id?: string;
 		onchange?: (fields: string[]) => void;
 		maxSelections?: number;
 	} = $props();
@@ -133,7 +135,7 @@
 	let atLimit = $derived(selected.length >= maxSelections);
 </script>
 
-<div class="relative">
+<div class="relative" {id}>
 	<button
 		bind:this={triggerRef}
 		type="button"

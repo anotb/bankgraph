@@ -91,10 +91,10 @@ export const load: PageServerLoad = async ({ fetch, platform }) => {
 			segmentStats
 		] = await Promise.all([
 			fetch('/api/v1/meta'),
-			fetch('/api/v1/industry?segment=all&limit=20'),
-			fetch('/api/v1/industry?segment=community&limit=20'),
-			fetch('/api/v1/industry?segment=regional&limit=20'),
-			fetch('/api/v1/industry?segment=large&limit=20'),
+			fetch('/api/v1/industry?segment=all&limit=40'),
+			fetch('/api/v1/industry?segment=community&limit=40'),
+			fetch('/api/v1/industry?segment=regional&limit=40'),
+			fetch('/api/v1/industry?segment=large&limit=40'),
 			// Asset distribution by tier from institutions table
 			queryAll<AssetTierRow>(db, `
 				SELECT

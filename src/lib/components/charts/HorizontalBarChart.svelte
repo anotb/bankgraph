@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { formatNumber } from '$lib/utils/formatters.js';
-	import { getMode } from '$lib/stores/mode.svelte.js';
+	import { isDark as getIsDark } from '$lib/stores/theme.svelte.js';
+	import { echarts } from './echarts-setup.js';
 
 	let {
 		data,
@@ -17,24 +18,23 @@
 	let chartContainer: HTMLDivElement;
 	let chart: any;
 
-	let mode = $derived(getMode());
+	let dark = $derived(getIsDark());
 
 	$effect(() => {
 		const currentData = data;
-		const currentMode = mode;
+		const isDark = dark;
 		const barColor = color;
 		let disposed = false;
 
 		if (!currentData.length) return;
 
-		import('echarts').then((echarts) => {
-			if (disposed || !chartContainer) return;
+		if (!chartContainer) return;
 
+		{
 			if (!chart) {
 				chart = echarts.init(chartContainer);
 			}
 
-			const isDark = currentMode === 'power';
 			const accentColor = barColor || (isDark ? '#2db5a8' : '#0d7d7d');
 			const accentHover = isDark ? '#3fc8ba' : '#096a6b';
 
@@ -131,7 +131,7 @@
 			};
 
 			chart.setOption(option, true);
-		});
+		}
 
 		return () => {
 			disposed = true;

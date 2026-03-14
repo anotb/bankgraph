@@ -17,7 +17,7 @@
  */
 
 import type { RequestHandler } from './$types';
-import { getDB, queryOne } from '$lib/server/db';
+import { getDB, queryOne, queryAll } from '$lib/server/db';
 import { syncInstitutions } from '$lib/server/pipeline/fdic-institutions';
 import { syncLatestFinancials } from '$lib/server/pipeline/fdic-financials-snapshot';
 import { syncFinancials } from '$lib/server/pipeline/fdic-financials';
@@ -110,19 +110,27 @@ export const POST: RequestHandler = async ({ platform, url, request }) => {
       console.log('=== Stage: analytics ===');
       const t0 = Date.now();
 
-      // Find the latest quarter with financial data
-      const latestQ = await queryOne<{ repdte: string }>(
+      // Find all distinct quarters for industry aggregates (last 20 quarters for trends)
+      const quarters = await queryAll<{ repdte: string }>(
         db,
-        'SELECT repdte FROM financials ORDER BY repdte DESC LIMIT 1'
+        'SELECT DISTINCT repdte FROM financials ORDER BY repdte DESC LIMIT 20'
       );
 
-      if (latestQ) {
-        const peerRows = await computePeerStats(db, latestQ.repdte);
-        const industryRows = await computeIndustryAggregates(db, latestQ.repdte);
+      if (quarters.length > 0) {
+        // Peer stats only for latest quarter
+        const peerRows = await computePeerStats(db, quarters[0].repdte);
+
+        // Industry aggregates for all recent quarters (enables trend charts)
+        let totalIndustryRows = 0;
+        for (const q of quarters) {
+          totalIndustryRows += await computeIndustryAggregates(db, q.repdte);
+        }
+
         results.analytics = {
-          repdte: latestQ.repdte,
+          repdte: quarters[0].repdte,
+          quarters_processed: quarters.length,
           peer_stats_rows: peerRows,
-          industry_agg_rows: industryRows,
+          industry_agg_rows: totalIndustryRows,
           elapsed_seconds: Number(((Date.now() - t0) / 1000).toFixed(1))
         };
       } else {

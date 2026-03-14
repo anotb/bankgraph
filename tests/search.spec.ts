@@ -1,7 +1,15 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Search functionality', () => {
-	test('typing in search bar shows autocomplete dropdown', async ({ page }) => {
+	test('search bar is visible on landing page', async ({ page }) => {
+		await page.goto('/');
+
+		const searchInput = page.getByPlaceholder('Search by name, city, or state...');
+		await expect(searchInput).toBeVisible();
+		await expect(searchInput).toHaveAttribute('role', 'combobox');
+	});
+
+	test('typing triggers autocomplete dropdown', async ({ page }) => {
 		await page.goto('/');
 
 		const searchInput = page.getByPlaceholder('Search by name, city, or state...');
@@ -20,7 +28,30 @@ test.describe('Search functionality', () => {
 		await expect(options.first()).toBeVisible({ timeout: 5000 });
 	});
 
-	test('selecting an autocomplete result navigates to bank detail', async ({ page }) => {
+	test('autocomplete shows results with bank name, state, and CERT', async ({ page }) => {
+		await page.goto('/');
+
+		const searchInput = page.getByPlaceholder('Search by name, city, or state...');
+		await searchInput.click();
+		await searchInput.pressSequentially('jpmorgan', { delay: 50 });
+
+		// Wait for results
+		const dropdown = page.locator('[role="listbox"]');
+		await expect(dropdown).toBeVisible({ timeout: 10000 });
+
+		const firstOption = dropdown.locator('[role="option"]').first();
+		await expect(firstOption).toBeVisible({ timeout: 5000 });
+
+		// Each option has: bank name (left) + "STATE · CERT" (right)
+		const optionText = await firstOption.textContent();
+		expect(optionText).toBeTruthy();
+		// Should contain a middot separator between state and cert
+		expect(optionText).toMatch(/·/);
+		// Should contain a number (the CERT)
+		expect(optionText).toMatch(/\d+/);
+	});
+
+	test('selecting an autocomplete result navigates to /banks/{cert}', async ({ page }) => {
 		await page.goto('/');
 
 		const searchInput = page.getByPlaceholder('Search by name, city, or state...');
@@ -37,6 +68,22 @@ test.describe('Search functionality', () => {
 
 		// Should navigate to a bank detail page
 		await expect(page).toHaveURL(/\/banks\/\d+/, { timeout: 10000 });
+	});
+
+	test('search API returns results for query', async ({ request }) => {
+		const res = await request.get('/api/v1/banks?q=chase&limit=8');
+		expect(res.status()).toBe(200);
+
+		const json = await res.json();
+		expect(json.data).toBeDefined();
+		expect(Array.isArray(json.data)).toBe(true);
+		expect(json.data.length).toBeGreaterThan(0);
+
+		// Each result should have name and cert
+		const first = json.data[0];
+		expect(first.name).toBeTruthy();
+		expect(first.cert).toBeTruthy();
+		expect(typeof first.cert).toBe('number');
 	});
 
 	test('clear button closes dropdown and resets input', async ({ page }) => {

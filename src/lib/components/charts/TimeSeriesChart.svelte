@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { formatCurrency, formatPercent, formatNumber } from '$lib/utils/formatters.js';
 	import { isDark as getIsDark } from '$lib/stores/theme.svelte.js';
+	import { echarts } from './echarts-setup.js';
 
 	type SeriesDataPoint = { date: string; value: number | null };
 	type SeriesConfig = {
@@ -108,12 +109,9 @@
 			return () => { disposed = true; };
 		}
 
-		// TODO: perf: import('echarts') pulls the full ~1MB bundle. Switch to echarts/core
-		// with individual component imports (LineChart, BarChart, TooltipComponent, etc.)
-		// to cut chart bundle size by ~60%. See: https://echarts.apache.org/handbook/en/basics/import
-		import('echarts').then((echarts) => {
-			if (disposed || !chartContainer) return;
+		if (!chartContainer) return;
 
+		{
 			if (!chart) {
 				chart = echarts.init(chartContainer);
 			}
@@ -341,7 +339,7 @@
 			};
 
 			chart.setOption(option, true);
-		});
+		}
 
 		return () => {
 			disposed = true;
