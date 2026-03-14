@@ -55,21 +55,30 @@ function secret(): string {
 
 async function callSync(
   stage: string,
-  params: Record<string, string> = {}
+  params: Record<string, string> = {},
+  timeoutMs = 180_000
 ): Promise<Record<string, unknown>> {
   const qs = new URLSearchParams({ stage, ...params }).toString();
   const url = `${BASE_URL}/api/v1/pipeline/sync?${qs}`;
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${secret()}` }
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Sync ${stage} failed (${res.status}): ${text}`);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${secret()}` },
+      signal: controller.signal
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Sync ${stage} failed (${res.status}): ${text}`);
+    }
+    return res.json() as Promise<Record<string, unknown>>;
+  } finally {
+    clearTimeout(timer);
   }
-  return res.json() as Promise<Record<string, unknown>>;
 }
 
 function formatElapsed(ms: number): string {
@@ -113,6 +122,8 @@ async function runFinancialsChunked(): Promise<void> {
   let done = false;
   let round = 0;
   let totalProcessed = 0;
+  let consecutiveFailures = 0;
+  const MAX_RETRIES = 3;
   const overallStart = Date.now();
 
   while (!done) {
@@ -120,20 +131,38 @@ async function runFinancialsChunked(): Promise<void> {
     const start = Date.now();
     process.stdout.write(`  financials round ${round}: fetching...`);
 
-    const result = await callSync('financials');
-    const fin = result.financials as Record<string, unknown> | undefined;
-    const elapsed = formatElapsed(Date.now() - start);
-    const processed = Number(fin?.processed ?? 0);
-    const offset = Number(fin?.offset ?? 0);
+    try {
+      const result = await callSync('financials', {}, 300_000);
+      const fin = result.financials as Record<string, unknown> | undefined;
+      const elapsed = formatElapsed(Date.now() - start);
+      const processed = Number(fin?.processed ?? 0);
+      const offset = Number(fin?.offset ?? 0);
 
-    console.log(` done (${elapsed}) - ${processed} total rows, offset=${offset}`);
+      console.log(` done (${elapsed}) - ${processed} total rows, offset=${offset}`);
 
-    totalProcessed = processed;
-    done = fin?.done !== false;
+      totalProcessed = processed;
+      done = fin?.done !== false;
+      consecutiveFailures = 0;
+    } catch (err) {
+      consecutiveFailures++;
+      const msg = err instanceof Error ? err.message : String(err);
+      console.log(` FAILED (${msg})`);
+
+      if (consecutiveFailures >= MAX_RETRIES) {
+        console.error(`  ${MAX_RETRIES} consecutive failures, stopping.`);
+        console.error(`  Resume with: npm run backfill -- --only financials`);
+        throw err;
+      }
+
+      const waitSec = consecutiveFailures * 5;
+      console.log(`  Retrying in ${waitSec}s (attempt ${consecutiveFailures}/${MAX_RETRIES})...`);
+      await new Promise((r) => setTimeout(r, waitSec * 1000));
+      continue;
+    }
 
     if (!done) {
       // Brief pause between rounds to not hammer the API
-      await new Promise((r) => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 1000));
     }
   }
 
