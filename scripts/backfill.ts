@@ -315,9 +315,20 @@ async function main(): Promise<void> {
       const res = await fetch(`${BASE_URL}/api/v1/meta`);
       if (res.ok) {
         const meta = await res.json() as Record<string, unknown>;
-        console.log(`  institutions: ${meta.bank_count ?? '?'} rows`);
-        console.log(`  active banks: ${meta.active_count ?? '?'}`);
+        console.log(`  institutions:  ${meta.bank_count ?? '?'} rows`);
+        console.log(`  active banks:  ${meta.active_count ?? '?'}`);
         console.log(`  latest quarter: ${meta.latest_quarter ?? '?'}`);
+
+        const tc = meta.table_counts as Record<string, number> | undefined;
+        if (tc) {
+          console.log('\n  Table row counts:');
+          const tables = ['financials', 'peer_stats', 'bank_trends', 'anomalies', 'risk_scores', 'failures', 'agg_industry', 'macro_series', 'correlations'];
+          for (const t of tables) {
+            const count = tc[t] ?? 0;
+            const status = count > 0 ? '\x1b[32m✓\x1b[0m' : '\x1b[31m✗\x1b[0m';
+            console.log(`    ${status} ${t.padEnd(16)} ${count.toLocaleString()}`);
+          }
+        }
       }
     } catch {
       console.log('  (could not fetch table stats)');

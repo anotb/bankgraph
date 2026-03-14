@@ -114,6 +114,9 @@
 		? 'text-[12px] font-medium text-[--text-primary] text-right break-words min-w-0'
 		: 'text-[13px] font-medium text-[--text-primary] text-right break-words min-w-0'
 	);
+
+	// Power mode: tighter table cell padding
+	let tableCellPy = $derived(isPower ? 'py-1' : 'py-1.5');
 </script>
 
 <div class="{isPower ? 'space-y-3 pt-2' : 'space-y-5 pt-3'}">
@@ -327,33 +330,33 @@
 				<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
 				<h2 class="text-[15px] font-semibold text-[--text-primary]">Recent Quarters</h2>
 			</div>
-			<div class="rounded-md bg-[--surface-1] overflow-x-auto" style="box-shadow: var(--shadow-sm)">
+			<div class="{isPower ? 'rounded-none border border-[--border-muted]' : 'rounded-md'} bg-[--surface-1] overflow-x-auto" style="{isPower ? '' : 'box-shadow: var(--shadow-sm)'}">
 				<table class="w-full min-w-[400px]" style="font-size: 12px;">
 					<thead>
 						<tr class="bg-[--surface-3]">
-							<th class="text-left px-3 py-1.5 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider sticky left-0 bg-[--surface-3] z-10">Quarter</th>
-							<th class="text-right px-3 py-1.5 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Assets</th>
-							<th class="text-right px-3 py-1.5 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">ROA</th>
-							<th class="text-right px-3 py-1.5 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">ROE</th>
-							<th class="text-right px-3 py-1.5 text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">NIM</th>
+							<th class="text-left px-3 {tableCellPy} text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider sticky left-0 bg-[--surface-3] z-10">Quarter</th>
+							<th class="text-right px-3 {tableCellPy} text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">Assets</th>
+							<th class="text-right px-3 {tableCellPy} text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">ROA</th>
+							<th class="text-right px-3 {tableCellPy} text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">ROE</th>
+							<th class="text-right px-3 {tableCellPy} text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">NIM</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-[--surface-2]">
 						{#each recentQuarters as q (q.repdte)}
 							<tr class="hover:bg-[--accent-muted] transition-colors">
-								<td class="px-3 py-1.5 font-medium text-[--text-primary] data-mono sticky left-0 bg-inherit z-[5]">{formatQuarter(q.repdte)}</td>
-								<td class="px-3 py-1.5 text-right text-[--text-primary] data-mono">{formatCurrency(q.asset)}</td>
-								<td class="px-3 py-1.5 text-right data-mono">
+								<td class="px-3 {tableCellPy} font-medium text-[--text-primary] data-mono sticky left-0 bg-inherit z-[5]">{formatQuarter(q.repdte)}</td>
+								<td class="px-3 {tableCellPy} text-right text-[--text-primary] data-mono">{formatCurrency(q.asset)}</td>
+								<td class="px-3 {tableCellPy} text-right data-mono">
 									<span class="{semanticColor(getMetricStatus('roa', q.roa))}">
 										{formatPercent(q.roa)}
 									</span>
 								</td>
-								<td class="px-3 py-1.5 text-right data-mono">
+								<td class="px-3 {tableCellPy} text-right data-mono">
 									<span class="{semanticColor(getMetricStatus('roe', q.roe))}">
 										{formatPercent(q.roe)}
 									</span>
 								</td>
-								<td class="px-3 py-1.5 text-right data-mono">
+								<td class="px-3 {tableCellPy} text-right data-mono">
 									<span class="{semanticColor(getMetricStatus('nim', q.nimy))}">
 										{formatPercent(q.nimy)}
 									</span>

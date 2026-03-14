@@ -14,7 +14,7 @@ export const GET: RequestHandler = async (event) => {
     const result = await cacheWrap<MetaResponse>(kv, 'meta:overview', ONE_HOUR, async () => {
       const db = getDB(platform);
 
-      const [counts, quarter, pipelineRows, stateRows] = await Promise.all([
+      const [counts, quarter, pipelineRows, stateRows, tableCounts] = await Promise.all([
         queryOne<{ bank_count: number; active_count: number }>(
           db,
           `SELECT
@@ -37,7 +37,19 @@ export const GET: RequestHandler = async (event) => {
            WHERE active = 1
            GROUP BY state
            ORDER BY state`
-        )
+        ),
+        // Table row counts for diagnostics
+        Promise.all([
+          queryOne<{ cnt: number }>(db, 'SELECT COUNT(*) as cnt FROM financials').catch(() => ({ cnt: 0 })),
+          queryOne<{ cnt: number }>(db, 'SELECT COUNT(*) as cnt FROM peer_stats').catch(() => ({ cnt: 0 })),
+          queryOne<{ cnt: number }>(db, 'SELECT COUNT(*) as cnt FROM bank_trends').catch(() => ({ cnt: 0 })),
+          queryOne<{ cnt: number }>(db, 'SELECT COUNT(*) as cnt FROM anomalies').catch(() => ({ cnt: 0 })),
+          queryOne<{ cnt: number }>(db, 'SELECT COUNT(*) as cnt FROM risk_scores').catch(() => ({ cnt: 0 })),
+          queryOne<{ cnt: number }>(db, 'SELECT COUNT(*) as cnt FROM failures').catch(() => ({ cnt: 0 })),
+          queryOne<{ cnt: number }>(db, 'SELECT COUNT(*) as cnt FROM agg_industry').catch(() => ({ cnt: 0 })),
+          queryOne<{ cnt: number }>(db, 'SELECT COUNT(*) as cnt FROM macro_series').catch(() => ({ cnt: 0 })),
+          queryOne<{ cnt: number }>(db, 'SELECT COUNT(*) as cnt FROM correlations').catch(() => ({ cnt: 0 }))
+        ])
       ]);
 
       const dataFreshness: Record<string, string> = {};
@@ -47,12 +59,26 @@ export const GET: RequestHandler = async (event) => {
         }
       }
 
+      const [fin, peers, trends, anomalies, risk, failures, industry, macro, corr] = tableCounts;
+
       return {
         bank_count: counts?.bank_count ?? 0,
         active_count: counts?.active_count ?? 0,
         latest_quarter: quarter?.latest_quarter ?? null,
         data_freshness: dataFreshness,
-        states: stateRows
+        states: stateRows,
+        table_counts: {
+          institutions: counts?.bank_count ?? 0,
+          financials: fin?.cnt ?? 0,
+          peer_stats: peers?.cnt ?? 0,
+          bank_trends: trends?.cnt ?? 0,
+          anomalies: anomalies?.cnt ?? 0,
+          risk_scores: risk?.cnt ?? 0,
+          failures: failures?.cnt ?? 0,
+          agg_industry: industry?.cnt ?? 0,
+          macro_series: macro?.cnt ?? 0,
+          correlations: corr?.cnt ?? 0
+        }
       };
     });
 

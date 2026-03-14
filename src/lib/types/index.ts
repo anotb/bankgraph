@@ -91,6 +91,7 @@ export interface MetaResponse {
   latest_quarter: string | null;
   data_freshness: Record<string, string>;
   states: Array<{ state: string; count: number }>;
+  table_counts?: Record<string, number>;
 }
 
 /** Quarterly financial data for an institution */

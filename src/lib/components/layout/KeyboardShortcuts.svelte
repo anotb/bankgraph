@@ -72,6 +72,7 @@
 		if (pendingChord === 'g') {
 			clearChord();
 			const routes: Record<string, string> = {
+				h: '/',
 				b: '/banks',
 				i: '/industry',
 				m: '/macro',
@@ -98,6 +99,7 @@
 		{
 			category: 'Navigation',
 			items: [
+				{ keys: ['g', 'h'], description: 'Go to Home' },
 				{ keys: ['g', 'b'], description: 'Go to Banks' },
 				{ keys: ['g', 'i'], description: 'Go to Industry' },
 				{ keys: ['g', 'm'], description: 'Go to Macro' },

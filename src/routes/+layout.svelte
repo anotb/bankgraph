@@ -5,6 +5,7 @@
 	import ThemeToggle from '$lib/components/layout/ThemeToggle.svelte';
 	import KeyboardShortcuts from '$lib/components/layout/KeyboardShortcuts.svelte';
 	import NavigationProgress from '$lib/components/layout/NavigationProgress.svelte';
+	import ScrollToTop from '$lib/components/layout/ScrollToTop.svelte';
 	import { getMode } from '$lib/stores/mode.svelte.js';
 
 	let { children, data } = $props();
@@ -82,3 +83,4 @@
 </div>
 
 <KeyboardShortcuts />
+<ScrollToTop />
