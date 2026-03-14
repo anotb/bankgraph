@@ -204,12 +204,40 @@
 		selectedBanks = selectedBanks.filter((b) => b.cert !== cert);
 	}
 
-	// ── Popular comparisons ──
-	const popularComparisons = [
-		{ label: 'JPMorgan vs Bank of America', certs: [628, 3510] },
-		{ label: 'Wells Fargo vs Citibank', certs: [3511, 7213] },
-		{ label: 'Top 4 Banks', certs: [628, 3510, 3511, 7213] }
-	];
+	// ── Popular comparisons (derived from top banks by assets) ──
+	function shortName(name: string): string {
+		// Trim common suffixes for shorter labels
+		return name
+			.replace(/,?\s*National Association$/i, '')
+			.replace(/,?\s*N\.A\.$/i, '');
+	}
+
+	let popularComparisons = $derived.by(() => {
+		const top = data.topBanks ?? [];
+		if (top.length < 4) return [];
+
+		const comparisons: Array<{ label: string; certs: number[] }> = [];
+
+		// #1 vs #2
+		comparisons.push({
+			label: `${shortName(top[0].name)} vs ${shortName(top[1].name)}`,
+			certs: [top[0].cert, top[1].cert]
+		});
+
+		// #3 vs #4
+		comparisons.push({
+			label: `${shortName(top[2].name)} vs ${shortName(top[3].name)}`,
+			certs: [top[2].cert, top[3].cert]
+		});
+
+		// Top 4
+		comparisons.push({
+			label: 'Top 4 Banks',
+			certs: top.slice(0, 4).map((b) => b.cert)
+		});
+
+		return comparisons;
+	});
 
 	async function loadPopularComparison(certs: number[]): Promise<void> {
 		selectedBanks = [];

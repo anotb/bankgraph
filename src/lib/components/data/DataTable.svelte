@@ -25,6 +25,7 @@
 		currentOrder = 'asc',
 		loading = false,
 		dense = false,
+		totalRows,
 		onsort,
 		onrowclick,
 		customColumns
@@ -36,6 +37,8 @@
 		loading?: boolean;
 		/** Compact layout: tighter padding, smaller font */
 		dense?: boolean;
+		/** Total row count (for "Showing X of Y rows" footer) */
+		totalRows?: number;
 		onsort?: (key: string) => void;
 		onrowclick?: (row: any) => void;
 		customColumns?: Record<string, Snippet<[Record<string, any>]>>;
@@ -69,9 +72,26 @@
 		hiddenColumns = next;
 	}
 
+	// Click-outside handler for column picker
+	let columnPickerEl: HTMLDivElement | undefined = $state();
+
+	function handleDocumentMousedown(e: MouseEvent) {
+		if (showColumnPicker && columnPickerEl && !columnPickerEl.contains(e.target as Node)) {
+			showColumnPicker = false;
+		}
+	}
+
+	$effect(() => {
+		if (showColumnPicker) {
+			document.addEventListener('mousedown', handleDocumentMousedown);
+			return () => document.removeEventListener('mousedown', handleDocumentMousedown);
+		}
+	});
+
 	// Keyboard navigation (power mode)
 	let selectedRowIdx = $state(-1);
 	let tableWrapper: HTMLDivElement | undefined = $state();
+	let showKbHint = $state(true);
 
 	function handleKeydown(e: KeyboardEvent) {
 		if (mode !== 'power' || data.length === 0) return;
@@ -149,7 +169,7 @@
 >
 	{#if mode === 'power'}
 		<!-- Column visibility toggle -->
-		<div class="absolute top-1.5 right-1.5 z-30">
+		<div class="absolute top-1.5 right-1.5 z-30" bind:this={columnPickerEl}>
 			<button
 				class="p-2 sm:p-1 rounded text-[--text-disabled] hover:text-[--text-secondary] hover:bg-[--surface-3] transition-colors"
 				onclick={() => (showColumnPicker = !showColumnPicker)}
@@ -290,8 +310,14 @@
 
 		<!-- Row count footer -->
 		<div class="{dense ? 'px-2 py-1' : 'px-3 py-1.5'} text-[11px] text-[--text-tertiary] border-t border-[--border]">
-			Showing {data.length} {data.length === 1 ? 'row' : 'rows'}
+			Showing {data.length.toLocaleString()}{totalRows != null ? ` of ${totalRows.toLocaleString()}` : ''} {data.length === 1 && !totalRows ? 'row' : 'rows'}
 		</div>
+
+		{#if mode === 'power' && showKbHint}
+			<div class="px-3 pb-1.5 text-[10px] text-[--text-disabled]">
+				Tip: Use j/k to navigate rows
+			</div>
+		{/if}
 	{/if}
 </div>
 

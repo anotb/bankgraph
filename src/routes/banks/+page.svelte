@@ -118,6 +118,66 @@
 		return idx >= 0 ? idx : 0;
 	});
 
+	// Multi-state selection
+	let selectedStates: string[] = $derived(
+		data.params.state ? data.params.state.split(',').filter(Boolean) : []
+	);
+	let stateDropdownOpen = $state(false);
+	let stateSearch = $state('');
+	let stateDropdownRef: HTMLDivElement | undefined = $state();
+	let stateSearchRef: HTMLInputElement | undefined = $state();
+
+	let filteredStates = $derived(
+		stateSearch
+			? STATES_SORTED.filter(
+					(st) =>
+						st.toLowerCase().includes(stateSearch.toLowerCase()) ||
+						STATE_NAMES[st].toLowerCase().includes(stateSearch.toLowerCase())
+				)
+			: STATES_SORTED
+	);
+
+	let stateLabel = $derived.by(() => {
+		if (selectedStates.length === 0) return 'All states';
+		if (selectedStates.length <= 2) return selectedStates.join(', ');
+		return `${selectedStates.length} states`;
+	});
+
+	function toggleState(st: string) {
+		let next: string[];
+		if (selectedStates.includes(st)) {
+			next = selectedStates.filter((s) => s !== st);
+		} else {
+			next = [...selectedStates, st];
+		}
+		updateParams({ state: next.join(',') });
+	}
+
+	function removeState(st: string) {
+		const next = selectedStates.filter((s) => s !== st);
+		updateParams({ state: next.join(',') });
+	}
+
+	function clearStates() {
+		updateParams({ state: '' });
+		stateDropdownOpen = false;
+	}
+
+	function handleClickOutside(e: MouseEvent) {
+		if (stateDropdownRef && !stateDropdownRef.contains(e.target as Node)) {
+			stateDropdownOpen = false;
+			stateSearch = '';
+		}
+	}
+
+	function toggleStateDropdown() {
+		stateDropdownOpen = !stateDropdownOpen;
+		stateSearch = '';
+		if (stateDropdownOpen) {
+			setTimeout(() => stateSearchRef?.focus(), 0);
+		}
+	}
+
 	function updateParams(updates: Record<string, string>) {
 		const params = new URLSearchParams($page.url.searchParams);
 
@@ -162,11 +222,6 @@
 		goto(`/banks/${row.cert}`);
 	}
 
-	function handleStateChange(e: Event) {
-		const target = e.target as HTMLSelectElement;
-		updateParams({ state: target.value });
-	}
-
 	function handleAssetBucketChange(e: Event) {
 		const target = e.target as HTMLSelectElement;
 		const idx = parseInt(target.value, 10);
@@ -190,6 +245,8 @@
 	);
 
 	function clearAllFilters() {
+		stateDropdownOpen = false;
+		stateSearch = '';
 		goto('/banks', { keepFocus: true, noScroll: true });
 	}
 </script>
@@ -200,6 +257,8 @@
 	<meta property="og:title" content="Banks | Bank Data Explorer" />
 	<meta property="og:description" content="Browse, search, and filter every FDIC-insured bank by state, asset size, and status." />
 </svelte:head>
+
+<svelte:document onclick={handleClickOutside} />
 
 <div class="space-y-3">
 	<div class="flex items-center justify-between">
@@ -220,20 +279,95 @@
 
 	<!-- Filters -->
 	<div class="flex flex-wrap items-center gap-2">
-		<select
-			value={data.params.state}
-			onchange={handleStateChange}
-			class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] pl-3 pr-8 py-2.5 sm:py-1.5
-				text-[13px] font-medium text-[--text-secondary]
-				focus:border-[--accent] focus:ring-2 focus:ring-[--accent]/20 focus:outline-none
-				transition-all duration-150 cursor-pointer"
-			style="box-shadow: var(--shadow-xs)"
-		>
-			<option value="">All states</option>
-			{#each STATES_SORTED as st}
-				<option value={st}>{STATE_NAMES[st]} ({st})</option>
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="relative" bind:this={stateDropdownRef} onkeydown={(e) => { if (e.key === 'Escape') { stateDropdownOpen = false; stateSearch = ''; } }}>
+			<button
+				type="button"
+				onclick={toggleStateDropdown}
+				class="rounded-[5px] border bg-[--surface-1] pl-3 pr-8 py-2.5 sm:py-1.5
+					text-[13px] font-medium text-[--text-secondary]
+					focus:border-[--accent] focus:ring-2 focus:ring-[--accent]/20 focus:outline-none
+					transition-all duration-150 cursor-pointer inline-flex items-center gap-1.5
+					{selectedStates.length > 0 ? 'border-[--accent]' : 'border-[--border-muted]'}"
+				style="box-shadow: var(--shadow-xs)"
+			>
+				{stateLabel}
+				<svg class="w-3.5 h-3.5 ml-1 opacity-50 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+				</svg>
+			</button>
+
+			{#if stateDropdownOpen}
+				<div
+					class="absolute z-50 mt-1 w-64 rounded-[5px] border border-[--border-muted] bg-[--surface-1] overflow-hidden"
+					style="box-shadow: var(--shadow-md, 0 4px 6px -1px rgb(0 0 0 / 0.1))"
+				>
+					<div class="p-1.5 border-b border-[--border-muted]">
+						<input
+							bind:this={stateSearchRef}
+							bind:value={stateSearch}
+							type="text"
+							placeholder="Search states..."
+							class="w-full rounded-[3px] border border-[--border-muted] bg-[--surface-0] px-2 py-1
+								text-[13px] text-[--text-primary] placeholder:text-[--text-tertiary]
+								focus:border-[--accent] focus:ring-1 focus:ring-[--accent]/20 focus:outline-none"
+						/>
+					</div>
+
+					{#if selectedStates.length > 0}
+						<div class="flex items-center justify-between px-2.5 py-1.5 border-b border-[--border-muted] bg-[--surface-0]">
+							<span class="text-[11px] text-[--text-tertiary]">{selectedStates.length} selected</span>
+							<button
+								type="button"
+								onclick={clearStates}
+								class="text-[11px] text-[--accent] hover:underline cursor-pointer"
+							>
+								Clear
+							</button>
+						</div>
+					{/if}
+
+					<div class="max-h-56 overflow-y-auto overscroll-contain">
+						{#each filteredStates as st}
+							<label
+								class="flex items-center gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-[--surface-2] transition-colors text-[13px]
+									{selectedStates.includes(st) ? 'text-[--text-primary] font-medium' : 'text-[--text-secondary]'}"
+							>
+								<input
+									type="checkbox"
+									checked={selectedStates.includes(st)}
+									onchange={() => toggleState(st)}
+									class="rounded-[3px] border-[--border-muted] text-[--accent] focus:ring-[--accent]/20
+										w-3.5 h-3.5 cursor-pointer"
+								/>
+								{STATE_NAMES[st]}
+								<span class="text-[--text-tertiary] text-[11px]">{st}</span>
+							</label>
+						{:else}
+							<div class="px-2.5 py-3 text-center text-[12px] text-[--text-tertiary]">
+								No matching states
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
+		</div>
+
+		{#if selectedStates.length > 0}
+			{#each selectedStates as st}
+				<button
+					type="button"
+					onclick={() => removeState(st)}
+					class="inline-flex items-center gap-1 rounded-[4px] bg-[--accent]/10 text-[--accent] px-2 py-0.5
+						text-[12px] font-medium hover:bg-[--accent]/20 transition-colors cursor-pointer"
+				>
+					{st}
+					<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
 			{/each}
-		</select>
+		{/if}
 
 		<select
 			value={selectedBucketIndex}
@@ -294,6 +428,7 @@
 			{columns}
 			data={data.banks}
 			dense={mode === 'power'}
+			totalRows={data.total}
 			{currentSort}
 			{currentOrder}
 			onsort={handleSort}

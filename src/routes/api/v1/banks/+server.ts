@@ -74,7 +74,10 @@ export const GET: RequestHandler = async (event) => {
 
   // Parse and validate params
   const q = url.searchParams.get('q')?.trim() || undefined;
-  const state = url.searchParams.get('state')?.trim().toUpperCase() || undefined;
+  const stateRaw = url.searchParams.get('state')?.trim().toUpperCase() || undefined;
+  const states = stateRaw
+    ? stateRaw.split(',').map(s => s.trim()).filter(Boolean)
+    : undefined;
 
   const assetMinRaw = url.searchParams.get('asset_min');
   const assetMaxRaw = url.searchParams.get('asset_max');
@@ -143,9 +146,10 @@ export const GET: RequestHandler = async (event) => {
       params.push(`%${q}%`);
     }
 
-    if (state) {
-      conditions.push('state = ?');
-      params.push(state);
+    if (states && states.length > 0) {
+      const placeholders = states.map(() => '?').join(', ');
+      conditions.push(`state IN (${placeholders})`);
+      params.push(...states);
     }
 
     if (assetMin !== undefined) {

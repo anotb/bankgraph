@@ -225,25 +225,25 @@
 		{
 			title: 'Fed Funds Rate vs Net Interest Margin',
 			description: 'Higher federal funds rate tends to widen bank net interest margins, as lending rates adjust faster than deposit rates.',
-			correlation: 0.72,
+			correlation: null,
 			metric: 'FEDFUNDS vs NIM'
 		},
 		{
 			title: 'Unemployment vs Non-Performing Loans',
 			description: 'Rising unemployment historically leads to increased loan delinquencies, with effects lagging 1-2 quarters.',
-			correlation: 0.65,
+			correlation: null,
 			metric: 'UNRATE vs NPL'
 		},
 		{
 			title: 'Yield Curve Spread vs Bank Profitability',
 			description: 'A steeper yield curve (positive 10Y-2Y spread) benefits bank ROA through maturity transformation.',
-			correlation: 0.48,
+			correlation: null,
 			metric: 'T10Y2Y vs ROA'
 		},
 		{
 			title: '10Y Treasury vs Net Interest Margin',
 			description: 'Long-term rates influence loan pricing. Higher 10Y yields generally support wider margins for banks with fixed-rate assets.',
-			correlation: 0.55,
+			correlation: null,
 			metric: 'DGS10 vs NIM'
 		}
 	];
@@ -608,7 +608,7 @@
 						<line x1="12" y1="16" x2="12.01" y2="16" />
 					</svg>
 					<p class="text-[12px] text-[--text-secondary] leading-snug">
-						<span class="font-semibold">Estimated values.</span> These correlations are representative approximations, not computed from your data. Run the correlations pipeline to replace them with real calculations.
+						<span class="font-semibold">General relationships only.</span> These are general economic relationships, not computed from your data. Sync FRED data to see actual correlations.
 					</p>
 				</div>
 			{/if}
