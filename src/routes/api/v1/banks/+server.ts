@@ -1,3 +1,12 @@
+/**
+ * GET /api/v1/banks
+ * Returns paginated bank list with search/filter/sort.
+ *
+ * Query params:
+ *   format   - 'json' (default) | 'csv'
+ *   download - present triggers JSON download with Content-Disposition header
+ */
+
 import type { RequestHandler } from './$types';
 import { getDB, queryAll, queryOne } from '$lib/server/db';
 import { cacheWrap } from '$lib/server/cache';
@@ -13,6 +22,39 @@ const SORT_COLUMN_MAP: Record<string, string> = {
 
 const ONE_HOUR = 3600;
 
+const CSV_COLUMNS: Array<keyof Institution> = [
+  'cert',
+  'name',
+  'state',
+  'city',
+  'active',
+  'total_assets',
+  'latest_roa',
+  'latest_roe',
+  'latest_nim'
+];
+
+const CSV_HEADERS = [
+  'cert',
+  'name',
+  'state',
+  'city',
+  'active',
+  'asset',
+  'latest_roa',
+  'latest_roe',
+  'latest_nim'
+];
+
+function csvEscape(val: unknown): string {
+  if (val === null || val === undefined) return '';
+  const s = String(val);
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
 function hashParams(url: URL): string {
   const params = new URLSearchParams(url.searchParams);
   // Sort keys for deterministic hashing
@@ -22,6 +64,9 @@ function hashParams(url: URL): string {
 
 export const GET: RequestHandler = async (event) => {
   const { url, platform } = event;
+
+  const format = url.searchParams.get('format') || 'json';
+  const isExport = format === 'csv' || url.searchParams.has('download');
 
   // Parse and validate params
   const q = url.searchParams.get('q')?.trim() || undefined;
@@ -39,11 +84,13 @@ export const GET: RequestHandler = async (event) => {
   const page = parseInt(pageRaw, 10);
   const limit = parseInt(limitRaw, 10);
 
-  if (isNaN(page) || page < 1) {
-    return errorResponse('page must be a positive integer', 400);
-  }
-  if (isNaN(limit) || limit < 1 || limit > 100) {
-    return errorResponse('limit must be between 1 and 100', 400);
+  if (!isExport) {
+    if (isNaN(page) || page < 1) {
+      return errorResponse('page must be a positive integer', 400);
+    }
+    if (isNaN(limit) || limit < 1 || limit > 100) {
+      return errorResponse('limit must be between 1 and 100', 400);
+    }
   }
 
   let assetMin: number | undefined;
@@ -82,42 +129,78 @@ export const GET: RequestHandler = async (event) => {
   const cacheKey = hashParams(url);
 
   try {
+    const db = getDB(platform);
+
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+
+    if (q) {
+      conditions.push('LOWER(name) LIKE LOWER(?)');
+      params.push(`%${q}%`);
+    }
+
+    if (state) {
+      conditions.push('state = ?');
+      params.push(state);
+    }
+
+    if (assetMin !== undefined) {
+      conditions.push('total_assets >= ?');
+      params.push(assetMin);
+    }
+
+    if (assetMax !== undefined) {
+      conditions.push('total_assets <= ?');
+      params.push(assetMax);
+    }
+
+    if (active !== undefined) {
+      conditions.push('active = ?');
+      params.push(active);
+    }
+
+    const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+    const sortColumn = SORT_COLUMN_MAP[sort];
+
+    // For CSV/download exports, fetch all matching rows (no pagination)
+    if (format === 'csv') {
+      const dataSql = `SELECT * FROM institutions ${whereClause} ORDER BY ${sortColumn} ${order.toUpperCase()}`;
+      const data = await queryAll<Institution>(db, dataSql, params);
+
+      const rows = [
+        CSV_HEADERS.join(','),
+        ...data.map((row) =>
+          CSV_COLUMNS.map((col) => csvEscape(row[col])).join(',')
+        )
+      ];
+      return new Response(rows.join('\n'), {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/csv',
+          'Content-Disposition': 'attachment; filename="banks.csv"',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+
+    if (format === 'json' && url.searchParams.has('download')) {
+      const dataSql = `SELECT * FROM institutions ${whereClause} ORDER BY ${sortColumn} ${order.toUpperCase()}`;
+      const data = await queryAll<Institution>(db, dataSql, params);
+
+      return new Response(JSON.stringify({ data }, null, 2), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Disposition': 'attachment; filename="banks.json"',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+
+    // Standard paginated JSON response
     const result = await cacheWrap<BankListResponse>(kv, cacheKey, ONE_HOUR, async () => {
-      const db = getDB(platform);
-
-      const conditions: string[] = [];
-      const params: unknown[] = [];
-
-      if (q) {
-        conditions.push('LOWER(name) LIKE LOWER(?)');
-        params.push(`%${q}%`);
-      }
-
-      if (state) {
-        conditions.push('state = ?');
-        params.push(state);
-      }
-
-      if (assetMin !== undefined) {
-        conditions.push('total_assets >= ?');
-        params.push(assetMin);
-      }
-
-      if (assetMax !== undefined) {
-        conditions.push('total_assets <= ?');
-        params.push(assetMax);
-      }
-
-      if (active !== undefined) {
-        conditions.push('active = ?');
-        params.push(active);
-      }
-
-      const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
-      const sortColumn = SORT_COLUMN_MAP[sort];
       const offset = (page - 1) * limit;
 
-      // Run count and data queries in parallel
       // SAFETY: sortColumn and order are interpolated directly into SQL, but both are
       // validated against allowlists above (SORT_COLUMN_MAP keys and 'asc'/'desc')
       // so there is no SQL injection risk here.

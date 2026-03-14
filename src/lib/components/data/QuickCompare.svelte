@@ -73,7 +73,11 @@
 
 			<!-- Comparison bar -->
 			{#if m.percentile !== null}
-				<div class="relative h-[6px] rounded-full overflow-hidden bg-[--surface-3]">
+				<div
+					class="relative h-[6px] rounded-full overflow-hidden bg-[--surface-3]"
+					role="img"
+					aria-label="{m.label}: {m.percentile !== null ? `${m.percentile.toFixed(0)}th` : 'unknown'} percentile among peers"
+				>
 					<!-- Gradient bar: red to yellow to green -->
 					<div
 						class="absolute inset-0 rounded-full"

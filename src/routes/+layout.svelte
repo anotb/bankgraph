@@ -35,26 +35,30 @@
 				<span class="hidden sm:inline text-[13px] font-normal text-[--text-secondary]">Bank Data Explorer</span>
 			</a>
 
-			<div class="flex items-center gap-1 sm:gap-5 text-[13px] overflow-x-auto scrollbar-hide">
-				{#each [
-					{ href: '/banks', label: 'Banks' },
-					{ href: '/industry', label: 'Industry' },
-					{ href: '/macro', label: 'Macro' },
-					{ href: '/compare', label: 'Compare' },
-					{ href: '/glossary', label: 'Glossary' }
-				] as link}
-					<a
-						href={link.href}
-						aria-current={isActive(link.href) ? "page" : undefined}
-						class="relative py-3 sm:py-0 px-2 sm:px-0 sm:pb-[9px] sm:-mb-[9px] transition-colors duration-150 whitespace-nowrap
-							{isActive(link.href) ? 'text-[--accent-text] font-semibold' : 'text-[--text-secondary] hover:text-[--text-primary] font-medium'}"
-					>
-						{link.label}{#if link.href === '/banks' && data.activeBankCount}<span class="text-[11px] text-[--text-tertiary] font-normal ml-0.5">({data.activeBankCount.toLocaleString()})</span>{/if}
-						{#if isActive(link.href)}
-							<span class="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[--accent] rounded-full"></span>
-						{/if}
-					</a>
-				{/each}
+			<div class="relative flex-1 min-w-0">
+				<div class="flex items-center gap-1 sm:gap-5 text-[13px] overflow-x-auto scrollbar-hide">
+					{#each [
+						{ href: '/banks', label: 'Banks' },
+						{ href: '/industry', label: 'Industry' },
+						{ href: '/macro', label: 'Macro' },
+						{ href: '/compare', label: 'Compare' },
+						{ href: '/glossary', label: 'Glossary' }
+					] as link}
+						<a
+							href={link.href}
+							aria-current={isActive(link.href) ? "page" : undefined}
+							class="relative py-3 sm:py-0 px-2 sm:px-0 sm:pb-[9px] sm:-mb-[9px] transition-colors duration-150 whitespace-nowrap
+								{isActive(link.href) ? 'text-[--accent-text] font-semibold' : 'text-[--text-secondary] hover:text-[--text-primary] font-medium'}"
+						>
+							{link.label}{#if link.href === '/banks' && data.activeBankCount}<span class="text-[11px] text-[--text-tertiary] font-normal ml-0.5">({data.activeBankCount.toLocaleString()})</span>{/if}
+							{#if isActive(link.href)}
+								<span class="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[--accent] rounded-full"></span>
+							{/if}
+						</a>
+					{/each}
+				</div>
+				<!-- Scroll fade hint: gradient on right edge when content overflows -->
+				<div class="sm:hidden absolute right-0 top-0 bottom-0 w-8 pointer-events-none nav-scroll-fade"></div>
 			</div>
 
 			<div class="ml-auto flex items-center gap-1 sm:gap-2 shrink-0">

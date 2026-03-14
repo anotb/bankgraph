@@ -5,6 +5,8 @@
  * Query params:
  *   metrics  - comma-separated metric names (default: roa,roe,nimy,eeffr,nclnlsr,rbcrwaj)
  *   repdte   - reporting date YYYYMMDD (default: latest available)
+ *   format   - 'json' (default) | 'csv'
+ *   download - present triggers JSON download with Content-Disposition header
  */
 
 import type { RequestHandler } from './$types';
@@ -12,6 +14,27 @@ import { getDB, queryOne, queryAll } from '$lib/server/db';
 import { cacheWrap } from '$lib/server/cache';
 import { jsonResponse, errorResponse } from '$lib/server/response';
 import type { PeerComparison, PeerMetricComparison, PeerStats } from '$lib/types';
+
+const PEER_CSV_HEADERS = [
+  'metric',
+  'bank_value',
+  'peer_median',
+  'peer_mean',
+  'p10',
+  'p25',
+  'p75',
+  'p90',
+  'percentile'
+];
+
+function csvEscape(val: unknown): string {
+  if (val === null || val === undefined) return '';
+  const s = String(val);
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
 
 const SIX_HOURS = 21600;
 const DEFAULT_METRICS = ['roa', 'roe', 'nimy', 'eeffr', 'nclnlsr', 'rbcrwaj'];
@@ -156,6 +179,46 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 
   if (!result) {
     return errorResponse('Bank not found or no financial data available', 404);
+  }
+
+  const format = url.searchParams.get('format') || 'json';
+
+  if (format === 'csv') {
+    const rows = [
+      PEER_CSV_HEADERS.join(','),
+      ...result.metrics.map((m) =>
+        [
+          csvEscape(m.metric),
+          csvEscape(m.bank_value),
+          csvEscape(m.peer_median),
+          csvEscape(m.peer_mean),
+          csvEscape(m.p10),
+          csvEscape(m.p25),
+          csvEscape(m.p75),
+          csvEscape(m.p90),
+          csvEscape(m.percentile)
+        ].join(',')
+      )
+    ];
+    return new Response(rows.join('\n'), {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/csv',
+        'Content-Disposition': `attachment; filename="peers_${cert}.csv"`,
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  }
+
+  if (format === 'json' && url.searchParams.has('download')) {
+    return new Response(JSON.stringify(result, null, 2), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Disposition': `attachment; filename="peers_${cert}.json"`,
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
   }
 
   return jsonResponse(result);

@@ -19,6 +19,13 @@
 		open = false;
 	}
 
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape' && open) {
+			e.preventDefault();
+			open = false;
+		}
+	}
+
 	function handleBlur() {
 		setTimeout(() => {
 			open = false;
@@ -30,6 +37,7 @@
 	<button
 		type="button"
 		onclick={() => (open = !open)}
+		onkeydown={handleKeydown}
 		onblur={handleBlur}
 		aria-expanded={open}
 		aria-haspopup="true"

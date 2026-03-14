@@ -35,6 +35,10 @@
 		trend != null ? (trend > 0 ? `+${trend.toFixed(2)}%` : `${trend.toFixed(2)}%`) : null
 	);
 
+	let trendAriaLabel = $derived(
+		trendFormatted != null ? `Quarter-over-quarter change: ${trendFormatted}` : undefined
+	);
+
 	let valueColor = $derived(
 		semantic === 'positive' ? 'text-[--positive]'
 		: semantic === 'negative' ? 'text-[--negative]'
@@ -69,7 +73,7 @@
 		<div class="mt-0.5 flex items-baseline gap-1.5">
 			<p class="{isDense ? 'text-[18px]' : 'text-[20px]'} font-semibold tracking-tight {valueColor} data-mono">{value}</p>
 			{#if trendFormatted}
-				<span class="inline-flex items-center gap-0.5 {isDense ? 'text-[10px]' : 'text-xs'} font-medium data-mono rounded-sm px-1 py-0.5
+				<span aria-label={trendAriaLabel} class="inline-flex items-center gap-0.5 {isDense ? 'text-[10px]' : 'text-xs'} font-medium data-mono rounded-sm px-1 py-0.5
 					{trendDirection === 'positive' ? 'text-[--positive] bg-[--positive-muted]' : trendDirection === 'negative' ? 'text-[--negative] bg-[--negative-muted]' : 'text-[--neutral] bg-[--surface-2]'}">
 					{#if trendDirection === 'positive'}
 						<svg class="w-3 h-3" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
@@ -114,7 +118,7 @@
 		<div class="mt-0.5 flex items-baseline gap-1.5 {semantic ? 'ml-1' : ''}">
 			<p class="{isDense ? 'text-[18px]' : 'text-[22px]'} font-semibold tracking-tight {valueColor} data-mono">{value}</p>
 			{#if trendFormatted}
-				<span class="inline-flex items-center gap-0.5 {isDense ? 'text-[10px]' : 'text-xs'} font-medium data-mono rounded-sm px-1 py-0.5
+				<span aria-label={trendAriaLabel} class="inline-flex items-center gap-0.5 {isDense ? 'text-[10px]' : 'text-xs'} font-medium data-mono rounded-sm px-1 py-0.5
 					{trendDirection === 'positive' ? 'text-[--positive] bg-[--positive-muted]' : trendDirection === 'negative' ? 'text-[--negative] bg-[--negative-muted]' : 'text-[--neutral] bg-[--surface-2]'}">
 					{#if trendDirection === 'positive'}
 						<svg class="w-3 h-3" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">

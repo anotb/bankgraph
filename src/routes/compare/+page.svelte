@@ -6,10 +6,12 @@
 	import { formatPercent, formatCurrency, formatNumber } from '$lib/utils/formatters.js';
 	import type { CompareResponse, Financial, Institution } from '$lib/types';
 
+	let { data } = $props();
+
 	// ── Bank search state (matches SearchBar autocomplete pattern) ──
 	let searchQuery = $state('');
 	let searchResults = $state<Institution[]>([]);
-	let selectedBanks = $state<Institution[]>([]);
+	let selectedBanks = $state<Institution[]>(data.prefetchedBanks ?? []);
 	let searching = $state(false);
 	let showDropdown = $state(false);
 	let highlightedIndex = $state(-1);
@@ -67,6 +69,8 @@
 	$effect(() => {
 		if (initializedFromUrl) return;
 		initializedFromUrl = true;
+		// If banks were prefetched server-side, skip client fetch
+		if (selectedBanks.length > 0) return;
 		const certsParam = $page.url.searchParams.get('certs');
 		if (certsParam) {
 			const certNumbers = certsParam
@@ -530,6 +534,11 @@
 				onfocus={handleSearchFocus}
 				placeholder="Search banks by name or cert..."
 				disabled={selectedBanks.length >= 10}
+				role="combobox"
+				aria-expanded={showDropdown}
+				aria-controls="compare-search-listbox"
+				aria-activedescendant={highlightedIndex >= 0 ? `compare-search-option-${highlightedIndex}` : undefined}
+				aria-autocomplete="list"
 				class="block w-full rounded-[5px] border border-[--border-muted] bg-[--surface-1] py-2 pr-9 pl-9
 					text-[14px] text-[--text-primary] placeholder:text-[--text-disabled]
 					focus:border-[--accent] focus:ring-2 focus:ring-[--accent]/20 focus:outline-none
@@ -572,6 +581,7 @@
 					class="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-[--border-muted] bg-[--surface-1] max-h-[320px] overflow-y-auto"
 					style="box-shadow: var(--shadow-md)"
 					role="listbox"
+					id="compare-search-listbox"
 				>
 					{#if searching && searchResults.length === 0}
 						<div class="px-3 py-2.5 text-[13px] text-[--text-tertiary]">Searching...</div>
@@ -582,6 +592,7 @@
 							<button
 								type="button"
 								role="option"
+								id="compare-search-option-{i}"
 								aria-selected={i === highlightedIndex}
 								class="flex w-full items-center justify-between px-3 py-2.5 sm:py-2 text-left cursor-pointer transition-colors min-h-[44px] sm:min-h-0
 									{i === highlightedIndex

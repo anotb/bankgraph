@@ -47,7 +47,7 @@ export const GET: RequestHandler = async (event) => {
           queryOne<{ cnt: number }>(db, 'SELECT COUNT(*) as cnt FROM risk_scores').catch(() => ({ cnt: 0 })),
           queryOne<{ cnt: number }>(db, 'SELECT COUNT(*) as cnt FROM failures').catch(() => ({ cnt: 0 })),
           queryOne<{ cnt: number }>(db, 'SELECT COUNT(*) as cnt FROM agg_industry').catch(() => ({ cnt: 0 })),
-          queryOne<{ cnt: number }>(db, 'SELECT COUNT(*) as cnt FROM macro_series').catch(() => ({ cnt: 0 })),
+          queryOne<{ cnt: number }>(db, 'SELECT COUNT(*) as cnt FROM macro_data').catch(() => ({ cnt: 0 })),
           queryOne<{ cnt: number }>(db, 'SELECT COUNT(*) as cnt FROM correlations').catch(() => ({ cnt: 0 }))
         ])
       ]);

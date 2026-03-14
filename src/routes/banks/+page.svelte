@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import ExportButton from '$lib/components/data/ExportButton.svelte';
 	import SearchBar from '$lib/components/data/SearchBar.svelte';
 	import DataTable from '$lib/components/data/DataTable.svelte';
 	import Sparkline from '$lib/components/data/Sparkline.svelte';
@@ -186,6 +187,7 @@
 <div class="space-y-3">
 	<div class="flex items-center justify-between">
 		<h1 class="text-2xl font-semibold text-[--text-primary]">Banks</h1>
+		<ExportButton baseUrl="/api/v1/banks" filename="banks" />
 	</div>
 
 	<!-- Search -->

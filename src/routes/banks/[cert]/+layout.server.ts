@@ -58,14 +58,24 @@ export const load: LayoutServerLoad = async ({ params, platform }) => {
   }
 
   const db = getDB(platform);
-  const bank = await queryOne<Institution>(
-    db,
-    'SELECT * FROM institutions WHERE cert = ?',
-    [cert]
-  );
 
-  if (!bank) {
-    error(404, 'Bank not found');
+  let bank: Institution;
+  try {
+    const result = await queryOne<Institution>(
+      db,
+      'SELECT * FROM institutions WHERE cert = ?',
+      [cert]
+    );
+
+    if (!result) {
+      error(404, 'Bank not found');
+    }
+    bank = result;
+  } catch (err) {
+    // Re-throw SvelteKit error() responses (they use a special redirect/error class)
+    if (err && typeof err === 'object' && 'status' in err) throw err;
+    console.error(`Failed to look up bank cert ${cert}:`, err);
+    error(500, 'Unable to load bank data. Please try again later.');
   }
 
   // Run all post-bank queries in parallel (they only depend on `bank`, not each other)

@@ -384,10 +384,19 @@
 			</div>
 			<p class="text-[12px] text-[--text-tertiary] mb-3 ml-2.5">
 				Pearson correlation between FRED macro indicators and industry-aggregate bank metrics over overlapping quarters.
-				{#if usingFallback}
-					<span class="italic">Showing representative estimates. Run the correlations pipeline to compute from real data.</span>
-				{/if}
 			</p>
+			{#if usingFallback}
+				<div class="flex items-start gap-2.5 rounded-md bg-[--warning-muted] px-3 py-2.5 mb-3">
+					<svg class="shrink-0 mt-0.5 text-[--warning]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<circle cx="12" cy="12" r="10" />
+						<line x1="12" y1="8" x2="12" y2="12" />
+						<line x1="12" y1="16" x2="12.01" y2="16" />
+					</svg>
+					<p class="text-[12px] text-[--text-secondary] leading-snug">
+						<span class="font-semibold">Estimated values.</span> These correlations are representative approximations, not computed from your data. Run the correlations pipeline to replace them with real calculations.
+					</p>
+				</div>
+			{/if}
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-2">
 				{#each correlationInsights as insight}
 					<InsightCard

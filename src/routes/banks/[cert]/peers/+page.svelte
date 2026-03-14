@@ -1,5 +1,6 @@
 <script lang="ts">
 	import PercentileGauge from '$lib/components/charts/PercentileGauge.svelte';
+	import ExportButton from '$lib/components/data/ExportButton.svelte';
 	import EmptyState from '$lib/components/data/EmptyState.svelte';
 	import { formatPercent, formatDate } from '$lib/utils/formatters.js';
 	import { getFieldLabel } from '$lib/utils/field-meta.js';
@@ -8,6 +9,7 @@
 
 	let { data } = $props();
 	let peers = $derived(data.peers);
+	let cert = $derived(data.bank.cert);
 	let mode = $derived(getMode());
 
 	/** Metrics shown in accessible mode (core set) */
@@ -62,6 +64,9 @@
 				{peerGroupLabel(peers.peer_group)}
 			</span>
 			<span class="text-[11px] text-[--text-tertiary] ml-1">as of {formatDate(peers.repdte)}</span>
+			<div class="ml-auto">
+				<ExportButton baseUrl={`/api/v1/banks/${cert}/peers`} filename="peers" />
+			</div>
 		</div>
 
 		<!-- Gauge cards grid -->

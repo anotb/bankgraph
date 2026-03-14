@@ -351,10 +351,11 @@
 				</div>
 			</div>
 		{:else}
-			<div class="borderless-card py-8 text-center">
-				<p class="text-[13px] text-[--text-tertiary]">Trend data will appear here after the analytics pipeline runs.</p>
-				<p class="text-[11px] text-[--text-disabled] mt-1">ROA, ROE, and NIM trends across quarters</p>
-			</div>
+			<EmptyState
+				icon="chart"
+				title="Trend data will appear here after the analytics pipeline runs."
+				message="ROA, ROE, and NIM trends across quarters"
+			/>
 		{/if}
 	</section>
 

@@ -269,6 +269,11 @@ th[class*="text-right"] {
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* Nav scroll fade - gradient hint that more items exist off-screen */
+.nav-scroll-fade {
+  background: linear-gradient(to right, transparent, var(--surface-1));
+}
+
 /* ============================================================
    RESPONSIVE UTILITIES
    ============================================================ */

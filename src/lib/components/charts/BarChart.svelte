@@ -8,12 +8,14 @@
 		data,
 		height = '200px',
 		color,
-		tooltipLabel = 'Value'
+		tooltipLabel = 'Value',
+		valueFormatter = formatNumber
 	}: {
 		data: Array<{ label: string; value: number }>;
 		height?: string;
 		color?: string;
 		tooltipLabel?: string;
+		valueFormatter?: (v: number) => string;
 	} = $props();
 
 	let chartContainer = $state<HTMLDivElement | null>(null);
@@ -75,7 +77,7 @@
 						html += `<div style="display:flex;align-items:center;gap:6px;font-size:12px">`;
 						html += `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color}"></span>`;
 						html += `<span style="color:${textSecondary}">${tooltipLabel}</span>`;
-						html += `<span style="margin-left:auto;font-weight:600;font-variant-numeric:tabular-nums">${formatNumber(p.value)}</span>`;
+						html += `<span style="margin-left:auto;font-weight:600;font-variant-numeric:tabular-nums">${valueFormatter(p.value)}</span>`;
 						html += `</div>`;
 						return html;
 					}

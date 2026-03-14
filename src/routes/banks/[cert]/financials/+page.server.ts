@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ parent, platform }) => {
 	try {
 		const financials = await queryAll<Financial>(
 			db,
-			'SELECT * FROM financials WHERE cert = ? ORDER BY repdte ASC',
+			'SELECT * FROM (SELECT * FROM financials WHERE cert = ? ORDER BY repdte DESC LIMIT 80) ORDER BY repdte ASC',
 			[bank.cert]
 		);
 
