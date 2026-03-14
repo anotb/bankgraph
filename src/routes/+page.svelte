@@ -15,7 +15,7 @@
 		}
 	}
 
-	function handleSelect(cert: number) {
+	function handleSelect({ cert }: import('$lib/types').Institution) {
 		goto(`/banks/${cert}`);
 	}
 

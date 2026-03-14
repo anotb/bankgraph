@@ -30,7 +30,7 @@
 		}
 	}
 
-	function handleNavSelect(cert: number) {
+	function handleNavSelect({ cert }: import('$lib/types').Institution) {
 		goto(`/banks/${cert}`);
 		navSearchExpanded = false;
 	}

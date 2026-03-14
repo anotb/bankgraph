@@ -223,7 +223,7 @@
 			placeholder="Search by name..."
 			onsearch={handleSearch}
 			autocomplete={true}
-			onselect={(cert) => goto('/banks/' + cert)}
+			onselect={({ cert }) => goto('/banks/' + cert)}
 		/>
 	</div>
 

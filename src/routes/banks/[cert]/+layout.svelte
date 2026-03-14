@@ -109,7 +109,7 @@
 	>
 		<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 			<!-- Left: name, location, metadata -->
-			<div class="space-y-2 min-w-0">
+			<div class="space-y-2 min-w-0 flex-1">
 				<div class="flex items-center gap-3 flex-wrap">
 					<h1 class="text-2xl font-semibold text-[--text-primary] truncate">{data.bank.name}</h1>
 					<!-- Active/inactive badge -->
@@ -159,6 +159,18 @@
 					{/if}
 				</div>
 			</div>
+
+			<!-- Right: Compare button -->
+			<a
+				href="/compare?certs={data.bank.cert}"
+				class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium text-[--text-tertiary] border border-[--border-muted] hover:text-[--accent] hover:border-[--accent] transition-colors shrink-0"
+				aria-label="Compare {data.bank.name} with other banks"
+			>
+				<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+				</svg>
+				Compare
+			</a>
 		</div>
 
 		<!-- Financial highlights strip -->

@@ -399,12 +399,15 @@
 									{/if}
 								</span>
 							</th>
+							<th class="text-right px-3 {tableCellPy} text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">QoQ</th>
 							<th class="text-right px-3 {tableCellPy} text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">ROE</th>
 							<th class="text-right px-3 {tableCellPy} text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">NIM</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-[--surface-2]">
-						{#each recentQuarters as q (q.repdte)}
+						{#each recentQuarters as q, i (q.repdte)}
+							{@const prevQ = i < recentQuarters.length - 1 ? recentQuarters[i + 1] : null}
+							{@const roaDelta = (q.roa !== null && prevQ?.roa !== null && prevQ !== null) ? q.roa - prevQ.roa : null}
 							<tr class="hover:bg-[--accent-muted] transition-colors">
 								<td class="px-3 {tableCellPy} font-medium text-[--text-primary] data-mono sticky left-0 bg-inherit z-[5]">{formatQuarter(q.repdte)}</td>
 								<td class="px-3 {tableCellPy} text-right text-[--text-primary] data-mono">{formatCurrency(q.asset)}</td>
@@ -412,6 +415,20 @@
 									<span class="{semanticColor(getMetricStatus('roa', q.roa))}">
 										{formatPercent(q.roa)}
 									</span>
+								</td>
+								<td class="px-3 {tableCellPy} text-right data-mono text-[11px]">
+									{#if roaDelta !== null}
+										<span class="inline-flex items-center gap-0.5" style="color: {roaDelta >= 0 ? 'var(--positive)' : 'var(--negative)'}">
+											{#if roaDelta > 0}
+												<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+											{:else if roaDelta < 0}
+												<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+											{/if}
+											{roaDelta > 0 ? '+' : ''}{roaDelta.toFixed(2)}
+										</span>
+									{:else}
+										<span class="text-[--text-disabled]">&mdash;</span>
+									{/if}
 								</td>
 								<td class="px-3 {tableCellPy} text-right data-mono">
 									<span class="{semanticColor(getMetricStatus('roe', q.roe))}">

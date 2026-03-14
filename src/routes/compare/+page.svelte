@@ -6,6 +6,7 @@
 	import ExportButton from '$lib/components/data/ExportButton.svelte';
 	import DateRangePicker from '$lib/components/data/DateRangePicker.svelte';
 	import FieldPicker from '$lib/components/data/FieldPicker.svelte';
+	import SearchBar from '$lib/components/data/SearchBar.svelte';
 	import { formatPercent, formatCurrency, formatNumber } from '$lib/utils/formatters.js';
 	import { fieldDefs } from '$lib/utils/field-meta.js';
 	import type { CompareResponse, Financial, Institution } from '$lib/types';
@@ -16,15 +17,8 @@
 
 	let { data } = $props();
 
-	// ── Bank search state (matches SearchBar autocomplete pattern) ──
-	let searchQuery = $state('');
-	let searchResults = $state<Institution[]>([]);
+	// ── Bank selection state ──
 	let selectedBanks = $state<Institution[]>(data.prefetchedBanks ?? []);
-	let searching = $state(false);
-	let showDropdown = $state(false);
-	let highlightedIndex = $state(-1);
-	let fetchTimer: ReturnType<typeof setTimeout> | undefined;
-	let lastQuery = $state('');
 
 	// ── Metric selection ──
 	type MetricOption = {
@@ -198,107 +192,16 @@
 		}
 	});
 
-	// ── Autocomplete search (matches SearchBar pattern: $effect-driven, keyboard nav) ──
-	$effect(() => {
-		const q = searchQuery.trim();
+	let excludeCerts = $derived(selectedBanks.map((b) => b.cert));
 
-		if (q.length < 2) {
-			searchResults = [];
-			showDropdown = false;
-			searching = false;
-			lastQuery = '';
-			return;
-		}
-
-		clearTimeout(fetchTimer);
-		searching = true;
-		showDropdown = true;
-		fetchTimer = setTimeout(async () => {
-			try {
-				const res = await fetch(
-					`/api/v1/banks?q=${encodeURIComponent(q)}&limit=8&active=1`
-				);
-				if (!res.ok) {
-					searching = false;
-					return;
-				}
-				const json = (await res.json()) as { data?: Institution[] };
-				const selectedCerts = new Set(selectedBanks.map((b) => b.cert));
-				searchResults = (json.data ?? []).filter((b) => !selectedCerts.has(b.cert));
-				highlightedIndex = -1;
-				lastQuery = q;
-				showDropdown = true;
-			} catch {
-				// Silently ignore
-			} finally {
-				searching = false;
-			}
-		}, 300);
-	});
-
-	function handleSearchInput(e: Event): void {
-		searchQuery = (e.target as HTMLInputElement).value;
-	}
-
-	function handleSearchKeydown(e: KeyboardEvent): void {
-		if (e.key === 'Escape' && showDropdown) {
-			e.preventDefault();
-			showDropdown = false;
-			return;
-		}
-		if (showDropdown && searchResults.length > 0) {
-			if (e.key === 'ArrowDown') {
-				e.preventDefault();
-				highlightedIndex = (highlightedIndex + 1) % searchResults.length;
-				return;
-			}
-			if (e.key === 'ArrowUp') {
-				e.preventDefault();
-				highlightedIndex =
-					highlightedIndex <= 0 ? searchResults.length - 1 : highlightedIndex - 1;
-				return;
-			}
-			if (e.key === 'Enter' && highlightedIndex >= 0) {
-				e.preventDefault();
-				addBank(searchResults[highlightedIndex]);
-				return;
-			}
-		}
-	}
-
-	function addBank(bank: Institution): void {
+	function handleAddBank(bank: Institution): void {
 		if (selectedBanks.length >= 10) return;
 		if (selectedBanks.some((b) => b.cert === bank.cert)) return;
 		selectedBanks = [...selectedBanks, bank];
-		searchQuery = '';
-		searchResults = [];
-		showDropdown = false;
-		highlightedIndex = -1;
 	}
 
 	function removeBank(cert: number): void {
 		selectedBanks = selectedBanks.filter((b) => b.cert !== cert);
-	}
-
-	function handleSearchBlur(): void {
-		setTimeout(() => {
-			showDropdown = false;
-		}, 200);
-	}
-
-	function handleSearchFocus(): void {
-		if (searchResults.length > 0 || lastQuery.length >= 2) {
-			showDropdown = true;
-		}
-	}
-
-	function handleSearchClear(): void {
-		searchQuery = '';
-		searchResults = [];
-		showDropdown = false;
-		searching = false;
-		lastQuery = '';
-		highlightedIndex = -1;
 	}
 
 	// ── Popular comparisons ──
@@ -639,115 +542,15 @@
 			<span class="text-[11px] text-[--text-tertiary]">({selectedBanks.length}/10)</span>
 		</div>
 
-		<!-- Search input (autocomplete with keyboard nav, loading state, dropdown) -->
-		<div class="relative max-w-md">
-			<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-				<svg
-					class="h-4 w-4 text-[--text-disabled]"
-					fill="none"
-					stroke="currentColor"
-					viewBox="0 0 24 24"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-					/>
-				</svg>
-			</div>
-			<input
-				type="text"
-				value={searchQuery}
-				oninput={handleSearchInput}
-				onkeydown={handleSearchKeydown}
-				onblur={handleSearchBlur}
-				onfocus={handleSearchFocus}
+		<div class="max-w-md">
+			<SearchBar
 				placeholder="Search banks by name or cert..."
+				onsearch={() => {}}
+				autocomplete={true}
+				onselect={handleAddBank}
 				disabled={selectedBanks.length >= 10}
-				role="combobox"
-				aria-expanded={showDropdown}
-				aria-controls="compare-search-listbox"
-				aria-activedescendant={highlightedIndex >= 0 ? `compare-search-option-${highlightedIndex}` : undefined}
-				aria-autocomplete="list"
-				class="block w-full rounded-[5px] border border-[--border-muted] bg-[--surface-1] py-2 pr-9 pl-9
-					text-[14px] text-[--text-primary] placeholder:text-[--text-disabled]
-					focus:border-[--accent] focus:ring-2 focus:ring-[--accent]/20 focus:outline-none
-					transition-all duration-150 disabled:opacity-50"
-				style="box-shadow: var(--shadow-xs)"
+				{excludeCerts}
 			/>
-			{#if searchQuery}
-				<button
-					type="button"
-					onclick={handleSearchClear}
-					aria-label="Clear search"
-					class="absolute inset-y-0 right-0 flex items-center pr-3 text-[--text-disabled] hover:text-[--text-secondary]"
-				>
-					{#if searching}
-						<div
-							class="h-4 w-4 animate-spin rounded-full border-2 border-[--border] border-t-[--accent]"
-						></div>
-					{:else}
-						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M6 18L18 6M6 6l12 12"
-							/>
-						</svg>
-					{/if}
-				</button>
-			{:else if searching}
-				<div class="absolute inset-y-0 right-0 flex items-center pr-3">
-					<div
-						class="h-4 w-4 animate-spin rounded-full border-2 border-[--border] border-t-[--accent]"
-					></div>
-				</div>
-			{/if}
-
-			<!-- Autocomplete dropdown -->
-			{#if showDropdown}
-				<div
-					class="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-[--border-muted] bg-[--surface-1] max-h-[320px] overflow-y-auto"
-					style="box-shadow: var(--shadow-md)"
-					role="listbox"
-					id="compare-search-listbox"
-				>
-					{#if searching && searchResults.length === 0}
-						<div class="px-3 py-2.5 text-[13px] text-[--text-tertiary]">Searching...</div>
-					{:else if !searching && searchResults.length === 0 && lastQuery.length >= 2}
-						<div class="px-3 py-2.5 text-[13px] text-[--text-tertiary]">No results</div>
-					{:else}
-						{#each searchResults as bank, i (bank.cert)}
-							<button
-								type="button"
-								role="option"
-								id="compare-search-option-{i}"
-								aria-selected={i === highlightedIndex}
-								class="flex w-full items-center justify-between px-3 py-2.5 sm:py-2 text-left cursor-pointer transition-colors min-h-[44px] sm:min-h-0
-									{i === highlightedIndex
-									? 'bg-[--accent-muted]'
-									: 'hover:bg-[--accent-muted]'}"
-								onmousedown={() => addBank(bank)}
-							>
-								<span class="font-medium text-[--text-primary] text-[13px] truncate">
-									{bank.name}
-								</span>
-								<span class="ml-2 shrink-0 text-[12px] text-[--text-tertiary] data-mono">
-									{bank.city ?? ''}{bank.city && bank.state ? ', ' : ''}{bank.state ??
-										''}
-									{#if bank.total_assets}
-										<span class="text-[--text-disabled] ml-1"
-											>({formatCurrency(bank.total_assets)})</span
-										>
-									{/if}
-								</span>
-							</button>
-						{/each}
-					{/if}
-				</div>
-			{/if}
 		</div>
 
 		<!-- Selected bank chips -->

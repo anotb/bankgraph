@@ -7,14 +7,18 @@
 		onsearch,
 		autocomplete = false,
 		onselect,
-		compact = false
+		compact = false,
+		disabled = false,
+		excludeCerts = []
 	}: {
 		value?: string;
 		placeholder?: string;
 		onsearch: (query: string) => void;
 		autocomplete?: boolean;
-		onselect?: (cert: number) => void;
+		onselect?: (institution: Institution) => void;
 		compact?: boolean;
+		disabled?: boolean;
+		excludeCerts?: number[];
 	} = $props();
 
 	let inputValue = $state('');
@@ -55,7 +59,8 @@
 					return;
 				}
 				const json = (await res.json()) as { data?: Institution[] };
-				suggestions = json.data ?? [];
+				const excludeSet = new Set(excludeCerts);
+				suggestions = (json.data ?? []).filter((b) => !excludeSet.has(b.cert));
 				highlightedIndex = -1;
 				lastQuery = q;
 				showDropdown = true;
@@ -88,10 +93,12 @@
 		onsearch('');
 	}
 
-	function selectSuggestion(cert: number) {
+	function selectSuggestion(institution: Institution) {
 		showDropdown = false;
 		suggestions = [];
-		onselect?.(cert);
+		inputValue = '';
+		lastQuery = '';
+		onselect?.(institution);
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -108,7 +115,7 @@
 			}
 			if (e.key === 'Enter' && highlightedIndex >= 0) {
 				e.preventDefault();
-				selectSuggestion(suggestions[highlightedIndex].cert);
+				selectSuggestion(suggestions[highlightedIndex]);
 				return;
 			}
 			if (e.key === 'Escape') {
@@ -157,6 +164,7 @@
 		onblur={handleBlur}
 		onfocus={handleFocus}
 		{placeholder}
+		{disabled}
 		role={autocomplete ? 'combobox' : undefined}
 		aria-expanded={autocomplete ? showDropdown : undefined}
 		aria-controls={autocomplete ? 'search-listbox' : undefined}
@@ -165,7 +173,7 @@
 		class="block w-full rounded-[5px] border border-[--border-muted] bg-[--surface-1] {compact ? 'py-1 pr-7 pl-7 text-[12px]' : 'py-2 pr-9 pl-9 text-[14px]'}
 			text-[--text-primary] placeholder:text-[--text-disabled]
 			focus:border-[--accent] focus:ring-2 focus:ring-[--accent]/20 focus:outline-none
-			transition-all duration-150"
+			transition-all duration-150 disabled:opacity-50"
 	style="box-shadow: var(--shadow-xs)"
 	/>
 	{#if inputValue}
@@ -205,7 +213,7 @@
 						aria-selected={i === highlightedIndex}
 						class="flex w-full items-center justify-between {compact ? 'px-2.5 py-1.5' : 'px-3 py-2.5 sm:py-2'} text-left cursor-pointer transition-colors {compact ? '' : 'min-h-[44px] sm:min-h-0'}
 							{i === highlightedIndex ? 'bg-[--accent-muted]' : 'hover:bg-[--accent-muted]'}"
-						onmousedown={() => selectSuggestion(suggestion.cert)}
+						onmousedown={() => selectSuggestion(suggestion)}
 					>
 						<span class="font-medium text-[--text-primary] {compact ? 'text-[12px]' : 'text-[13px]'} truncate">{suggestion.name}</span>
 						<span class="ml-2 shrink-0 {compact ? 'text-[11px]' : 'text-[12px]'} text-[--text-tertiary] data-mono">
