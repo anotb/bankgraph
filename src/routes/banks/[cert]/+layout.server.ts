@@ -182,12 +182,12 @@ export const load: LayoutServerLoad = async ({ params, platform }) => {
       } catch { return []; }
     })(),
 
-    // Last 4 quarters of financials
+    // Last 8 quarters of financials
     (async (): Promise<QuarterSnapshot[]> => {
       try {
         return await queryAll<QuarterSnapshot>(
           db,
-          'SELECT repdte, asset, dep, roa, roe, nimy, nclnlsr, rbcrwaj, numemp FROM financials WHERE cert = ? ORDER BY repdte DESC LIMIT 4',
+          'SELECT repdte, asset, dep, roa, roe, nimy, nclnlsr, rbcrwaj, numemp FROM financials WHERE cert = ? ORDER BY repdte DESC LIMIT 8',
           [cert]
         );
       } catch { return []; }

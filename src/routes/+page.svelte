@@ -170,6 +170,29 @@
 	</section>
 {/if}
 
+<!-- Banks by State -->
+{#if data.stateDistribution.length > 0}
+	{@const maxCount = data.stateDistribution[0].bank_count}
+	<section class="mb-5">
+		<div class="flex items-center gap-2 mb-3">
+			<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+			<h2 class="text-[15px] font-semibold text-[--text-primary]">Banks by State</h2>
+		</div>
+		<div class="grid grid-cols-8 sm:grid-cols-10 md:grid-cols-13 gap-1">
+			{#each data.stateDistribution as s}
+				{@const opacity = Math.max(15, Math.min(90, (s.bank_count / maxCount) * 90))}
+				<a href="/banks?state={s.state}"
+					class="rounded px-1.5 py-1 text-center text-[11px] font-medium transition-colors hover:ring-1 hover:ring-[--accent]"
+					style="background-color: color-mix(in srgb, var(--accent) {opacity}%, var(--surface-2))"
+					title="{s.state}: {s.bank_count} banks">
+					<span class="block text-[10px] font-bold">{s.state}</span>
+					<span class="block text-[9px] opacity-70">{s.bank_count}</span>
+				</a>
+			{/each}
+		</div>
+	</section>
+{/if}
+
 <!-- Two-column: Anomalies/Failures + Top Banks -->
 <div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
 	<!-- Left column: Anomalies + Failures -->

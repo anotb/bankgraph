@@ -69,6 +69,27 @@
 		{/if}
 	</div>
 	<p class="text-[12px] text-[--text-secondary] mt-1.5 leading-relaxed">{description}</p>
+
+	<!-- Correlation bar visualization -->
+	{#if correlation != null}
+		<div class="mt-2 relative h-[6px] rounded-full bg-[--surface-3] overflow-hidden" role="img" aria-label="Correlation: {correlation.toFixed(2)}">
+			<!-- Center line (0 mark) -->
+			<div class="absolute left-1/2 top-0 bottom-0 w-px bg-[--border]"></div>
+			<!-- Fill from center -->
+			{@const pct = Math.abs(correlation) * 50}
+			{@const fillColor = correlation > 0 ? 'var(--positive)' : 'var(--negative)'}
+			<div
+				class="absolute top-0 bottom-0 rounded-full"
+				style="
+					{correlation >= 0 ? 'left: 50%;' : `right: 50%;`}
+					width: {pct}%;
+					background-color: {fillColor};
+					opacity: 0.6;
+				"
+			></div>
+		</div>
+	{/if}
+
 	{#if metaLine}
 		<p class="text-[10px] text-[--text-tertiary] mt-1">{metaLine}</p>
 	{/if}

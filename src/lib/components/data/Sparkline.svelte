@@ -4,15 +4,18 @@
 		width = 80,
 		height = 24,
 		color = 'var(--accent)',
-		showDot = true
+		showDot = true,
+		showFill = true
 	}: {
 		data: (number | null)[];
 		width?: number;
 		height?: number;
 		color?: string;
 		showDot?: boolean;
+		showFill?: boolean;
 	} = $props();
 
+	let uid = $derived(`spark-${Math.random().toString(36).slice(2, 8)}`);
 	let valid = $derived(data.filter((d): d is number => d !== null));
 
 	let points = $derived.by(() => {
@@ -20,7 +23,6 @@
 		const min = Math.min(...valid);
 		const max = Math.max(...valid);
 		const range = max - min || 1;
-		// 10% vertical padding on each side
 		const padY = height * 0.1;
 		const plotH = height - padY * 2;
 		const step = width / (valid.length - 1);
@@ -29,7 +31,14 @@
 			.join(' ');
 	});
 
-	// Last point coordinates for the dot
+	// Closed polygon for area fill (line points + bottom edge)
+	let areaPoints = $derived.by(() => {
+		if (valid.length < 2) return '';
+		const step = width / (valid.length - 1);
+		const lastX = (valid.length - 1) * step;
+		return `0,${height} ${points} ${lastX},${height}`;
+	});
+
 	let lastPoint = $derived.by(() => {
 		if (valid.length < 2) return null;
 		const min = Math.min(...valid);
@@ -46,7 +55,6 @@
 		};
 	});
 
-	// Determine trend color: compare last to first valid value
 	let trendColor = $derived.by(() => {
 		if (valid.length < 2) return color;
 		const first = valid[0];
@@ -59,6 +67,18 @@
 
 {#if points}
 	<svg {width} {height} class="inline-block align-middle" aria-hidden="true">
+		{#if showFill}
+			<defs>
+				<linearGradient id={uid} x1="0" y1="0" x2="0" y2="1">
+					<stop offset="0%" stop-color={trendColor} stop-opacity="0.2" />
+					<stop offset="100%" stop-color={trendColor} stop-opacity="0.02" />
+				</linearGradient>
+			</defs>
+			<polygon
+				points={areaPoints}
+				fill="url(#{uid})"
+			/>
+		{/if}
 		<polyline
 			{points}
 			fill="none"

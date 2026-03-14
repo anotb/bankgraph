@@ -92,8 +92,34 @@
 		return {
 			roa: quarters.map((q) => ({ date: q.repdte, value: q.metrics?.median_roa ?? null })),
 			roe: quarters.map((q) => ({ date: q.repdte, value: q.metrics?.median_roe ?? null })),
-			nim: quarters.map((q) => ({ date: q.repdte, value: q.metrics?.median_nim ?? null }))
+			nim: quarters.map((q) => ({ date: q.repdte, value: q.metrics?.median_nim ?? null })),
+			total_assets: quarters.map((q) => ({ date: q.repdte, value: q.metrics?.total_assets ?? null })),
+			total_deposits: quarters.map((q) => ({ date: q.repdte, value: q.metrics?.total_deposits ?? null })),
+			bank_count: quarters.map((q) => ({ date: q.repdte, value: q.metrics?.bank_count ?? null }))
 		};
+	});
+
+	// Build segment ROA comparison series
+	let segmentRoaSeries = $derived.by(() => {
+		const segments: Array<{ label: string; data: SegmentData | null }> = [
+			{ label: 'Community', data: data.communitySegment },
+			{ label: 'Regional', data: data.regionalSegment },
+			{ label: 'Large', data: data.largeSegment }
+		];
+
+		const series: Array<{ key: string; label: string; data: Array<{ date: string; value: number | null }> }> = [];
+
+		for (const seg of segments) {
+			if (!seg.data?.data || seg.data.data.length < 2) continue;
+			const quarters = [...seg.data.data].reverse();
+			series.push({
+				key: seg.label.toLowerCase() + '_roa',
+				label: `${seg.label} ROA`,
+				data: quarters.map((q) => ({ date: q.repdte, value: q.metrics?.median_roa ?? null }))
+			});
+		}
+
+		return series.length >= 2 ? series : null;
 	});
 
 	// Compute totals from segment stats for the "All Banks" row
@@ -480,6 +506,37 @@
 						showMovingAverage={mode === 'power'}
 					/>
 				</div>
+				<div class="borderless-card p-3">
+					<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Total Assets & Deposits</h3>
+					<TimeSeriesChart
+						series={[
+							{ key: 'total_assets', label: 'Total Assets', data: industrySeries.total_assets },
+							{ key: 'total_deposits', label: 'Total Deposits', data: industrySeries.total_deposits }
+						]}
+						yAxisFormat="currency"
+						showMovingAverage={mode === 'power'}
+					/>
+				</div>
+				<div class="borderless-card p-3">
+					<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Bank Count</h3>
+					<TimeSeriesChart
+						series={[
+							{ key: 'bank_count', label: 'Banks', data: industrySeries.bank_count }
+						]}
+						yAxisFormat="number"
+						showMovingAverage={mode === 'power'}
+					/>
+				</div>
+				{#if segmentRoaSeries}
+					<div class="borderless-card p-3">
+						<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">ROA by Segment</h3>
+						<TimeSeriesChart
+							series={segmentRoaSeries}
+							yAxisFormat="percent"
+							showMovingAverage={mode === 'power'}
+						/>
+					</div>
+				{/if}
 			</div>
 		{:else}
 			<EmptyState

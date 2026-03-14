@@ -58,6 +58,21 @@ export async function computeIndustryAggregates(db: D1Database, repdte: string):
     );
     totalInserted++;
 
+    // total_deposits: SUM(dep)
+    const depRows = await queryAll<{ total: number }>(
+      db,
+      `SELECT SUM(dep) as total FROM financials WHERE ${seg.where} AND repdte = ?`,
+      [...seg.params, repdte]
+    );
+    const totalDeposits = depRows[0]?.total ?? 0;
+
+    await execute(
+      db,
+      `INSERT OR REPLACE INTO agg_industry (repdte, segment, metric, value, count) VALUES (?, ?, ?, ?, ?)`,
+      [repdte, seg.name, 'total_deposits', totalDeposits, bankCount]
+    );
+    totalInserted++;
+
     // Median metrics: roa, roe, nimy, nclnlsr (NPL ratio)
     const medianMetrics = [
       { metric: 'median_roa', column: 'roa' },

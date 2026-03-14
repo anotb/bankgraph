@@ -2,6 +2,8 @@
 	import MetricCard from '$lib/components/data/MetricCard.svelte';
 	import QuickCompare from '$lib/components/data/QuickCompare.svelte';
 	import EmptyState from '$lib/components/data/EmptyState.svelte';
+	import TimeSeriesChart from '$lib/components/charts/TimeSeriesChart.svelte';
+	import Sparkline from '$lib/components/data/Sparkline.svelte';
 	import { formatCurrency, formatPercent, formatDate, formatNumber, getMetricStatus, semanticColor } from '$lib/utils/formatters.js';
 	import { getRegulatorName, getCharterClassName } from '$lib/utils/field-meta.js';
 	import { getMode } from '$lib/stores/mode.svelte.js';
@@ -320,6 +322,50 @@
 		{/if}
 	</section>
 
+	<!-- Performance Trends -->
+	{#if recentQuarters.length >= 2}
+		<section>
+			<div class="flex items-center gap-2 mb-3">
+				<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+				<h2 class="text-[15px] font-semibold text-[--text-primary]">Performance Trends</h2>
+				<span class="text-[11px] text-[--text-tertiary] ml-1">last {recentQuarters.length} quarters</span>
+			</div>
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+				<div class="borderless-card p-3">
+					<TimeSeriesChart
+						series={[
+							{
+								key: 'roa',
+								label: 'ROA',
+								data: [...recentQuarters].reverse().map(q => ({ date: q.repdte, value: q.roa }))
+							},
+							{
+								key: 'nim',
+								label: 'NIM',
+								data: [...recentQuarters].reverse().map(q => ({ date: q.repdte, value: q.nimy }))
+							}
+						]}
+						yAxisFormat="percent"
+						height="180px"
+					/>
+				</div>
+				<div class="borderless-card p-3">
+					<TimeSeriesChart
+						series={[
+							{
+								key: 'assets',
+								label: 'Total Assets',
+								data: [...recentQuarters].reverse().map(q => ({ date: q.repdte, value: q.asset }))
+							}
+						]}
+						yAxisFormat="currency"
+						height="180px"
+					/>
+				</div>
+			</div>
+		</section>
+	{/if}
+
 	<!-- Quick Compare -->
 	{#if hasPeerData}
 		<section>
@@ -356,8 +402,11 @@
 								<td class="px-3 {tableCellPy} font-medium text-[--text-primary] data-mono sticky left-0 bg-inherit z-[5]">{formatQuarter(q.repdte)}</td>
 								<td class="px-3 {tableCellPy} text-right text-[--text-primary] data-mono">{formatCurrency(q.asset)}</td>
 								<td class="px-3 {tableCellPy} text-right data-mono">
-									<span class="{semanticColor(getMetricStatus('roa', q.roa))}">
-										{formatPercent(q.roa)}
+									<span class="inline-flex items-center gap-1.5 justify-end">
+										<Sparkline data={[...recentQuarters].reverse().map(r => r.roa)} width={48} height={16} showDot={false} />
+										<span class="{semanticColor(getMetricStatus('roa', q.roa))}">
+											{formatPercent(q.roa)}
+										</span>
 									</span>
 								</td>
 								<td class="px-3 {tableCellPy} text-right data-mono">

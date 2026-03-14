@@ -57,6 +57,12 @@ interface TopBank {
   roa_trend: (number | null)[];
 }
 
+interface StateDistribution {
+  state: string;
+  bank_count: number;
+  total_assets: number | null;
+}
+
 const EMPTY_INDUSTRY: IndustryMetrics = {
   median_roa: null, median_roe: null, median_nim: null,
   total_assets: null, total_deposits: null, repdte: null
@@ -102,7 +108,7 @@ export const load: PageServerLoad = async ({ platform }) => {
     // Run all remaining queries in parallel (they're independent of each other)
     const fiveYearsAgo = `${new Date().getFullYear() - 5}0101`;
 
-    const [industryMetrics, recentAnomalies, failureSummary, topBanks, industryTrends] = await Promise.all([
+    const [industryMetrics, recentAnomalies, failureSummary, topBanks, industryTrends, stateDistribution] = await Promise.all([
       // Industry metrics from agg_industry (latest quarter)
       (async (): Promise<IndustryMetrics> => {
         try {
@@ -236,6 +242,20 @@ export const load: PageServerLoad = async ({ platform }) => {
           }
           return [...byQuarter.values()].sort((a, b) => b.repdte.localeCompare(a.repdte));
         } catch { return []; }
+      })(),
+
+      // State distribution: bank count and total assets by state
+      (async (): Promise<StateDistribution[]> => {
+        try {
+          return await queryAll<StateDistribution>(
+            db,
+            `SELECT state, COUNT(*) as bank_count, SUM(total_assets) as total_assets
+             FROM institutions
+             WHERE active = 1 AND state IS NOT NULL
+             GROUP BY state
+             ORDER BY bank_count DESC`
+          );
+        } catch { return []; }
       })()
     ]);
 
@@ -264,7 +284,7 @@ export const load: PageServerLoad = async ({ platform }) => {
       };
     }
 
-    return { meta, industryMetrics, recentAnomalies, failureSummary, topBanks, industryTrends, deltas };
+    return { meta, industryMetrics, recentAnomalies, failureSummary, topBanks, industryTrends, deltas, stateDistribution };
   } catch {
     // DB not available (local dev, first deploy, etc.)
     const EMPTY_DELTAS: QoQDeltas = {
@@ -278,7 +298,8 @@ export const load: PageServerLoad = async ({ platform }) => {
       failureSummary: { total_failures: 0, recent_5yr_count: 0, recent_failures: [] } as FailureSummary,
       topBanks: [] as TopBank[],
       industryTrends: [] as IndustryTrendQuarter[],
-      deltas: EMPTY_DELTAS
+      deltas: EMPTY_DELTAS,
+      stateDistribution: [] as StateDistribution[]
     };
   }
 };

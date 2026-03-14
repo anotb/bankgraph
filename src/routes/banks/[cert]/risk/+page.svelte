@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ScoreGauge from '$lib/components/charts/ScoreGauge.svelte';
+	import RadarChart from '$lib/components/charts/RadarChart.svelte';
 	import AnomalyBadge from '$lib/components/data/AnomalyBadge.svelte';
 	import EmptyState from '$lib/components/data/EmptyState.svelte';
 	import Disclaimer from '$lib/components/data/Disclaimer.svelte';
@@ -52,6 +53,28 @@
 		return 'bg-[--accent-muted] text-[--accent-text]';
 	}
 
+	const radarDimensions = [
+		{ key: 'capital' as const, label: 'Capital' },
+		{ key: 'asset_quality' as const, label: 'Asset Quality' },
+		{ key: 'earnings' as const, label: 'Earnings' },
+		{ key: 'liquidity' as const, label: 'Liquidity' }
+	];
+
+	let radarData = $derived.by(() => {
+		if (!risk?.scores) return null;
+		const available = radarDimensions.filter((d) => risk.scores[d.key] !== null);
+		if (available.length < 2) return null;
+		return {
+			indicators: available.map((d) => ({ name: d.label, max: 100 })),
+			data: [
+				{
+					name: 'Risk Profile',
+					values: available.map((d) => risk.scores[d.key] as number)
+				}
+			]
+		};
+	});
+
 	function formatValue(v: number | null): string {
 		if (v === null) return '\u2014';
 		if (Math.abs(v) < 1) return formatPercent(v);
@@ -94,6 +117,18 @@
 						</div>
 					{/if}
 				</div>
+
+				<!-- Radar chart -->
+				{#if radarData}
+					<div class="border-t border-[--border-muted] pt-3">
+						<p class="text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider mb-1">Risk Profile</p>
+						<RadarChart
+							indicators={radarData.indicators}
+							data={radarData.data}
+							height="260px"
+						/>
+					</div>
+				{/if}
 
 				<!-- Component scores -->
 				<div class="border-t border-[--border-muted] pt-3 space-y-2">

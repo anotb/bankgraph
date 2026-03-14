@@ -2,6 +2,7 @@
 	import { page } from '$app/stores';
 	import { afterNavigate } from '$app/navigation';
 	import AnomalyBadge from '$lib/components/data/AnomalyBadge.svelte';
+	import { formatCurrency, formatPercent } from '$lib/utils/formatters.js';
 
 	let { data, children } = $props();
 
@@ -54,6 +55,12 @@
 	);
 
 	let isActiveProp = $derived(data.bank.active === 1);
+
+	// Quick financial stats for the header (prefer snapshot, fallback to recent quarters)
+	let latestQ = $derived(data.recentQuarters?.length > 0 ? data.recentQuarters[0] : null);
+	let headerAssets = $derived(data.bank.total_assets ?? latestQ?.asset ?? null);
+	let headerRoa = $derived(data.bank.latest_roa ?? latestQ?.roa ?? null);
+	let hasHeaderFinancials = $derived(headerAssets !== null);
 </script>
 
 <svelte:head>
@@ -153,6 +160,33 @@
 				</div>
 			</div>
 		</div>
+
+		<!-- Financial highlights strip -->
+		{#if hasHeaderFinancials}
+			<div class="mt-3 pt-3 border-t border-[--border-muted] flex items-center gap-6 flex-wrap text-[12px]">
+				{#if headerAssets !== null}
+					<span class="text-[--text-tertiary]">Assets <span class="font-semibold text-[--text-primary] data-mono ml-0.5">{formatCurrency(headerAssets)}</span></span>
+				{/if}
+				{#if data.bank.total_deposits ?? latestQ?.dep}
+					<span class="text-[--text-tertiary]">Deposits <span class="font-semibold text-[--text-primary] data-mono ml-0.5">{formatCurrency(data.bank.total_deposits ?? latestQ?.dep ?? null)}</span></span>
+				{/if}
+				{#if headerRoa !== null}
+					<span class="text-[--text-tertiary]">ROA <span class="font-semibold data-mono ml-0.5" style="color: {headerRoa >= 0 ? 'var(--positive)' : 'var(--negative)'}">{formatPercent(headerRoa)}</span></span>
+				{/if}
+				{#if data.bank.latest_roe ?? latestQ?.roe}
+					{@const roe = data.bank.latest_roe ?? latestQ?.roe ?? null}
+					<span class="text-[--text-tertiary]">ROE <span class="font-semibold data-mono ml-0.5" style="color: {(roe ?? 0) >= 0 ? 'var(--positive)' : 'var(--negative)'}">{formatPercent(roe)}</span></span>
+				{/if}
+				{#if data.bank.latest_repdte ?? latestQ?.repdte}
+					{@const repdte = data.bank.latest_repdte ?? latestQ?.repdte ?? ''}
+					<span class="text-[--text-tertiary] ml-auto">
+						as of {repdte.length === 8
+							? `Q${Math.ceil(parseInt(repdte.slice(4,6)) / 3)} ${repdte.slice(0,4)}`
+							: repdte}
+					</span>
+				{/if}
+			</div>
+		{/if}
 	</header>
 
 	<!-- Tab navigation -->
