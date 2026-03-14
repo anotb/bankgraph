@@ -7,8 +7,41 @@
 	import DonutChart from '$lib/components/charts/DonutChart.svelte';
 	import { formatCurrency, formatPercent, formatDate, formatNumber } from '$lib/utils/formatters.js';
 	import { getMode } from '$lib/stores/mode.svelte.js';
+	import { onMount } from 'svelte';
 
 	let { data } = $props();
+
+	// Section nav definitions
+	const SECTIONS = [
+		{ id: 'snapshot', label: 'Snapshot' },
+		{ id: 'segments', label: 'Segments' },
+		{ id: 'distributions', label: 'Distributions' },
+		{ id: 'asset-tiers', label: 'Asset Tiers' },
+		{ id: 'trends', label: 'Trends' },
+		{ id: 'failures', label: 'Failures' }
+	] as const;
+
+	let activeSection: string = $state('snapshot');
+
+	onMount(() => {
+		const observer = new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					if (entry.isIntersecting) {
+						activeSection = entry.target.id;
+					}
+				}
+			},
+			{ rootMargin: '-100px 0px -60% 0px', threshold: 0 }
+		);
+
+		for (const s of SECTIONS) {
+			const el = document.getElementById(s.id);
+			if (el) observer.observe(el);
+		}
+
+		return () => observer.disconnect();
+	});
 	let meta = $derived(data.meta);
 	let mode = $derived(getMode());
 
@@ -248,9 +281,27 @@
 		<ExportButton baseUrl="/api/v1/industry" filename="industry_all" />
 	</div>
 
+	<!-- Section nav -->
+	<nav
+		aria-label="Page sections"
+		class="sticky top-12 sm:top-11 z-40 -mx-4 px-4 py-1.5 bg-[--surface-0] border-b border-[--border-muted] overflow-x-auto scrollbar-hide"
+	>
+		<div class="flex items-center gap-1 whitespace-nowrap">
+			{#each SECTIONS as s (s.id)}
+				<a
+					href="#{s.id}"
+					class="px-3 py-1 text-[12px] font-medium rounded-full transition-colors
+						{activeSection === s.id
+							? 'bg-[--accent-muted] text-[--accent-text]'
+							: 'text-[--text-tertiary] hover:text-[--text-primary] hover:bg-[--surface-2]'}"
+				>{s.label}</a>
+			{/each}
+		</div>
+	</nav>
+
 	<!-- Top stats cards -->
 	{#if meta || allBanksStats}
-		<section>
+		<section id="snapshot" class="scroll-mt-24">
 			<div class="flex items-center justify-between mb-3">
 				<div class="flex items-center gap-2">
 					<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
@@ -323,7 +374,7 @@
 
 	<!-- Segment breakdown table (from institutions table) -->
 	{#if data.segmentStats.length > 0}
-		<section>
+		<section id="segments" class="scroll-mt-24">
 			<div class="flex items-center gap-2 mb-3">
 				<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
 				<h2 class="text-[15px] font-semibold text-[--text-primary]">Segment Breakdown</h2>
@@ -406,7 +457,7 @@
 
 	<!-- Distribution charts: Asset Tiers, States, Regulators -->
 	{#if data.assetTiers.length > 0 || data.topStates.length > 0 || data.regulators.length > 0}
-		<section>
+		<section id="distributions" class="scroll-mt-24">
 			<div class="flex items-center gap-2 mb-3">
 				<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
 				<h2 class="text-[15px] font-semibold text-[--text-primary]">Distributions</h2>
@@ -451,7 +502,7 @@
 
 	<!-- Asset tier detail table -->
 	{#if data.assetTiers.length > 0}
-		<section>
+		<section id="asset-tiers" class="scroll-mt-24">
 			<div class="flex items-center gap-2 mb-3">
 				<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
 				<h2 class="text-[15px] font-semibold text-[--text-primary]">Asset Size Distribution</h2>
@@ -487,7 +538,7 @@
 	{/if}
 
 	<!-- Industry Trends (conditional on agg_industry data) -->
-	<section>
+	<section id="trends" class="scroll-mt-24">
 		<div class="flex items-center gap-2 mb-3">
 			<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
 			<h2 class="text-[15px] font-semibold text-[--text-primary]">
@@ -556,7 +607,7 @@
 
 	<!-- Bank Failures -->
 	{#if data.failureCount > 0}
-		<section>
+		<section id="failures" class="scroll-mt-24">
 			<div class="flex items-center gap-2 mb-3">
 				<div class="w-0.5 h-4 bg-[--warning] rounded-full"></div>
 				<h2 class="text-[15px] font-semibold text-[--text-primary]">Bank Failures</h2>

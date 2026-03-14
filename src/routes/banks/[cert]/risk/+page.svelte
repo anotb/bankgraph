@@ -1,17 +1,34 @@
 <script lang="ts">
 	import ScoreGauge from '$lib/components/charts/ScoreGauge.svelte';
 	import RadarChart from '$lib/components/charts/RadarChart.svelte';
+	import TimeSeriesChart from '$lib/components/charts/TimeSeriesChart.svelte';
 	import AnomalyBadge from '$lib/components/data/AnomalyBadge.svelte';
 	import EmptyState from '$lib/components/data/EmptyState.svelte';
 	import Disclaimer from '$lib/components/data/Disclaimer.svelte';
 	import { formatDate, formatPercent } from '$lib/utils/formatters.js';
 	import { getMode } from '$lib/stores/mode.svelte.js';
 	import type { Anomaly } from '$lib/types';
+	import type { RiskHistoryPoint } from './+page.server.js';
 
 	let { data } = $props();
 	let risk = $derived(data.risk);
 	let anomalies = $derived(data.anomalies);
+	let riskHistory = $derived(data.riskHistory as RiskHistoryPoint[]);
 	let mode = $derived(getMode());
+
+	let historySeries = $derived.by(() => {
+		if (!riskHistory || riskHistory.length < 2) return null;
+		return [
+			{
+				key: 'composite',
+				label: 'Composite Score',
+				data: riskHistory.map((h) => ({
+					date: h.repdte,
+					value: h.composite
+				}))
+			}
+		];
+	});
 
 	let pcaLabel = $derived.by(() => {
 		if (!risk?.pca_category) return null;
@@ -162,6 +179,27 @@
 				</div>
 			</div>
 		</section>
+
+		<!-- Score History -->
+		{#if historySeries}
+			<section>
+				<div class="flex items-center gap-2 mb-3">
+					<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+					<h2 class="text-[15px] font-semibold text-[--text-primary]">Score History</h2>
+					<span class="text-[11px] text-[--text-tertiary] ml-1">last {riskHistory.length} quarters</span>
+				</div>
+
+				<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
+					<TimeSeriesChart
+						series={historySeries}
+						yAxisMin={0}
+						yAxisMax={100}
+						markLines={[{ value: 50, label: 'Neutral' }]}
+						height="240px"
+					/>
+				</div>
+			</section>
+		{/if}
 
 		<!-- Detected Anomalies -->
 		<section>
