@@ -236,15 +236,15 @@ describe('Peer Outlier Detection', () => {
 		expect(count).toBeGreaterThanOrEqual(1);
 	});
 
-	it('flags warning peer outlier when z-score between 2.0 and 3.0', async () => {
+	it('flags warning peer outlier when z-score between 2.0 and 3.0 (adverse direction)', async () => {
 		const db = createRoutingMockDB({
 			'DISTINCT repdte FROM financials': [],
 			'peer_stats': [
 				{ peer_group: 'asset_bucket:3', metric: 'roa', mean: 1.0, stddev: 0.5 }
 			],
-			// Bank with roa = 2.2 -> z = (2.2-1.0)/0.5 = 2.4
+			// Bank with roa = -0.2 -> z = (-0.2-1.0)/0.5 = -2.4 (adverse for LOW_IS_ADVERSE)
 			'FROM financials WHERE repdte': [
-				{ cert: 100, asset_bucket: 3, roa: 2.2, roe: null, nimy: null, eeffr: null, nclnlsr: null, rbcrwaj: null, lnlsdepr: null, eqv: null }
+				{ cert: 100, asset_bucket: 3, roa: -0.2, roe: null, nimy: null, eeffr: null, nclnlsr: null, rbcrwaj: null, lnlsdepr: null, eqv: null }
 			],
 			'bank_trends': []
 		});
@@ -323,20 +323,16 @@ describe('Peer Outlier Detection', () => {
 
 // ─── LOW_IS_ADVERSE / HIGH_IS_ADVERSE Direction Logic ────────────────────────
 
-describe('Adverse direction logic (lines 185-186 bug)', () => {
+describe('Adverse direction logic', () => {
 	/**
-	 * Lines 185-186 have a confirmed bug:
-	 *   if (absZ < 2.0) continue;              // line 185
-	 *   if (absZ < 2.0 && !isAdverse) continue; // line 186 (dead code)
+	 * Fixed logic (was previously a bug where line 186 was dead code):
+	 *   if (absZ < 2.0) continue;              // never flag below 2.0
+	 *   if (absZ < 3.0 && !isAdverse) continue; // moderate non-adverse: skip
 	 *
-	 * Line 186 is unreachable because line 185 already continues for ALL absZ < 2.0.
-	 * The original intent was likely to have different thresholds for adverse vs
-	 * non-adverse directions, e.g.:
-	 *   if (absZ < 1.5 && isAdverse) continue;  // lower bar for adverse
-	 *   if (absZ < 2.0 && !isAdverse) continue;  // higher bar for non-adverse
-	 *
-	 * As a result, both adverse and non-adverse outliers are flagged at absZ >= 2.0,
-	 * and the isAdverse computation is only used for... nothing (dead code).
+	 * Behavior:
+	 *   absZ < 2.0:  never flag
+	 *   absZ 2.0-3.0: only flag if adverse direction
+	 *   absZ >= 3.0:  always flag regardless of direction
 	 */
 
 	it('flags adverse LOW_IS_ADVERSE metric (roa below mean) at z >= 2.0', async () => {
@@ -357,10 +353,9 @@ describe('Adverse direction logic (lines 185-186 bug)', () => {
 		expect(count).toBeGreaterThanOrEqual(1);
 	});
 
-	it('flags non-adverse LOW_IS_ADVERSE metric (roa above mean) at z >= 2.0 due to bug', async () => {
+	it('flags non-adverse LOW_IS_ADVERSE metric (roa above mean) at z >= 3.0 (extreme)', async () => {
 		// roa is LOW_IS_ADVERSE, but value is HIGH -> z > 0 -> NOT adverse
-		// z = (2.5 - 1.0) / 0.5 = 3.0 (non-adverse but still flagged)
-		// Due to the dead-code bug on line 186, non-adverse outliers are still flagged
+		// z = (2.5 - 1.0) / 0.5 = 3.0 (non-adverse but extreme -> still flagged)
 		const db = createRoutingMockDB({
 			'DISTINCT repdte FROM financials': [],
 			'peer_stats': [
@@ -373,8 +368,46 @@ describe('Adverse direction logic (lines 185-186 bug)', () => {
 		});
 
 		const count = await detectAnomalies(db, '20240331');
-		// Should be flagged because line 186 is dead code
+		// absZ = 3.0 >= 3.0 -> flagged regardless of direction
 		expect(count).toBeGreaterThanOrEqual(1);
+	});
+
+	it('does NOT flag non-adverse LOW_IS_ADVERSE metric at z between 2.0 and 3.0', async () => {
+		// roa is LOW_IS_ADVERSE, but value is HIGH -> z > 0 -> NOT adverse
+		// z = (2.2 - 1.0) / 0.5 = 2.4 (non-adverse, moderate -> skipped)
+		const db = createRoutingMockDB({
+			'DISTINCT repdte FROM financials': [],
+			'peer_stats': [
+				{ peer_group: 'asset_bucket:3', metric: 'roa', mean: 1.0, stddev: 0.5 }
+			],
+			'FROM financials WHERE repdte': [
+				{ cert: 100, asset_bucket: 3, roa: 2.2, roe: null, nimy: null, eeffr: null, nclnlsr: null, rbcrwaj: null, lnlsdepr: null, eqv: null }
+			],
+			'bank_trends': []
+		});
+
+		const count = await detectAnomalies(db, '20240331');
+		// absZ = 2.4, non-adverse -> skipped
+		expect(count).toBe(0);
+	});
+
+	it('flags adverse LOW_IS_ADVERSE metric at z between 2.0 and 3.0', async () => {
+		// roa is LOW_IS_ADVERSE, value is LOW -> z < 0 -> adverse
+		// z = (-0.2 - 1.0) / 0.5 = -2.4 (adverse, moderate -> flagged as warning)
+		const db = createRoutingMockDB({
+			'DISTINCT repdte FROM financials': [],
+			'peer_stats': [
+				{ peer_group: 'asset_bucket:3', metric: 'roa', mean: 1.0, stddev: 0.5 }
+			],
+			'FROM financials WHERE repdte': [
+				{ cert: 100, asset_bucket: 3, roa: -0.2, roe: null, nimy: null, eeffr: null, nclnlsr: null, rbcrwaj: null, lnlsdepr: null, eqv: null }
+			],
+			'bank_trends': []
+		});
+
+		const count = await detectAnomalies(db, '20240331');
+		// absZ = 2.4, adverse -> flagged
+		expect(count).toBe(1);
 	});
 
 	it('flags HIGH_IS_ADVERSE metric (nclnlsr above mean) at z >= 2.0', async () => {
@@ -395,10 +428,9 @@ describe('Adverse direction logic (lines 185-186 bug)', () => {
 		expect(count).toBeGreaterThanOrEqual(1);
 	});
 
-	it('flags non-adverse HIGH_IS_ADVERSE metric (nclnlsr below mean) at z >= 2.0 due to bug', async () => {
+	it('flags non-adverse HIGH_IS_ADVERSE metric (nclnlsr below mean) at z >= 3.0 (extreme)', async () => {
 		// nclnlsr is HIGH_IS_ADVERSE, but value is LOW -> z < 0 -> NOT adverse
-		// z = (-1.0 - 2.0) / 1.0 = -3.0 (non-adverse direction)
-		// Bug: still flagged because line 186 is unreachable
+		// z = (-1.0 - 2.0) / 1.0 = -3.0 (non-adverse but extreme -> flagged)
 		const db = createRoutingMockDB({
 			'DISTINCT repdte FROM financials': [],
 			'peer_stats': [
@@ -411,13 +443,51 @@ describe('Adverse direction logic (lines 185-186 bug)', () => {
 		});
 
 		const count = await detectAnomalies(db, '20240331');
-		// Still flagged due to bug (line 186 dead code)
+		// absZ = 3.0 >= 3.0 -> flagged regardless of direction
 		expect(count).toBeGreaterThanOrEqual(1);
+	});
+
+	it('does NOT flag non-adverse HIGH_IS_ADVERSE metric at z between 2.0 and 3.0', async () => {
+		// nclnlsr is HIGH_IS_ADVERSE, but value is LOW -> z < 0 -> NOT adverse
+		// z = (-0.5 - 2.0) / 1.0 = -2.5 (non-adverse, moderate -> skipped)
+		const db = createRoutingMockDB({
+			'DISTINCT repdte FROM financials': [],
+			'peer_stats': [
+				{ peer_group: 'asset_bucket:3', metric: 'nclnlsr', mean: 2.0, stddev: 1.0 }
+			],
+			'FROM financials WHERE repdte': [
+				{ cert: 100, asset_bucket: 3, roa: null, roe: null, nimy: null, eeffr: null, nclnlsr: -0.5, rbcrwaj: null, lnlsdepr: null, eqv: null }
+			],
+			'bank_trends': []
+		});
+
+		const count = await detectAnomalies(db, '20240331');
+		// absZ = 2.5, non-adverse -> skipped
+		expect(count).toBe(0);
+	});
+
+	it('flags adverse HIGH_IS_ADVERSE metric at z between 2.0 and 3.0', async () => {
+		// nclnlsr is HIGH_IS_ADVERSE, value is HIGH -> z > 0 -> adverse
+		// z = (4.5 - 2.0) / 1.0 = 2.5 (adverse, moderate -> flagged as warning)
+		const db = createRoutingMockDB({
+			'DISTINCT repdte FROM financials': [],
+			'peer_stats': [
+				{ peer_group: 'asset_bucket:3', metric: 'nclnlsr', mean: 2.0, stddev: 1.0 }
+			],
+			'FROM financials WHERE repdte': [
+				{ cert: 100, asset_bucket: 3, roa: null, roe: null, nimy: null, eeffr: null, nclnlsr: 4.5, rbcrwaj: null, lnlsdepr: null, eqv: null }
+			],
+			'bank_trends': []
+		});
+
+		const count = await detectAnomalies(db, '20240331');
+		// absZ = 2.5, adverse -> flagged
+		expect(count).toBe(1);
 	});
 
 	it('does NOT flag z-score between 1.5 and 2.0 even in adverse direction', async () => {
 		// z = (-0.8 - 1.0) / 1.0 = -1.8 (adverse direction for LOW_IS_ADVERSE)
-		// But absZ = 1.8 < 2.0 -> skipped on line 185
+		// But absZ = 1.8 < 2.0 -> always skipped
 		const db = createRoutingMockDB({
 			'DISTINCT repdte FROM financials': [],
 			'peer_stats': [
@@ -645,21 +715,22 @@ describe('Trend Reversal Detection', () => {
 // ─── Severity Classification (Peer Outlier z-score thresholds) ───────────────
 
 describe('Severity classification by z-score', () => {
-	it('z=2.0 exactly yields warning severity', async () => {
-		// z = (2.0 - 1.0) / 0.5 = 2.0
+	it('z=2.0 exactly yields warning severity (adverse direction)', async () => {
+		// Use adverse direction: roa is LOW_IS_ADVERSE, so z < 0 is adverse
+		// z = (0.0 - 1.0) / 0.5 = -2.0 (adverse)
 		const db = createRoutingMockDB({
 			'DISTINCT repdte FROM financials': [],
 			'peer_stats': [
 				{ peer_group: 'asset_bucket:3', metric: 'roa', mean: 1.0, stddev: 0.5 }
 			],
 			'FROM financials WHERE repdte': [
-				{ cert: 100, asset_bucket: 3, roa: 2.0, roe: null, nimy: null, eeffr: null, nclnlsr: null, rbcrwaj: null, lnlsdepr: null, eqv: null }
+				{ cert: 100, asset_bucket: 3, roa: 0.0, roe: null, nimy: null, eeffr: null, nclnlsr: null, rbcrwaj: null, lnlsdepr: null, eqv: null }
 			],
 			'bank_trends': []
 		});
 
 		const count = await detectAnomalies(db, '20240331');
-		// z=2.0 -> absZ=2.0 >= 2.0 passes, but absZ < 3.0 -> warning
+		// z=-2.0 -> absZ=2.0, adverse -> flagged as warning (absZ < 3.0)
 		expect(count).toBe(1);
 	});
 

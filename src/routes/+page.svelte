@@ -6,6 +6,7 @@
 	import TimeSeriesChart from '$lib/components/charts/TimeSeriesChart.svelte';
 	import { formatNumber, formatDate, formatPercent, formatCurrency } from '$lib/utils/formatters.js';
 	import { getFieldLabel } from '$lib/utils/field-meta.js';
+	import { getStateName } from '$lib/utils/states.js';
 
 	let { data } = $props();
 
@@ -184,7 +185,7 @@
 				<a href="/banks?state={s.state}"
 					class="rounded px-1.5 py-1 text-center text-[11px] font-medium transition-colors hover:ring-1 hover:ring-[--accent]"
 					style="background-color: color-mix(in srgb, var(--accent) {opacity}%, var(--surface-2))"
-					title="{s.state}: {s.bank_count} banks">
+					title="{getStateName(s.state)} ({s.state}): {s.bank_count} banks">
 					<span class="block text-[10px] font-bold">{s.state}</span>
 					<span class="block text-[9px] opacity-70">{s.bank_count}</span>
 				</a>

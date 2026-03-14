@@ -1,14 +1,16 @@
 <script lang="ts">
 	import PercentileGauge from '$lib/components/charts/PercentileGauge.svelte';
+	import TimeSeriesChart from '$lib/components/charts/TimeSeriesChart.svelte';
 	import ExportButton from '$lib/components/data/ExportButton.svelte';
 	import EmptyState from '$lib/components/data/EmptyState.svelte';
 	import { formatPercent, formatDate } from '$lib/utils/formatters.js';
 	import { getFieldLabel } from '$lib/utils/field-meta.js';
 	import { getMode } from '$lib/stores/mode.svelte.js';
-	import type { PeerMetricComparison } from '$lib/types';
+	import type { PeerMetricComparison, PercentileHistoryPoint } from '$lib/types';
 
 	let { data } = $props();
 	let peers = $derived(data.peers);
+	let percentileHistory = $derived(data.percentileHistory ?? []);
 	let cert = $derived(data.bank.cert);
 	let mode = $derived(getMode());
 
@@ -45,6 +47,50 @@
 			'asset_bucket:7': 'Over $250B'
 		};
 		return tierMap[pg] ?? pg;
+	}
+
+	/** Metrics available for percentile history */
+	const HISTORY_METRICS = [
+		{ key: 'roa', label: 'ROA' },
+		{ key: 'roe', label: 'ROE' },
+		{ key: 'nimy', label: 'NIM' },
+		{ key: 'rbcrwaj', label: 'Capital Ratio' }
+	] as const;
+
+	/** Build chart series from percentile history data */
+	let historySeries = $derived.by(() => {
+		if (percentileHistory.length === 0) return [];
+
+		// Group by metric
+		const byMetric = new Map<string, PercentileHistoryPoint[]>();
+		for (const pt of percentileHistory) {
+			const arr = byMetric.get(pt.metric) ?? [];
+			arr.push(pt);
+			byMetric.set(pt.metric, arr);
+		}
+
+		return HISTORY_METRICS
+			.filter((m) => byMetric.has(m.key))
+			.map((m) => {
+				const points = byMetric.get(m.key)!;
+				// Sort chronologically
+				points.sort((a, b) => a.repdte.localeCompare(b.repdte));
+				return {
+					key: m.key,
+					label: m.label,
+					data: points.map((p) => ({ date: p.repdte, value: p.percentile }))
+				};
+			});
+	});
+
+	const percentileMarkLines = [
+		{ value: 25, label: 'P25' },
+		{ value: 50, label: 'P50' },
+		{ value: 75, label: 'P75' }
+	];
+
+	function formatPercentile(value: number): string {
+		return `P${Math.round(value)}`;
 	}
 </script>
 
@@ -105,6 +151,28 @@
 				</section>
 			{/each}
 		</div>
+
+		<!-- Percentile History -->
+		{#if historySeries.length > 0}
+			<section>
+				<div class="flex items-center gap-2 mb-3">
+					<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+					<h2 class="text-[15px] font-semibold text-[--text-primary]">Percentile History</h2>
+					<span class="text-[11px] text-[--text-tertiary] ml-1">last 8 quarters</span>
+				</div>
+				<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
+					<TimeSeriesChart
+						series={historySeries}
+						yAxisFormat="number"
+						yAxisMin={0}
+						yAxisMax={100}
+						yAxisFormatter={formatPercentile}
+						markLines={percentileMarkLines}
+						height="280px"
+					/>
+				</div>
+			</section>
+		{/if}
 
 		<!-- Summary table -->
 		<section>

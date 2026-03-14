@@ -182,8 +182,11 @@ async function detectPeerOutliers(db: D1Database, repdte: string): Promise<Anoma
           (HIGH_IS_ADVERSE.has(metric) && zScore > 0);
 
         // Only flag if in adverse direction or extreme outlier
+        // absZ < 2.0: never flag
+        // absZ 2.0-3.0: only flag adverse direction
+        // absZ >= 3.0: always flag regardless of direction
         if (absZ < 2.0) continue;
-        if (absZ < 2.0 && !isAdverse) continue;
+        if (absZ < 3.0 && !isAdverse) continue;
 
         const direction = zScore > 0 ? 'above' : 'below';
         const label = METRIC_LABELS[metric] || metric;

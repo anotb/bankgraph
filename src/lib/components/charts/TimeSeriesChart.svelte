@@ -12,6 +12,7 @@
 		data: SeriesDataPoint[];
 	};
 	type MarkAreaRange = [string, string]; // [start ISO date, end ISO date]
+	type MarkLineConfig = { value: number; label?: string };
 
 	let {
 		series,
@@ -19,14 +20,22 @@
 		yAxisFormat = 'number',
 		height = '320px',
 		markAreas = [],
-		showMovingAverage = false
+		markLines = [],
+		showMovingAverage = false,
+		yAxisMin,
+		yAxisMax,
+		yAxisFormatter
 	}: {
 		series: SeriesConfig[];
 		title?: string;
 		yAxisFormat?: 'currency' | 'percent' | 'number';
 		height?: string;
 		markAreas?: MarkAreaRange[];
+		markLines?: MarkLineConfig[];
 		showMovingAverage?: boolean;
+		yAxisMin?: number;
+		yAxisMax?: number;
+		yAxisFormatter?: (value: number) => string;
 	} = $props();
 
 	let chartContainer = $state<HTMLDivElement | null>(null);
@@ -41,6 +50,7 @@
 	let hasEnoughData = $derived(totalDataPoints > 1);
 
 	function formatYValue(value: number): string {
+		if (yAxisFormatter) return yAxisFormatter(value);
 		switch (yAxisFormat) {
 			case 'currency':
 				return formatCurrency(value);
@@ -257,6 +267,8 @@
 				},
 				yAxis: {
 					type: 'value',
+					min: yAxisMin,
+					max: yAxisMax,
 					axisLine: { show: false },
 					axisTick: { show: false },
 					axisLabel: {
@@ -296,6 +308,28 @@
 							},
 							data: chartData
 						};
+						// Add horizontal reference lines to the first series only
+						if (i === 0 && markLines.length > 0) {
+							base.markLine = {
+								silent: true,
+								symbol: 'none',
+								label: {
+									fontSize: 10,
+									color: textTertiary,
+									position: 'insideEndTop',
+									fontFamily: "'Inter', system-ui, sans-serif"
+								},
+								lineStyle: {
+									type: 'dashed',
+									width: 1,
+									color: borderMuted
+								},
+								data: markLines.map((ml) => ({
+									yAxis: ml.value,
+									label: ml.label ? { formatter: ml.label } : { show: false }
+								}))
+							};
+						}
 						// Add recession bands to the first series only
 						if (i === 0 && markAreas.length > 0) {
 							base.markArea = {

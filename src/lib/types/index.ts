@@ -318,3 +318,10 @@ export interface CorrelationResult {
   correlation: number | null;
   lag_quarters: number;
 }
+
+/** Single data point for percentile history over time */
+export interface PercentileHistoryPoint {
+  repdte: string;
+  metric: string;
+  percentile: number;
+}

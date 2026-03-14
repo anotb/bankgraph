@@ -99,7 +99,6 @@
 		if (bank.hc_rssd_id !== null) fields.push({ label: 'HC RSSD ID', value: String(bank.hc_rssd_id) });
 		if (bank.county) fields.push({ label: 'County', value: bank.county });
 		if (bank.zip) fields.push({ label: 'ZIP', value: bank.zip });
-		if (bank.insured_date) fields.push({ label: 'Insured Date', value: formatDate(bank.insured_date) });
 		if (bank.asset_tier !== null) {
 			const tierLabels: Record<number, string> = {
 				1: 'Under $100M', 2: '$100M - $300M', 3: '$300M - $1B',
@@ -184,6 +183,19 @@
 						<span class="{detailLabel}">Charter Class</span>
 						<span class="{detailValue}">
 							{bank.charter_class ? getCharterClassName(bank.charter_class) : '\u2014'}
+						</span>
+					</div>
+					<div class="{detailRow}">
+						<span class="{detailLabel}">FDIC Insured</span>
+						<span class="{detailValue}">
+							{#if bank.insured_date}
+								<span class="inline-flex items-center gap-1.5">
+									<span class="w-1.5 h-1.5 rounded-full {bank.active === 1 ? 'bg-[--positive]' : 'bg-[--text-disabled]'}"></span>
+									{bank.active === 1 ? 'Yes' : 'Was insured'} (since {formatDate(bank.insured_date)})
+								</span>
+							{:else}
+								{'\u2014'}
+							{/if}
 						</span>
 					</div>
 					<div class="{detailRow}">

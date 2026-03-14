@@ -158,6 +158,47 @@
 						</span>
 					{/if}
 				</div>
+
+				<!-- External links -->
+				<div class="flex items-center gap-3 flex-wrap text-[11px]">
+					<a
+						href="https://www7.fdic.gov/idasp/AdvSearchResult.asp?ESSION=advSearch&STATUS=&CERT={data.bank.cert}"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="inline-flex items-center gap-1 text-[--text-tertiary] hover:text-[--accent] transition-colors"
+					>
+						FDIC BankFind
+						<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+						</svg>
+					</a>
+					{#if !isActiveProp}
+						<a
+							href="https://www.fdic.gov/resources/resolutions/bank-failures/failed-bank-list/banknote.html?newid={data.bank.cert}"
+							target="_blank"
+							rel="noopener noreferrer"
+							class="inline-flex items-center gap-1 text-[--text-tertiary] hover:text-[--accent] transition-colors"
+						>
+							FDIC Failure Detail
+							<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+							</svg>
+						</a>
+					{/if}
+					{#if data.bank.rssd_id}
+						<a
+							href="https://www.ffiec.gov/nicpubweb/nicweb/InstitutionHistory.aspx?parID_RSSD={data.bank.rssd_id}&parDT_END=99991231"
+							target="_blank"
+							rel="noopener noreferrer"
+							class="inline-flex items-center gap-1 text-[--text-tertiary] hover:text-[--accent] transition-colors"
+						>
+							FFIEC Profile
+							<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+							</svg>
+						</a>
+					{/if}
+				</div>
 			</div>
 
 			<!-- Right: Compare button -->
