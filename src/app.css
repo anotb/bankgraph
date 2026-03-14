@@ -271,7 +271,16 @@ th[class*="text-right"] {
 
 /* Nav scroll fade - gradient hint that more items exist off-screen */
 .nav-scroll-fade {
-  background: linear-gradient(to right, transparent, var(--surface-1));
+  background: linear-gradient(to right, transparent 0%, var(--surface-1) 60%);
+}
+
+/* Subtle nudge animation for the scroll chevron */
+@keyframes nudgeRight {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(3px); }
+}
+.animate-nudge-right {
+  animation: nudgeRight 1.5s ease-in-out 2;
 }
 
 /* ============================================================

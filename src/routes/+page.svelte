@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
 	import SearchBar from '$lib/components/data/SearchBar.svelte';
 	import MetricCard from '$lib/components/data/MetricCard.svelte';
 	import Sparkline from '$lib/components/data/Sparkline.svelte';
@@ -7,8 +8,36 @@
 	import { formatNumber, formatDate, formatPercent, formatCurrency } from '$lib/utils/formatters.js';
 	import { getFieldLabel } from '$lib/utils/field-meta.js';
 	import { getStateName } from '$lib/utils/states.js';
+	import { getWatchlist, removeFromWatchlist, clearWatchlist } from '$lib/stores/watchlist.svelte.js';
+	import type { Institution } from '$lib/types';
 
 	let { data } = $props();
+
+	// Watchlist state (client-side only)
+	let watchedBanks = $state<Institution[]>([]);
+	let watchlistLoading = $state(false);
+	let watchlistCerts = $derived(getWatchlist());
+
+	// Fetch watchlist bank data when certs change
+	$effect(() => {
+		if (!browser) return;
+		const certs = watchlistCerts;
+		if (certs.length === 0) {
+			watchedBanks = [];
+			return;
+		}
+		watchlistLoading = true;
+		Promise.all(
+			certs.map((cert) =>
+				fetch(`/api/v1/banks/${cert}`)
+					.then((r) => (r.ok ? r.json() : null))
+					.catch(() => null)
+			)
+		).then((results) => {
+			watchedBanks = results.filter((b): b is Institution => b !== null);
+			watchlistLoading = false;
+		});
+	});
 
 	function handleSearch(query: string) {
 		if (query) {
@@ -61,6 +90,69 @@
 		/>
 	</div>
 </div>
+
+<!-- Watchlist (client-side only) -->
+{#if watchedBanks.length > 0}
+	<section class="mb-5">
+		<div class="flex items-center gap-2 mb-3">
+			<div class="w-0.5 h-4 bg-[--warning] rounded-full"></div>
+			<h2 class="text-[15px] font-semibold text-[--text-primary]">Watchlist</h2>
+			<span class="text-[11px] text-[--text-tertiary] ml-1">{watchedBanks.length} bank{watchedBanks.length !== 1 ? 's' : ''}</span>
+			<button
+				onclick={() => clearWatchlist()}
+				class="ml-auto text-[11px] text-[--text-tertiary] hover:text-[--negative] transition-colors"
+			>
+				Clear all
+			</button>
+		</div>
+		<div class="rounded-md bg-[--surface-1] divide-y divide-[--surface-2]" style="box-shadow: var(--shadow-sm)">
+			{#each watchedBanks as bank}
+				<div class="flex items-center justify-between px-3 py-2.5 group">
+					<a href="/banks/{bank.cert}" class="flex items-center gap-2.5 min-w-0 flex-1 hover:text-[--accent] transition-colors">
+						<div class="min-w-0">
+							<span class="text-[13px] font-medium text-[--text-primary] group-hover:text-[--accent] transition-colors truncate block">{bank.name}</span>
+							{#if bank.state}
+								<span class="text-[11px] text-[--text-tertiary]">{bank.state}</span>
+							{/if}
+						</div>
+					</a>
+					<div class="flex items-center gap-4 shrink-0 ml-2">
+						{#if bank.total_assets !== null}
+							<span class="text-[12px] text-[--text-tertiary]">
+								Assets <span class="font-medium text-[--text-primary] data-mono">{formatCurrency(bank.total_assets)}</span>
+							</span>
+						{/if}
+						{#if bank.latest_roa !== null}
+							<span class="text-[12px] text-[--text-tertiary]">
+								ROA <span class="font-medium data-mono" style="color: {(bank.latest_roa ?? 0) >= 0 ? 'var(--positive)' : 'var(--negative)'}">{formatPercent(bank.latest_roa)}</span>
+							</span>
+						{/if}
+						<button
+							onclick={() => removeFromWatchlist(bank.cert)}
+							class="text-[--text-disabled] hover:text-[--negative] transition-colors p-0.5"
+							aria-label="Remove {bank.name} from watchlist"
+							title="Remove from watchlist"
+						>
+							<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+							</svg>
+						</button>
+					</div>
+				</div>
+			{/each}
+		</div>
+	</section>
+{:else if watchlistLoading}
+	<section class="mb-5">
+		<div class="flex items-center gap-2 mb-3">
+			<div class="w-0.5 h-4 bg-[--warning] rounded-full"></div>
+			<h2 class="text-[15px] font-semibold text-[--text-primary]">Watchlist</h2>
+		</div>
+		<div class="rounded-md bg-[--surface-1] px-3 py-4 text-[13px] text-[--text-tertiary]" style="box-shadow: var(--shadow-sm)">
+			Loading watchlist...
+		</div>
+	</section>
+{/if}
 
 <!-- Industry Snapshot (merged metrics) -->
 <section class="mb-5">

@@ -16,6 +16,8 @@
 	let keyboardShortcutsRef: ReturnType<typeof KeyboardShortcuts> | undefined = $state();
 	let navSearchExpanded = $state(false);
 	let navSearchEl: HTMLDivElement | undefined = $state();
+	let navScrollEl: HTMLDivElement | undefined = $state();
+	let navCanScrollRight = $state(true);
 
 	function isActive(href: string): boolean {
 		const path = $page.url.pathname;
@@ -44,6 +46,24 @@
 			}, 50);
 		}
 	}
+
+	function checkNavScroll() {
+		if (!navScrollEl) return;
+		const { scrollLeft, scrollWidth, clientWidth } = navScrollEl;
+		navCanScrollRight = scrollLeft + clientWidth < scrollWidth - 4;
+	}
+
+	$effect(() => {
+		if (!navScrollEl) return;
+		checkNavScroll();
+		navScrollEl.addEventListener('scroll', checkNavScroll, { passive: true });
+		const ro = new ResizeObserver(checkNavScroll);
+		ro.observe(navScrollEl);
+		return () => {
+			navScrollEl?.removeEventListener('scroll', checkNavScroll);
+			ro.disconnect();
+		};
+	});
 </script>
 
 <NavigationProgress />
@@ -64,7 +84,10 @@
 			</a>
 
 			<div class="relative flex-1 min-w-0">
-				<div class="flex items-center gap-1 sm:gap-5 text-[13px] overflow-x-auto scrollbar-hide">
+				<div
+					bind:this={navScrollEl}
+					class="flex items-center gap-1 sm:gap-5 text-[13px] overflow-x-auto scrollbar-hide"
+				>
 					{#each [
 						{ href: '/banks', label: 'Banks' },
 						{ href: '/industry', label: 'Industry' },
@@ -85,8 +108,15 @@
 						</a>
 					{/each}
 				</div>
-				<!-- Scroll fade hint: gradient on right edge when content overflows -->
-				<div class="sm:hidden absolute right-0 top-0 bottom-0 w-8 pointer-events-none nav-scroll-fade"></div>
+				<!-- Scroll fade + chevron: visible when more nav items are off-screen right -->
+				<div
+					class="sm:hidden absolute right-0 top-0 bottom-0 w-10 pointer-events-none nav-scroll-fade flex items-center justify-end pr-0.5 transition-opacity duration-300 {navCanScrollRight ? 'opacity-100' : 'opacity-0'}"
+					aria-hidden="true"
+				>
+					<svg class="h-3.5 w-3.5 text-[--text-tertiary] animate-nudge-right" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
+					</svg>
+				</div>
 			</div>
 
 			<div class="ml-auto flex items-center gap-1 sm:gap-2 shrink-0">
@@ -94,12 +124,18 @@
 				<button
 					type="button"
 					onclick={toggleNavSearch}
-					aria-label="Search banks"
+					aria-label={navSearchExpanded ? "Close search" : "Search banks"}
 					class="sm:hidden p-1.5 rounded text-[--text-secondary] hover:text-[--text-primary] hover:bg-[--surface-2] transition-colors"
 				>
-					<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-					</svg>
+					{#if navSearchExpanded}
+						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						</svg>
+					{:else}
+						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+						</svg>
+					{/if}
 				</button>
 				<div class="hidden sm:block w-44 lg:w-52">
 					<SearchBar
@@ -144,12 +180,14 @@
 	<!-- Footer -->
 	<footer class="border-t border-[--border-muted] px-4 py-3 text-[11px] text-[--text-tertiary]">
 		<div class="max-w-[1400px] mx-auto flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+			<span class="text-[--text-disabled]">v1.0</span>
 			{#if data.latestQuarter}
 				<span>Q{Math.ceil(parseInt(data.latestQuarter.slice(4, 6)) / 3)} {data.latestQuarter.slice(0, 4)}</span>
 			{/if}
 			{#if data.activeBankCount}
 				<span>{formatNumber(data.activeBankCount)} institutions</span>
 			{/if}
+			<a href="/glossary" class="underline hover:text-[--text-secondary]">Glossary</a>
 			<span>Source: <a href="https://banks.data.fdic.gov" class="underline hover:text-[--text-secondary]">FDIC BankFind</a> & <a href="https://fred.stlouisfed.org" class="underline hover:text-[--text-secondary]">FRED</a></span>
 			{#if currentMode === 'power'}
 				<button

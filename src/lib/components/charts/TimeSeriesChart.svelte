@@ -356,12 +356,14 @@
 							.filter((d) => d.value !== null)
 							.map((d) => [parseDate(d.date), d.value] as [string, number | null]);
 
+						const fewPoints = chartData.length <= 3;
 						const base: any = {
 							name: s.label,
 							type: 'line',
 							yAxisIndex: s.yAxisIndex ?? 0,
-							symbolSize: 4,
-							symbol: 'none',
+							symbolSize: fewPoints ? 6 : 4,
+							symbol: fewPoints ? 'circle' : 'none',
+							showSymbol: fewPoints,
 							smooth: false,
 							lineStyle: { width: 2, color: seriesColor },
 							itemStyle: { color: seriesColor },

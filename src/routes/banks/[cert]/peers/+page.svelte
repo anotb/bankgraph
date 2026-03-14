@@ -70,8 +70,11 @@
 			byMetric.set(pt.metric, arr);
 		}
 
-		return HISTORY_METRICS
-			.filter((m) => byMetric.has(m.key))
+		const result = HISTORY_METRICS
+			.filter((m) => {
+				const pts = byMetric.get(m.key);
+				return pts && pts.length >= 2; // Need 2+ quarters for a meaningful trend
+			})
 			.map((m) => {
 				const points = byMetric.get(m.key)!;
 				// Sort chronologically
@@ -82,6 +85,8 @@
 					data: points.map((p) => ({ date: p.repdte, value: p.percentile }))
 				};
 			});
+
+		return result;
 	});
 
 	const percentileMarkLines = [

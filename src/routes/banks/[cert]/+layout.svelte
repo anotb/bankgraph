@@ -3,8 +3,11 @@
 	import { afterNavigate } from '$app/navigation';
 	import AnomalyBadge from '$lib/components/data/AnomalyBadge.svelte';
 	import { formatCurrency, formatPercent } from '$lib/utils/formatters.js';
+	import { isWatched, toggleWatchlist } from '$lib/stores/watchlist.svelte.js';
 
 	let { data, children } = $props();
+
+	let watched = $derived(isWatched(data.bank.cert));
 
 	// Track where the user came from for "back" navigation
 	let backLink: { href: string; label: string } | null = $state(null);
@@ -201,17 +204,38 @@
 				</div>
 			</div>
 
-			<!-- Right: Compare button -->
-			<a
-				href="/compare?certs={data.bank.cert}"
-				class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium text-[--text-tertiary] border border-[--border-muted] hover:text-[--accent] hover:border-[--accent] transition-colors shrink-0"
-				aria-label="Compare {data.bank.name} with other banks"
-			>
-				<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-				</svg>
-				Compare
-			</a>
+			<!-- Right: Watchlist + Compare buttons -->
+			<div class="flex items-center gap-2 shrink-0">
+				<button
+					onclick={() => toggleWatchlist(data.bank.cert)}
+					class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium border transition-colors {watched
+						? 'text-[--warning] border-[--warning] bg-[--warning-muted]'
+						: 'text-[--text-tertiary] border-[--border-muted] hover:text-[--warning] hover:border-[--warning]'}"
+					aria-label={watched ? `Remove ${data.bank.name} from watchlist` : `Add ${data.bank.name} to watchlist`}
+					title={watched ? 'Remove from watchlist' : 'Add to watchlist'}
+				>
+					{#if watched}
+						<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+							<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+						</svg>
+					{:else}
+						<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+						</svg>
+					{/if}
+					Watch
+				</button>
+				<a
+					href="/compare?certs={data.bank.cert}"
+					class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium text-[--text-tertiary] border border-[--border-muted] hover:text-[--accent] hover:border-[--accent] transition-colors"
+					aria-label="Compare {data.bank.name} with other banks"
+				>
+					<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+					</svg>
+					Compare
+				</a>
+			</div>
 		</div>
 
 		<!-- Financial highlights strip -->
