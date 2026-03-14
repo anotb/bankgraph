@@ -135,16 +135,28 @@
 					<p class="text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider mb-2">Component Scores</p>
 					<div class={mode === 'power' ? 'space-y-2' : 'grid grid-cols-2 gap-3'}>
 						{#if risk.scores.capital !== null}
-							<ScoreGauge score={risk.scores.capital} label="Capital" size="sm" />
+							<div>
+								<ScoreGauge score={risk.scores.capital} label="Capital" size="sm" />
+								<p class="text-[11px] text-[--text-tertiary] mt-0.5 ml-[108px]">Tier 1 ratio and total capital ratio vs regulatory thresholds</p>
+							</div>
 						{/if}
 						{#if risk.scores.asset_quality !== null}
-							<ScoreGauge score={risk.scores.asset_quality} label="Asset Quality" size="sm" />
+							<div>
+								<ScoreGauge score={risk.scores.asset_quality} label="Asset Quality" size="sm" />
+								<p class="text-[11px] text-[--text-tertiary] mt-0.5 ml-[108px]">Non-performing loan ratio vs peer group percentile</p>
+							</div>
 						{/if}
 						{#if risk.scores.earnings !== null}
-							<ScoreGauge score={risk.scores.earnings} label="Earnings" size="sm" />
+							<div>
+								<ScoreGauge score={risk.scores.earnings} label="Earnings" size="sm" />
+								<p class="text-[11px] text-[--text-tertiary] mt-0.5 ml-[108px]">ROA peer percentile with trend-decline penalty</p>
+							</div>
 						{/if}
 						{#if risk.scores.liquidity !== null}
-							<ScoreGauge score={risk.scores.liquidity} label="Liquidity" size="sm" />
+							<div>
+								<ScoreGauge score={risk.scores.liquidity} label="Liquidity" size="sm" />
+								<p class="text-[11px] text-[--text-tertiary] mt-0.5 ml-[108px]">Loan-to-deposit ratio vs peer group percentile</p>
+							</div>
 						{/if}
 					</div>
 				</div>

@@ -1,21 +1,48 @@
 <script lang="ts">
 	import '../app.css';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import ModeToggle from '$lib/components/layout/ModeToggle.svelte';
 	import ThemeToggle from '$lib/components/layout/ThemeToggle.svelte';
 	import KeyboardShortcuts from '$lib/components/layout/KeyboardShortcuts.svelte';
 	import NavigationProgress from '$lib/components/layout/NavigationProgress.svelte';
 	import ScrollToTop from '$lib/components/layout/ScrollToTop.svelte';
+	import SearchBar from '$lib/components/data/SearchBar.svelte';
 	import { getMode } from '$lib/stores/mode.svelte.js';
 	import { formatNumber, formatDate } from '$lib/utils/formatters.js';
 
 	let { children, data } = $props();
 	let currentMode = $derived(getMode());
+	let keyboardShortcutsRef: ReturnType<typeof KeyboardShortcuts> | undefined = $state();
+	let navSearchExpanded = $state(false);
+	let navSearchEl: HTMLDivElement | undefined = $state();
 
 	function isActive(href: string): boolean {
 		const path = $page.url.pathname;
 		if (href === '/') return path === '/';
 		return path.startsWith(href);
+	}
+
+	function handleNavSearch(query: string) {
+		if (query) {
+			goto(`/banks?q=${encodeURIComponent(query)}`);
+			navSearchExpanded = false;
+		}
+	}
+
+	function handleNavSelect(cert: number) {
+		goto(`/banks/${cert}`);
+		navSearchExpanded = false;
+	}
+
+	function toggleNavSearch() {
+		navSearchExpanded = !navSearchExpanded;
+		if (navSearchExpanded) {
+			// Focus the input after it renders
+			setTimeout(() => {
+				navSearchEl?.querySelector('input')?.focus();
+			}, 50);
+		}
 	}
 </script>
 
@@ -63,10 +90,46 @@
 			</div>
 
 			<div class="ml-auto flex items-center gap-1 sm:gap-2 shrink-0">
+				<!-- Nav search: icon on mobile, inline input on desktop -->
+				<button
+					type="button"
+					onclick={toggleNavSearch}
+					aria-label="Search banks"
+					class="sm:hidden p-1.5 rounded text-[--text-secondary] hover:text-[--text-primary] hover:bg-[--surface-2] transition-colors"
+				>
+					<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+					</svg>
+				</button>
+				<div class="hidden sm:block w-44 lg:w-52">
+					<SearchBar
+						placeholder="Search banks..."
+						onsearch={handleNavSearch}
+						autocomplete={true}
+						onselect={handleNavSelect}
+						compact={true}
+					/>
+				</div>
 				<ThemeToggle />
 				<ModeToggle />
 			</div>
 		</div>
+
+		<!-- Mobile search expansion -->
+		{#if navSearchExpanded}
+			<div
+				class="sm:hidden px-4 pb-2 pt-1"
+				bind:this={navSearchEl}
+			>
+				<SearchBar
+					placeholder="Search banks..."
+					onsearch={handleNavSearch}
+					autocomplete={true}
+					onselect={handleNavSelect}
+					compact={true}
+				/>
+			</div>
+		{/if}
 	</nav>
 
 	<!-- Main content -->
@@ -88,10 +151,20 @@
 				<span>{formatNumber(data.activeBankCount)} institutions</span>
 			{/if}
 			<span>Source: <a href="https://banks.data.fdic.gov" class="underline hover:text-[--text-secondary]">FDIC BankFind</a> & <a href="https://fred.stlouisfed.org" class="underline hover:text-[--text-secondary]">FRED</a></span>
+			{#if currentMode === 'power'}
+				<button
+					onclick={() => keyboardShortcutsRef?.open()}
+					class="inline-flex items-center gap-1 hover:text-[--text-secondary] transition-colors"
+					aria-label="Keyboard shortcuts"
+				>
+					<kbd class="bg-[--surface-2] text-[--text-tertiary] px-1 py-0.5 rounded text-[10px] font-mono border border-[--border-muted]">?</kbd>
+					<span>Shortcuts</span>
+				</button>
+			{/if}
 		</div>
 		<p class="mt-1 text-center text-[11px] text-[--text-tertiary]">Not financial advice. Data provided as-is for educational purposes.</p>
 	</footer>
 </div>
 
-<KeyboardShortcuts />
+<KeyboardShortcuts bind:this={keyboardShortcutsRef} />
 <ScrollToTop />

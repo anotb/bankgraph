@@ -55,6 +55,7 @@
 		{
 			key: 'latest_roe',
 			label: 'ROE',
+			sortable: true,
 			align: 'right',
 			powerOnly: true,
 			tooltip: 'UBPR2180',
@@ -63,6 +64,7 @@
 		{
 			key: 'latest_nim',
 			label: 'NIM',
+			sortable: true,
 			align: 'right',
 			powerOnly: true,
 			tooltip: 'UBPRE591',
@@ -71,6 +73,7 @@
 		{
 			key: 'latest_npl_ratio',
 			label: 'NPL',
+			sortable: true,
 			align: 'right',
 			powerOnly: true,
 			tooltip: 'UBPR3506 - Noncurrent Loan Ratio',
@@ -79,6 +82,7 @@
 		{
 			key: 'total_deposits',
 			label: 'Total Deposits',
+			sortable: true,
 			align: 'right',
 			format: (v: number | null) => formatCurrency(v)
 		},
@@ -94,14 +98,22 @@
 	const sortKeyMap: Record<string, string> = {
 		name: 'name',
 		total_assets: 'assets',
-		total_deposits: 'deposits'
+		total_deposits: 'deposits',
+		latest_roe: 'roe',
+		latest_nim: 'nim',
+		latest_npl_ratio: 'npl',
+		latest_tier1_ratio: 'tier1'
 	};
 
 	// Reverse mapping: API sort param -> column key
 	const reverseSortMap: Record<string, string> = {
 		name: 'name',
 		assets: 'total_assets',
-		deposits: 'total_deposits'
+		deposits: 'total_deposits',
+		roe: 'latest_roe',
+		nim: 'latest_nim',
+		npl: 'latest_npl_ratio',
+		tier1: 'latest_tier1_ratio'
 	};
 
 	let currentSort = $derived(reverseSortMap[data.params.sort] || 'total_assets');
@@ -174,6 +186,20 @@
 	function handleActiveToggle(e: Event) {
 		const target = e.target as HTMLSelectElement;
 		updateParams({ active: target.value });
+	}
+
+	let hasActiveFilters = $derived(
+		data.params.q !== '' ||
+		data.params.state !== '' ||
+		data.params.asset_min !== '' ||
+		data.params.asset_max !== '' ||
+		data.params.active !== '1' ||
+		data.params.sort !== 'assets' ||
+		data.params.order !== 'desc'
+	);
+
+	function clearAllFilters() {
+		goto('/banks', { keepFocus: true, noScroll: true });
 	}
 </script>
 
@@ -249,6 +275,18 @@
 		<span class="text-[12px] text-[--text-tertiary] tabular-nums ml-1">
 			{data.total.toLocaleString()} bank{data.total === 1 ? '' : 's'}
 		</span>
+
+		{#if hasActiveFilters}
+			<button
+				onclick={clearAllFilters}
+				class="rounded-[5px] border border-[--border-muted] bg-[--surface-1] px-3 py-2.5 sm:py-1.5
+					text-[12px] font-medium text-[--text-tertiary] hover:text-[--text-secondary]
+					hover:border-[--accent] focus:outline-none focus:ring-2 focus:ring-[--accent]/20
+					transition-all duration-150 cursor-pointer"
+			>
+				Clear all filters
+			</button>
+		{/if}
 	</div>
 
 	<!-- Results -->

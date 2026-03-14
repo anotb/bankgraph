@@ -1,10 +1,15 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { getMode } from '$lib/stores/mode.svelte.js';
+	import { getMode, toggleMode } from '$lib/stores/mode.svelte.js';
+	import { toggleTheme } from '$lib/stores/theme.svelte.js';
 
 	let showHelp = $state(false);
 	let pendingChord = $state<string | null>(null);
 	let chordTimer: ReturnType<typeof setTimeout> | undefined;
+
+	export function open() {
+		showHelp = true;
+	}
 
 	function clearChord() {
 		pendingChord = null;
@@ -68,7 +73,7 @@
 			return;
 		}
 
-		// Two-key chords: g + <key>
+		// Two-key chords: g + <key> (must be checked before single-key shortcuts)
 		if (pendingChord === 'g') {
 			clearChord();
 			const routes: Record<string, string> = {
@@ -93,6 +98,20 @@
 			chordTimer = setTimeout(clearChord, 500);
 			return;
 		}
+
+		// t to toggle theme
+		if (e.key === 't' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+			e.preventDefault();
+			toggleTheme();
+			return;
+		}
+
+		// m to toggle mode
+		if (e.key === 'm' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+			e.preventDefault();
+			toggleMode();
+			return;
+		}
 	}
 
 	const shortcuts = [
@@ -108,10 +127,20 @@
 			]
 		},
 		{
+			category: 'Tables',
+			items: [
+				{ keys: ['j'], description: 'Next row' },
+				{ keys: ['k'], description: 'Previous row' },
+				{ keys: ['Enter'], description: 'Open selected row' }
+			]
+		},
+		{
 			category: 'Actions',
 			items: [
 				{ keys: ['/'], description: 'Focus search' },
 				{ keys: ['\u2318', 'K'], description: 'Focus search (from anywhere)' },
+				{ keys: ['t'], description: 'Toggle theme' },
+				{ keys: ['m'], description: 'Toggle mode' },
 				{ keys: ['?'], description: 'Toggle this help' },
 				{ keys: ['Esc'], description: 'Close modal' }
 			]

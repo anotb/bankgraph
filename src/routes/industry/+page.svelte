@@ -84,10 +84,11 @@
 		return 'text-[--text-primary]';
 	}
 
-	// Build time series from allSegment data (reversed to chronological order)
+	// Build time series from selected segment data (reversed to chronological order)
 	let industrySeries = $derived.by(() => {
-		if (!data.allSegment?.data || data.allSegment.data.length < 2) return null;
-		const quarters = [...data.allSegment.data].reverse();
+		const segData = activeSegmentData;
+		if (!segData?.data || segData.data.length < 2) return null;
+		const quarters = [...segData.data].reverse();
 
 		return {
 			roa: quarters.map((q) => ({ date: q.repdte, value: q.metrics?.median_roa ?? null })),
@@ -489,13 +490,19 @@
 	<section>
 		<div class="flex items-center gap-2 mb-3">
 			<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
-			<h2 class="text-[15px] font-semibold text-[--text-primary]">Industry Trends</h2>
+			<h2 class="text-[15px] font-semibold text-[--text-primary]">
+				{selectedSegment === 'All' ? 'Industry' : selectedSegment} Trends
+			</h2>
+			{#if selectedSegment !== 'All'}
+				<span class="text-[11px] text-[--text-tertiary]">Filtered to {selectedSegment} banks</span>
+			{/if}
 		</div>
 
 		{#if industrySeries}
+			{@const segLabel = selectedSegment === 'All' ? '' : ` (${selectedSegment})`}
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-2">
 				<div class="borderless-card p-3">
-					<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Key Ratios</h3>
+					<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Key Ratios{segLabel}</h3>
 					<TimeSeriesChart
 						series={[
 							{ key: 'roa', label: 'Median ROA', data: industrySeries.roa },
@@ -507,7 +514,7 @@
 					/>
 				</div>
 				<div class="borderless-card p-3">
-					<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Total Assets & Deposits</h3>
+					<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Total Assets & Deposits{segLabel}</h3>
 					<TimeSeriesChart
 						series={[
 							{ key: 'total_assets', label: 'Total Assets', data: industrySeries.total_assets },
@@ -518,7 +525,7 @@
 					/>
 				</div>
 				<div class="borderless-card p-3">
-					<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Bank Count</h3>
+					<h3 class="text-[13px] font-semibold text-[--text-primary] mb-2">Bank Count{segLabel}</h3>
 					<TimeSeriesChart
 						series={[
 							{ key: 'bank_count', label: 'Banks', data: industrySeries.bank_count }

@@ -6,13 +6,15 @@
 		placeholder = 'Search...',
 		onsearch,
 		autocomplete = false,
-		onselect
+		onselect,
+		compact = false
 	}: {
 		value?: string;
 		placeholder?: string;
 		onsearch: (query: string) => void;
 		autocomplete?: boolean;
 		onselect?: (cert: number) => void;
+		compact?: boolean;
 	} = $props();
 
 	let inputValue = $state('');
@@ -137,8 +139,8 @@
 </script>
 
 <div class="relative">
-	<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-		<svg class="h-4 w-4 text-[--text-disabled]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+	<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center {compact ? 'pl-2' : 'pl-3'}">
+		<svg class="{compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} text-[--text-disabled]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
 			<path
 				stroke-linecap="round"
 				stroke-linejoin="round"
@@ -160,8 +162,8 @@
 		aria-controls={autocomplete ? 'search-listbox' : undefined}
 		aria-activedescendant={autocomplete && highlightedIndex >= 0 ? `search-option-${highlightedIndex}` : undefined}
 		aria-autocomplete={autocomplete ? 'list' : undefined}
-		class="block w-full rounded-[5px] border border-[--border-muted] bg-[--surface-1] py-2 pr-9 pl-9
-			text-[14px] text-[--text-primary] placeholder:text-[--text-disabled]
+		class="block w-full rounded-[5px] border border-[--border-muted] bg-[--surface-1] {compact ? 'py-1 pr-7 pl-7 text-[12px]' : 'py-2 pr-9 pl-9 text-[14px]'}
+			text-[--text-primary] placeholder:text-[--text-disabled]
 			focus:border-[--accent] focus:ring-2 focus:ring-[--accent]/20 focus:outline-none
 			transition-all duration-150"
 	style="box-shadow: var(--shadow-xs)"
@@ -171,9 +173,9 @@
 			type="button"
 			onclick={handleClear}
 			aria-label="Clear search"
-			class="absolute inset-y-0 right-0 flex items-center pr-3 text-[--text-disabled] hover:text-[--text-secondary]"
+			class="absolute inset-y-0 right-0 flex items-center {compact ? 'pr-2' : 'pr-3'} text-[--text-disabled] hover:text-[--text-secondary]"
 		>
-			<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+			<svg class="{compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path
 					stroke-linecap="round"
 					stroke-linejoin="round"
@@ -186,27 +188,27 @@
 
 	{#if autocomplete && showDropdown}
 		<div
-			class="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-[--border-muted] bg-[--surface-1] max-h-[320px] overflow-y-auto"
+			class="absolute z-50 mt-1 {compact ? 'min-w-[280px]' : 'w-full'} overflow-hidden rounded-md border border-[--border-muted] bg-[--surface-1] max-h-[320px] overflow-y-auto"
 			style="box-shadow: var(--shadow-md)"
 			role="listbox"
 			id="search-listbox"
 		>
 			{#if loading && suggestions.length === 0}
-				<div class="px-3 py-2.5 text-[13px] text-[--text-tertiary]">Searching...</div>
+				<div class="{compact ? 'px-2.5 py-1.5 text-[12px]' : 'px-3 py-2.5 text-[13px]'} text-[--text-tertiary]">Searching...</div>
 			{:else if !loading && suggestions.length === 0 && lastQuery.length >= 2}
-				<div class="px-3 py-2.5 text-[13px] text-[--text-tertiary]">No results</div>
+				<div class="{compact ? 'px-2.5 py-1.5 text-[12px]' : 'px-3 py-2.5 text-[13px]'} text-[--text-tertiary]">No results</div>
 			{:else}
 				{#each suggestions as suggestion, i}
 					<button
 						type="button"
 						role="option"
 						aria-selected={i === highlightedIndex}
-						class="flex w-full items-center justify-between px-3 py-2.5 sm:py-2 text-left cursor-pointer transition-colors min-h-[44px] sm:min-h-0
+						class="flex w-full items-center justify-between {compact ? 'px-2.5 py-1.5' : 'px-3 py-2.5 sm:py-2'} text-left cursor-pointer transition-colors {compact ? '' : 'min-h-[44px] sm:min-h-0'}
 							{i === highlightedIndex ? 'bg-[--accent-muted]' : 'hover:bg-[--accent-muted]'}"
 						onmousedown={() => selectSuggestion(suggestion.cert)}
 					>
-						<span class="font-medium text-[--text-primary] text-[13px] truncate">{suggestion.name}</span>
-						<span class="ml-2 shrink-0 text-[12px] text-[--text-tertiary] data-mono">
+						<span class="font-medium text-[--text-primary] {compact ? 'text-[12px]' : 'text-[13px]'} truncate">{suggestion.name}</span>
+						<span class="ml-2 shrink-0 {compact ? 'text-[11px]' : 'text-[12px]'} text-[--text-tertiary] data-mono">
 							{suggestion.state ?? ''} &middot; {suggestion.cert}
 						</span>
 					</button>

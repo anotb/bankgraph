@@ -13,11 +13,15 @@ import { cacheWrap } from '$lib/server/cache';
 import { jsonResponse, errorResponse } from '$lib/server/response';
 import type { Institution, BankListResponse } from '$lib/types';
 
-const VALID_SORT_COLUMNS = new Set(['name', 'assets', 'deposits']);
+const VALID_SORT_COLUMNS = new Set(['name', 'assets', 'deposits', 'roe', 'nim', 'npl', 'tier1']);
 const SORT_COLUMN_MAP: Record<string, string> = {
   name: 'name',
   assets: 'total_assets',
-  deposits: 'total_deposits'
+  deposits: 'total_deposits',
+  roe: 'latest_roe',
+  nim: 'latest_nim',
+  npl: 'latest_npl_ratio',
+  tier1: 'latest_tier1_ratio'
 };
 
 const ONE_HOUR = 3600;
