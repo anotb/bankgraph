@@ -53,6 +53,19 @@ describe('classifyPCA', () => {
 		// Exactly at well-capitalized thresholds
 		expect(classifyPCA({ rbcrwaj: 10, rbc1rwaj: 8, rbc1aaj: 5 })).toBe('well_capitalized');
 	});
+
+	it('treats zero capital ratios as unreported (not undercapitalized)', () => {
+		// Many institutions report 0 for rbcrwaj when they use a different capital framework
+		expect(classifyPCA({ rbcrwaj: 0, rbc1rwaj: null, rbc1aaj: 13 })).toBe('well_capitalized');
+		expect(classifyPCA({ rbcrwaj: 0, rbc1rwaj: 0, rbc1aaj: 8 })).toBe('well_capitalized');
+	});
+
+	it('still flags truly low non-zero ratios', () => {
+		// rbcrwaj = 0.5 is a real value < 6, triggers significantly_undercapitalized
+		expect(classifyPCA({ rbcrwaj: 0.5, rbc1rwaj: null, rbc1aaj: 13 })).toBe('significantly_undercapitalized');
+		// Only rbc1aaj is available and it's low
+		expect(classifyPCA({ rbcrwaj: 0, rbc1rwaj: null, rbc1aaj: 1.5 })).toBe('critically_undercapitalized');
+	});
 });
 
 // --- Capital Score ---

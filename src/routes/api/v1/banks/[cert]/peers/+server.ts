@@ -29,6 +29,7 @@ async function calcPercentile(
   metric: string,
   bankValue: number
 ): Promise<number> {
+  if (!/^[a-z_][a-z0-9_]*$/i.test(metric)) throw new Error(`Invalid metric: ${metric}`);
   const bucket = parseInt(peerGroup.split(':')[1], 10);
   const rows = await queryAll<Record<string, number>>(
     db,

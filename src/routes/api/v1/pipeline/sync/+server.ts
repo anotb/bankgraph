@@ -52,6 +52,11 @@ export const POST: RequestHandler = async ({ platform, url, request }) => {
   const startTime = Date.now();
   const stage = url.searchParams.get('stage');
 
+  const VALID_STAGES = ['institutions', 'financials', 'failures', 'snapshot', 'analytics', 'trends', 'anomalies', 'risk', 'fred', 'correlations'];
+  if (stage && !VALID_STAGES.includes(stage)) {
+    return pipelineJson({ ok: false, error: `Unknown stage: ${stage}` }, 400);
+  }
+
   try {
     const db = getDB(platform);
     const results: Record<string, unknown> = {};
@@ -250,17 +255,7 @@ export const POST: RequestHandler = async ({ platform, url, request }) => {
       ...results
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`Pipeline sync failed: ${message}`);
-
-    return pipelineJson(
-      {
-        ok: false,
-        stage: stage ?? 'all',
-        error: message,
-        elapsed_seconds: Number(((Date.now() - startTime) / 1000).toFixed(1))
-      },
-      500
-    );
+    console.error('Pipeline error:', err);
+    return pipelineJson({ ok: false, stage: stage ?? 'all', error: 'Internal pipeline error' }, 500);
   }
 };

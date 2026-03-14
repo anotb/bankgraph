@@ -38,6 +38,7 @@ async function calcPercentile(
   metric: string,
   bankValue: number
 ): Promise<number> {
+  if (!/^[a-z_][a-z0-9_]*$/i.test(metric)) throw new Error(`Invalid metric: ${metric}`);
   const rows = await queryAll<Record<string, number>>(
     db,
     `SELECT ${metric} FROM financials WHERE asset_bucket = ? AND repdte = ? AND ${metric} IS NOT NULL ORDER BY ${metric}`,

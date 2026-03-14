@@ -18,6 +18,15 @@ import type { Financial, CompareResponse } from '$lib/types';
 const ONE_HOUR = 3600;
 const DATE_RE = /^\d{8}$/;
 
+function csvEscape(val: unknown): string {
+  if (val === null || val === undefined) return '';
+  const s = String(val);
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
 const VALID_METRICS = new Set([
   'roa', 'roe', 'nimy', 'eeffr', 'rbcrwaj', 'rbc1rwaj', 'rbc1aaj',
   'eqv', 'nclnlsr', 'lnatresr', 'nco_ratio', 'lnlsdepr',
@@ -43,6 +52,9 @@ export const GET: RequestHandler = async ({ platform, url }) => {
   const invalidMetrics = metrics.filter((m) => !VALID_METRICS.has(m));
   if (invalidMetrics.length > 0) {
     return errorResponse(`Invalid metrics: ${invalidMetrics.join(', ')}`, 400);
+  }
+  for (const m of metrics) {
+    if (!/^[a-z0-9_]+$/.test(m)) return errorResponse(`Invalid metric name: ${m}`, 400);
   }
 
   const from = url.searchParams.get('from');
@@ -121,10 +133,7 @@ export const GET: RequestHandler = async ({ platform, url }) => {
       const csvLines = [
         csvHeaders.join(','),
         ...flatRows.map(row =>
-          csvHeaders.map(h => {
-            const val = row[h];
-            return val === null || val === undefined ? '' : String(val);
-          }).join(',')
+          csvHeaders.map(h => csvEscape(row[h])).join(',')
         )
       ];
       return new Response(csvLines.join('\n'), {

@@ -6,6 +6,15 @@ import type { Financial, FinancialsResponse } from '$lib/types';
 
 const SIX_HOURS = 21600;
 
+function csvEscape(val: unknown): string {
+  if (val === null || val === undefined) return '';
+  const s = String(val);
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
 const VALID_FIELDS = new Set([
   'cert', 'repdte', 'asset', 'dep', 'eq', 'lnlsnet', 'lnre', 'lnci', 'lncon', 'sec',
   'netinc', 'intinc', 'eintexp', 'nim', 'nonii', 'nonix', 'elnatr',
@@ -114,10 +123,9 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
       const csvHeaders = Object.keys(data[0]);
       const csvRows = [
         csvHeaders.join(','),
-        ...data.map(row => csvHeaders.map(h => {
-          const val = (row as unknown as Record<string, unknown>)[h];
-          return val === null || val === undefined ? '' : String(val);
-        }).join(','))
+        ...data.map(row => csvHeaders.map(h =>
+          csvEscape((row as unknown as Record<string, unknown>)[h])
+        ).join(','))
       ];
       return new Response(csvRows.join('\n'), {
         status: 200,

@@ -6,7 +6,7 @@
 
 import { queryAll, batchInsert } from '$lib/server/db';
 
-const BANK_BATCH_SIZE = 200;
+const BANK_BATCH_SIZE = 80; // D1 limits ~100 SQL variables; trend query uses cert IN(...) + 1
 
 // --- PCA Classification ---
 
@@ -24,7 +24,10 @@ type PCACategory =
   | 'critically_undercapitalized';
 
 export function classifyPCA(data: PCAInput): PCACategory {
-  const { rbcrwaj, rbc1rwaj, rbc1aaj } = data;
+  // Treat 0 as unreported (many institutions don't report risk-weighted ratios)
+  const rbcrwaj = data.rbcrwaj && data.rbcrwaj > 0 ? data.rbcrwaj : null;
+  const rbc1rwaj = data.rbc1rwaj && data.rbc1rwaj > 0 ? data.rbc1rwaj : null;
+  const rbc1aaj = data.rbc1aaj && data.rbc1aaj > 0 ? data.rbc1aaj : null;
 
   // Can't classify without data
   if (rbcrwaj == null && rbc1rwaj == null && rbc1aaj == null) {
@@ -32,7 +35,6 @@ export function classifyPCA(data: PCAInput): PCACategory {
   }
 
   // Critically undercapitalized: tangible equity/assets <= 2%
-  // We approximate with leverage ratio
   if (rbc1aaj != null && rbc1aaj <= 2) return 'critically_undercapitalized';
 
   // Significantly undercapitalized: any ratio below undercapitalized threshold by more
@@ -69,7 +71,9 @@ export function classifyPCA(data: PCAInput): PCACategory {
 
 export function computeCapitalScore(data: PCAInput): number {
   const category = classifyPCA(data);
-  const { rbcrwaj, rbc1rwaj, rbc1aaj } = data;
+  const rbcrwaj = data.rbcrwaj && data.rbcrwaj > 0 ? data.rbcrwaj : null;
+  const rbc1rwaj = data.rbc1rwaj && data.rbc1rwaj > 0 ? data.rbc1rwaj : null;
+  const rbc1aaj = data.rbc1aaj && data.rbc1aaj > 0 ? data.rbc1aaj : null;
 
   if (category === 'critically_undercapitalized') return 5;
   if (category === 'significantly_undercapitalized') return 15;
