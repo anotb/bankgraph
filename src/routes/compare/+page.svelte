@@ -3,6 +3,7 @@
 	import { page } from '$app/stores';
 	import TimeSeriesChart from '$lib/components/charts/TimeSeriesChart.svelte';
 	import ExportButton from '$lib/components/data/ExportButton.svelte';
+	import DateRangePicker from '$lib/components/data/DateRangePicker.svelte';
 	import { formatPercent, formatCurrency, formatNumber } from '$lib/utils/formatters.js';
 	import type { CompareResponse, Financial, Institution } from '$lib/types';
 	import { getMode } from '$lib/stores/mode.svelte.js';
@@ -57,10 +58,46 @@
 		availableMetrics.filter((m) => selectedMetricKeys.has(m.key))
 	);
 
-	// ── Date range ──
-	type DateRange = '5Y' | '10Y' | '20Y' | 'All';
-	let selectedRange: DateRange = $state('10Y');
-	const rangeButtons: DateRange[] = ['5Y', '10Y', '20Y', 'All'];
+	// ── Date range (uses DateRangePicker component for consistency) ──
+	let dateRange = $state<{ from: string; to: string }>({ from: '', to: '' });
+
+	// Compute availableRange from compare data (union of all banks' date ranges)
+	let availableRange = $derived.by(() => {
+		if (!compareData) return undefined;
+		let earliest = '';
+		let latest = '';
+		for (const cert of Object.keys(compareData.data)) {
+			const rows = compareData.data[cert as unknown as number];
+			if (!rows || rows.length === 0) continue;
+			const first = rows[0].repdte;
+			const last = rows[rows.length - 1].repdte;
+			if (!earliest || first < earliest) earliest = first;
+			if (!latest || last > latest) latest = last;
+		}
+		if (!earliest || !latest) return undefined;
+		return { earliest, latest };
+	});
+
+	// Initialize dateRange to 10Y when compareData first arrives
+	let dateRangeInitialized = false;
+	$effect(() => {
+		if (dateRangeInitialized || !availableRange) return;
+		dateRangeInitialized = true;
+		const latest = availableRange.latest;
+		const latestYear = parseInt(latest.slice(0, 4), 10);
+		const from = `${latestYear - 10}${latest.slice(4)}`;
+		dateRange = {
+			from: from < availableRange.earliest ? availableRange.earliest : from,
+			to: latest
+		};
+	});
+
+	// Reset dateRange initialization when compareData is cleared (banks changed)
+	$effect(() => {
+		if (!compareData) {
+			dateRangeInitialized = false;
+		}
+	});
 
 	// ── Compare data ──
 	let compareData = $state<CompareResponse | null>(null);
@@ -171,6 +208,11 @@
 	}
 
 	function handleSearchKeydown(e: KeyboardEvent): void {
+		if (e.key === 'Escape' && showDropdown) {
+			e.preventDefault();
+			showDropdown = false;
+			return;
+		}
 		if (showDropdown && searchResults.length > 0) {
 			if (e.key === 'ArrowDown') {
 				e.preventDefault();
@@ -186,11 +228,6 @@
 			if (e.key === 'Enter' && highlightedIndex >= 0) {
 				e.preventDefault();
 				addBank(searchResults[highlightedIndex]);
-				return;
-			}
-			if (e.key === 'Escape') {
-				e.preventDefault();
-				showDropdown = false;
 				return;
 			}
 		}
@@ -243,11 +280,13 @@
 		await loadBanksFromCerts(certs);
 	}
 
-	// ── Fetch comparison data when banks, metrics, or date range change ──
+	// ── Fetch comparison data when banks or metrics change ──
+	// Date range filtering is now client-side via DateRangePicker,
+	// so no need to re-fetch when the range changes.
+	// The API defaults to 20Y when no `from` is provided.
 	$effect(() => {
 		const certs = selectedBanks.map((b) => b.cert);
 		const metrics = [...selectedMetricKeys];
-		const range = selectedRange; // track reactively
 
 		if (certs.length < 2) {
 			compareData = null;
@@ -258,12 +297,10 @@
 		error = null;
 		let cancelled = false;
 
-		const fromDate = getCutoffDate();
 		const params = new URLSearchParams({
 			certs: certs.join(','),
 			metrics: metrics.join(',')
 		});
-		if (fromDate) params.set('from', fromDate);
 
 		fetch(`/api/v1/compare?${params.toString()}`)
 			.then(async (res) => {
@@ -302,27 +339,15 @@
 		return `/api/v1/compare?certs=${certs}&metrics=${metrics}`;
 	});
 
-	// ── Filter data by date range ──
-	function getCutoffDate(): string | null {
-		if (selectedRange === 'All') return null;
-		const now = new Date();
-		const years = selectedRange === '5Y' ? 5 : selectedRange === '10Y' ? 10 : 20;
-		const cutoffYear = now.getFullYear() - years;
-		const month = String(now.getMonth() + 1).padStart(2, '0');
-		const day = String(now.getDate()).padStart(2, '0');
-		return `${cutoffYear}${month}${day}`;
-	}
-
-	function filterFinancials(rows: Financial[]): Financial[] {
-		const cutoff = getCutoffDate();
-		if (!cutoff) return rows;
-		return rows.filter((f) => f.repdte >= cutoff);
-	}
-
-	/** Look up compare data by cert (JSON keys are strings, cert is number) */
+	/** Look up compare data by cert, filtered by dateRange (client-side) */
 	function getCompareRows(cert: number): Financial[] {
 		if (!compareData) return [];
-		return compareData.data[cert] || compareData.data[String(cert) as unknown as number] || [];
+		const rows =
+			compareData.data[cert] ||
+			compareData.data[String(cert) as unknown as number] ||
+			[];
+		if (!dateRange.from || !dateRange.to) return rows;
+		return rows.filter((f) => f.repdte >= dateRange.from && f.repdte <= dateRange.to);
 	}
 
 	// ── Chart series ──
@@ -497,12 +522,10 @@
 	<!-- Header -->
 	<div class="flex items-center justify-between">
 		<div>
-			<h1 class="{isPower ? 'text-xl' : 'text-2xl'} font-semibold text-[--text-primary]">Bank Comparison</h1>
-			{#if !isPower}
-				<p class="text-[13px] text-[--text-tertiary]">
-					Compare financial metrics across multiple banks
-				</p>
-			{/if}
+			<h1 class="text-2xl font-semibold text-[--text-primary]">Bank Comparison</h1>
+			<p class="text-[13px] text-[--text-tertiary]">
+				Compare financial metrics across multiple banks
+			</p>
 		</div>
 		{#if exportUrl}
 			<ExportButton baseUrl={exportUrl} filename="comparison" />
@@ -633,7 +656,7 @@
 			<div class="flex flex-wrap gap-1.5 mt-2">
 				{#each selectedBanks as bank (bank.cert)}
 					<span
-						class="inline-flex items-center gap-1.5 rounded-full bg-[--accent-muted] text-[--accent-text] {isPower ? 'px-2 py-0.5' : 'px-3 py-1.5 sm:px-2.5 sm:py-1'} text-[12px] font-medium"
+						class="inline-flex items-center gap-1.5 rounded-full bg-[--accent-muted] text-[--accent-text] px-3 py-1.5 sm:px-2.5 sm:py-1 text-[12px] font-medium"
 					>
 						<a href="/banks/{bank.cert}" class="hover:underline" title={bank.name}>
 							{bank.name.length > 25 ? bank.name.slice(0, 25) + '...' : bank.name}
@@ -752,8 +775,8 @@
 		</div>
 	{:else if loading}
 		<div
-			class="{isPower ? 'rounded-none border border-[--border-muted]' : 'rounded-md'} bg-[--surface-1] {isPower ? 'py-10' : 'py-16'} text-center"
-			style="{isPower ? '' : 'box-shadow: var(--shadow-sm)'}"
+			class="rounded-md bg-[--surface-1] py-16 text-center"
+			style="box-shadow: var(--shadow-sm)"
 		>
 			<div
 				class="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[--border-muted] border-t-[--accent]"
@@ -762,29 +785,14 @@
 		</div>
 	{:else if error}
 		<div
-			class="{isPower ? 'rounded-none border border-[--border-muted]' : 'rounded-md'} bg-[--negative-muted] {isPower ? 'py-5' : 'py-8'} text-center"
-			style="{isPower ? '' : 'box-shadow: var(--shadow-sm)'}"
+			class="rounded-md bg-[--negative-muted] py-8 text-center"
+			style="box-shadow: var(--shadow-sm)"
 		>
 			<p class="text-[--negative] text-[14px]">Failed to load: {error}</p>
 		</div>
 	{:else if compareData}
-		<!-- Date range selector -->
-		<div class="flex items-center gap-2">
-			<span class="text-[13px] text-[--text-tertiary]">Period:</span>
-			<div class="flex gap-1">
-				{#each rangeButtons as range}
-					<button
-						class="{isPower ? 'px-2.5 py-0.5' : 'px-3.5 py-2 sm:px-3 sm:py-1'} text-[13px] rounded font-medium transition-colors {isPower ? '' : 'min-h-[44px] sm:min-h-0'}
-							{selectedRange === range
-							? 'bg-[--accent] text-white'
-							: 'bg-[--surface-2] text-[--text-secondary] hover:bg-[--surface-3]'}"
-						onclick={() => (selectedRange = range)}
-					>
-						{range}
-					</button>
-				{/each}
-			</div>
-		</div>
+		<!-- Date range selector (shared DateRangePicker component) -->
+		<DateRangePicker bind:value={dateRange} {availableRange} />
 
 		<!-- No-data notice for banks missing financials -->
 		{#if banksWithNoData.length > 0}
@@ -909,11 +917,11 @@
 										</tr>
 									{/if}
 									<tr class="bg-[--surface-2]/30 hover:bg-[--accent-muted]/30 transition-colors">
-										<td class="px-3 {isPower ? 'py-0.5' : 'py-1.5'} text-[--text-tertiary] text-[12px] sticky left-0 bg-[--surface-2]/30 z-[5]">
+										<td class="px-3 py-1.5 text-[--text-tertiary] text-[12px] sticky left-0 bg-[--surface-2]/30 z-[5]">
 											{dr.metric.label}
 										</td>
 										<td
-											class="px-3 {isPower ? 'py-0.5' : 'py-1.5'} text-right whitespace-nowrap text-[12px] data-mono
+											class="px-3 py-1.5 text-right whitespace-nowrap text-[12px] data-mono
 												{dr.firstIsBetter === true ? 'text-[--positive] font-semibold' : ''}
 												{dr.firstIsBetter === false ? 'text-[--negative]' : ''}
 												{dr.firstIsBetter === null ? 'text-[--text-disabled]' : ''}"

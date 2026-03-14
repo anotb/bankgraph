@@ -208,7 +208,7 @@ test.describe('Compare page', () => {
 		test('all 8 metric pills are visible', async ({ page }) => {
 			await page.goto(COMPARE_URL);
 
-			await expect(page.getByText('Metrics')).toBeVisible({ timeout: 10000 });
+			await expect(page.getByRole('heading', { name: 'Metrics' })).toBeVisible({ timeout: 10000 });
 
 			for (const label of [
 				'ROA',
@@ -227,7 +227,7 @@ test.describe('Compare page', () => {
 		test('ROA, ROE, NIM are selected by default', async ({ page }) => {
 			await page.goto(COMPARE_URL);
 
-			await expect(page.getByText('Metrics')).toBeVisible({ timeout: 10000 });
+			await expect(page.getByRole('heading', { name: 'Metrics' })).toBeVisible({ timeout: 10000 });
 
 			for (const label of ['ROA', 'ROE', 'NIM']) {
 				const btn = page.getByRole('button', { name: label });
@@ -238,7 +238,7 @@ test.describe('Compare page', () => {
 		test('non-default metric pills are not selected by default', async ({ page }) => {
 			await page.goto(COMPARE_URL);
 
-			await expect(page.getByText('Metrics')).toBeVisible({ timeout: 10000 });
+			await expect(page.getByRole('heading', { name: 'Metrics' })).toBeVisible({ timeout: 10000 });
 
 			for (const label of ['Assets', 'Deposits', 'Capital Ratio']) {
 				const btn = page.getByRole('button', { name: label });
@@ -249,7 +249,7 @@ test.describe('Compare page', () => {
 		test('clicking a deselected metric pill selects it', async ({ page }) => {
 			await page.goto(COMPARE_URL);
 
-			await expect(page.getByText('Metrics')).toBeVisible({ timeout: 10000 });
+			await expect(page.getByRole('heading', { name: 'Metrics' })).toBeVisible({ timeout: 10000 });
 
 			const assetsBtn = page.getByRole('button', { name: 'Assets' });
 			await expect(assetsBtn).not.toHaveClass(/bg-\[--accent\] text-white/);
@@ -261,7 +261,7 @@ test.describe('Compare page', () => {
 		test('clicking a selected metric pill deselects it when others remain', async ({ page }) => {
 			await page.goto(COMPARE_URL);
 
-			await expect(page.getByText('Metrics')).toBeVisible({ timeout: 10000 });
+			await expect(page.getByRole('heading', { name: 'Metrics' })).toBeVisible({ timeout: 10000 });
 
 			// ROA is selected by default; deselect it (ROE and NIM still remain)
 			const roaBtn = page.getByRole('button', { name: 'ROA' });
@@ -274,7 +274,7 @@ test.describe('Compare page', () => {
 		test('cannot deselect the last remaining metric', async ({ page }) => {
 			await page.goto(COMPARE_URL);
 
-			await expect(page.getByText('Metrics')).toBeVisible({ timeout: 10000 });
+			await expect(page.getByRole('heading', { name: 'Metrics' })).toBeVisible({ timeout: 10000 });
 
 			// Deselect ROE and NIM, leaving only ROA
 			await page.getByRole('button', { name: 'ROE' }).click();
@@ -316,22 +316,23 @@ test.describe('Compare page', () => {
 		test('date range buttons are shown when data loads', async ({ page }) => {
 			await expect(page.getByText('Period:')).toBeVisible();
 
-			for (const range of ['5Y', '10Y', '20Y', 'All']) {
-				await expect(page.getByRole('button', { name: range })).toBeVisible();
+			// DateRangePicker presets: 4Q, 8Q, 5Y, 10Y, All, Custom
+			for (const range of ['4Q', '8Q', '5Y', '10Y', 'All']) {
+				await expect(page.getByRole('button', { name: range, exact: true })).toBeVisible();
 			}
 		});
 
 		test('10Y is the default selected date range', async ({ page }) => {
-			const btn10Y = page.getByRole('button', { name: '10Y' });
+			const btn10Y = page.getByRole('button', { name: '10Y', exact: true });
 			await expect(btn10Y).toHaveClass(/bg-\[--accent\]/);
 		});
 
 		test('clicking a different date range button selects it', async ({ page }) => {
-			const btn5Y = page.getByRole('button', { name: '5Y' });
+			const btn5Y = page.getByRole('button', { name: '5Y', exact: true });
 			await btn5Y.click();
 			await expect(btn5Y).toHaveClass(/bg-\[--accent\]/);
 
-			const btn10Y = page.getByRole('button', { name: '10Y' });
+			const btn10Y = page.getByRole('button', { name: '10Y', exact: true });
 			await expect(btn10Y).not.toHaveClass(/bg-\[--accent\] text-white/);
 		});
 
@@ -389,10 +390,10 @@ test.describe('Compare page', () => {
 
 		test('table body has rows for each selected metric', async ({ page }) => {
 			const tbody = page.locator('tbody');
-			// Default metrics: ROA, ROE, NIM
-			await expect(tbody.getByText('ROA')).toBeVisible();
-			await expect(tbody.getByText('ROE')).toBeVisible();
-			await expect(tbody.getByText('NIM')).toBeVisible();
+			// Default metrics: ROA, ROE, NIM (use first() since delta rows may duplicate names)
+			await expect(tbody.getByText('ROA').first()).toBeVisible();
+			await expect(tbody.getByText('ROE').first()).toBeVisible();
+			await expect(tbody.getByText('NIM').first()).toBeVisible();
 		});
 
 		test('delta row is present when exactly 2 banks are selected', async ({ page }) => {
@@ -512,7 +513,7 @@ test.describe('Compare page', () => {
 
 			await page.getByRole('button', { name: 'JPMorgan vs Bank of America' }).click();
 
-			await expect(page).toHaveURL(/[?&]certs=628,3510/, { timeout: 15000 });
+			await expect(page).toHaveURL(/[?&]certs=628(,|%2C)3510/, { timeout: 15000 });
 			await expect(page.getByText('(2/10)')).toBeVisible({ timeout: 20000 });
 		});
 	});
