@@ -3,9 +3,11 @@
  * Returns industry aggregate metrics over time.
  *
  * Query params:
- *   segment - 'all' | 'community' | 'regional' | 'large' (default: 'all')
- *   repdte  - specific quarter YYYYMMDD (optional, returns all quarters if omitted)
- *   limit   - max quarters to return (default: 20, max: 100)
+ *   segment  - 'all' | 'community' | 'regional' | 'large' (default: 'all')
+ *   repdte   - specific quarter YYYYMMDD (optional, returns all quarters if omitted)
+ *   limit    - max quarters to return (default: 20, max: 100)
+ *   format   - 'json' (default) | 'csv'
+ *   download - present triggers JSON download with Content-Disposition header
  */
 
 import type { RequestHandler } from './$types';
@@ -89,6 +91,43 @@ export const GET: RequestHandler = async ({ platform, url }) => {
 
       return { segment, data };
     });
+
+    const format = url.searchParams.get('format') || 'json';
+
+    if (format === 'csv' && result.data) {
+      // Collect all metric keys across all quarters
+      const metricKeys = new Set<string>();
+      for (const q of result.data) {
+        for (const k of Object.keys(q.metrics)) metricKeys.add(k);
+      }
+      const metrics = [...metricKeys].sort();
+      const headers = ['quarter', ...metrics];
+      const rows = [
+        headers.join(','),
+        ...result.data.map((q: { repdte: string; metrics: Record<string, number> }) =>
+          [q.repdte, ...metrics.map((m) => q.metrics[m] ?? '')].join(',')
+        )
+      ];
+      return new Response(rows.join('\n'), {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/csv',
+          'Content-Disposition': `attachment; filename="industry_${segment}.csv"`,
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+
+    if (url.searchParams.has('download')) {
+      return new Response(JSON.stringify(result, null, 2), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Disposition': `attachment; filename="industry_${segment}.json"`,
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
 
     return jsonResponse(result);
   } catch (err) {

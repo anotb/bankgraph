@@ -1,6 +1,7 @@
 <script lang="ts">
 	import MetricCard from '$lib/components/data/MetricCard.svelte';
 	import EmptyState from '$lib/components/data/EmptyState.svelte';
+	import ExportButton from '$lib/components/data/ExportButton.svelte';
 	import TimeSeriesChart from '$lib/components/charts/TimeSeriesChart.svelte';
 	import HorizontalBarChart from '$lib/components/charts/HorizontalBarChart.svelte';
 	import { formatCurrency, formatPercent, formatDate, formatNumber } from '$lib/utils/formatters.js';
@@ -127,11 +128,14 @@
 
 <div class="space-y-5">
 	<!-- Header -->
-	<div>
-		<h1 class="text-2xl font-semibold text-[--text-primary]">Industry Overview</h1>
-		{#if latestQuarter}
-			<p class="text-[13px] text-[--text-tertiary]">Latest data: {formatDate(latestQuarter)}</p>
-		{/if}
+	<div class="flex items-start justify-between gap-3">
+		<div>
+			<h1 class="text-2xl font-semibold text-[--text-primary]">Industry Overview</h1>
+			{#if latestQuarter}
+				<p class="text-[13px] text-[--text-tertiary]">Latest data: {formatDate(latestQuarter)}</p>
+			{/if}
+		</div>
+		<ExportButton baseUrl="/api/v1/industry" filename="industry_all" />
 	</div>
 
 	<!-- Top stats cards -->

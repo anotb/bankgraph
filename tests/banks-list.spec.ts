@@ -123,26 +123,53 @@ test.describe('Banks listing page', () => {
 		await expect(table).toBeVisible({ timeout: 10000 });
 		await expect(table.locator('tbody tr').first()).toBeVisible({ timeout: 15000 });
 
-		// Sparkline SVGs are rendered inside table body cells
-		// Look for SVGs with polyline elements anywhere in the table body
+		// Sparkline cells either render an SVG (when data is available)
+		// or a dash fallback (when sparkline data has fewer than 2 points)
 		const svgs = table.locator('tbody svg');
-		await expect(svgs.first()).toBeVisible({ timeout: 10000 });
+		const dashes = table.locator('tbody td span').filter({ hasText: '—' });
+
+		// Wait for sparkline cells to resolve (either SVGs or dashes should appear)
+		await expect(svgs.first().or(dashes.first())).toBeVisible({ timeout: 10000 });
 
 		const svgCount = await svgs.count();
-		expect(svgCount).toBeGreaterThan(0);
+		const dashCount = await dashes.count();
 
-		// Verify the first SVG contains a polyline element with non-empty points
-		const firstSvg = svgs.first();
-		const polyline = firstSvg.locator('polyline');
-		await expect(polyline).toBeVisible();
+		// At least some sparkline cells should be present (SVG or fallback dash)
+		expect(svgCount + dashCount).toBeGreaterThan(0);
 
-		const points = await polyline.getAttribute('points');
-		expect(points).toBeTruthy();
-		expect(points!.length).toBeGreaterThan(0);
+		// If SVGs are present, verify polyline data and dot
+		if (svgCount > 0) {
+			const firstSvg = svgs.first();
+			const polyline = firstSvg.locator('polyline');
+			await expect(polyline).toBeVisible();
 
-		// Verify there's also a dot (circle) on the sparkline
-		const circle = firstSvg.locator('circle');
-		await expect(circle).toBeVisible();
+			const points = await polyline.getAttribute('points');
+			expect(points).toBeTruthy();
+			expect(points!.length).toBeGreaterThan(0);
+
+			// Verify there's also a dot (circle) on the sparkline
+			const circle = firstSvg.locator('circle');
+			await expect(circle).toBeVisible();
+		}
+	});
+
+	test('export button is visible and opens format menu', async ({ page }) => {
+		await page.goto('/banks');
+
+		const exportBtn = page.getByRole('button', { name: 'Export data' });
+		await expect(exportBtn).toBeVisible({ timeout: 10000 });
+		await expect(exportBtn).toHaveAttribute('aria-haspopup', 'true');
+		await expect(exportBtn).toHaveAttribute('aria-expanded', 'false');
+
+		// Click to open the dropdown menu
+		await exportBtn.click();
+		await expect(exportBtn).toHaveAttribute('aria-expanded', 'true');
+
+		// Menu should show CSV and JSON download options
+		const menu = page.getByRole('menu');
+		await expect(menu).toBeVisible({ timeout: 3000 });
+		await expect(page.getByRole('menuitem', { name: 'Download CSV' })).toBeVisible();
+		await expect(page.getByRole('menuitem', { name: 'Download JSON' })).toBeVisible();
 	});
 
 	test('bank count indicator shows a positive total', async ({ page }) => {

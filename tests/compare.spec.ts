@@ -336,6 +336,20 @@ test.describe('Compare page', () => {
 			await expect(btn10Y).not.toHaveClass(/bg-\[--accent\] text-white/);
 		});
 
+		test('Custom button reveals start and end quarter selects', async ({ page }) => {
+			const customBtn = page.getByRole('button', { name: 'Custom', exact: true });
+			await expect(customBtn).toBeVisible();
+
+			await customBtn.click();
+			await expect(customBtn).toHaveClass(/bg-\[--accent\]/);
+
+			// Two select elements should appear with proper aria-labels
+			const startSelect = page.getByLabel('Start quarter');
+			const endSelect = page.getByLabel('End quarter');
+			await expect(startSelect).toBeVisible({ timeout: 5000 });
+			await expect(endSelect).toBeVisible({ timeout: 5000 });
+		});
+
 		test('adding a metric via pill shows a new chart card', async ({ page }) => {
 			// Assets is not selected by default
 			await expect(

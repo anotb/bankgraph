@@ -1,8 +1,30 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { afterNavigate } from '$app/navigation';
 	import AnomalyBadge from '$lib/components/data/AnomalyBadge.svelte';
 
 	let { data, children } = $props();
+
+	// Track where the user came from for "back" navigation
+	let backLink: { href: string; label: string } | null = $state(null);
+
+	afterNavigate(({ from }) => {
+		if (!from?.url) return;
+		const path = from.url.pathname;
+		// Ignore intra-detail tab navigation (e.g. overview -> financials)
+		if (path.startsWith(`/banks/${data.bank.cert}`)) return;
+		if (path === '/banks') {
+			const search = from.url.search;
+			backLink = {
+				href: `/banks${search}`,
+				label: search ? '\u2190 Back to search results' : '\u2190 Banks'
+			};
+		} else if (path === '/compare' || path.startsWith('/compare')) {
+			backLink = { href: from.url.pathname + from.url.search, label: '\u2190 Back to comparison' };
+		} else {
+			backLink = null;
+		}
+	});
 
 	let hasPeerData = $derived(
 		(data.peerComparison ?? []).length > 0 &&
@@ -42,8 +64,15 @@
 </svelte:head>
 
 <div class="space-y-4">
-	<!-- Breadcrumb navigation -->
-	<nav aria-label="Breadcrumb" class="text-[13px]">
+	<!-- Back navigation + Breadcrumb -->
+	<nav aria-label="Breadcrumb" class="text-[13px] flex items-center gap-3">
+		{#if backLink}
+			<a
+				href={backLink.href}
+				class="text-[--text-tertiary] hover:text-[--accent] transition-colors shrink-0"
+			>{backLink.label}</a>
+			<span aria-hidden="true" class="text-[--text-disabled] select-none">|</span>
+		{/if}
 		<ol class="flex items-center gap-1.5">
 			<li>
 				<a

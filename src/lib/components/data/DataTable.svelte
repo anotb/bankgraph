@@ -253,6 +253,9 @@
 									<span class="sort-hint text-[--text-disabled]">{'\u25B2'}</span>
 								{/if}
 							</span>
+							{#if dense && col.tooltip}
+								<span class="block text-[9px] text-[--text-disabled] font-normal tracking-wider">{col.tooltip}</span>
+							{/if}
 						</th>
 					{/each}
 				</tr>

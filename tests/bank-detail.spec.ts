@@ -250,6 +250,22 @@ test.describe('Bank detail page', () => {
 			// Quarter count should update (likely to 4 or fewer)
 			await expect(quarterText).not.toHaveText(initialText!, { timeout: 5000 });
 		});
+
+		test('Custom button reveals start and end quarter selects', async ({ page }) => {
+			await expect(page.getByText(/\d+ quarters/)).toBeVisible({ timeout: 20000 });
+
+			const customBtn = page.getByRole('button', { name: 'Custom', exact: true });
+			await expect(customBtn).toBeVisible();
+
+			await customBtn.click();
+			await expect(customBtn).toHaveClass(/bg-\[--accent\]/);
+
+			// Two select elements should appear with proper aria-labels
+			const startSelect = page.getByLabel('Start quarter');
+			const endSelect = page.getByLabel('End quarter');
+			await expect(startSelect).toBeVisible({ timeout: 5000 });
+			await expect(endSelect).toBeVisible({ timeout: 5000 });
+		});
 	});
 
 	test.describe('Peers tab', () => {
