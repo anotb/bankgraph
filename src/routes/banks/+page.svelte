@@ -243,6 +243,10 @@
 			<option value="0">Inactive only</option>
 			<option value="">All</option>
 		</select>
+
+		<span class="text-[12px] text-[--text-tertiary] tabular-nums ml-1">
+			{data.total.toLocaleString()} bank{data.total === 1 ? '' : 's'}
+		</span>
 	</div>
 
 	<!-- Results -->

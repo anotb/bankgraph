@@ -9,6 +9,7 @@
 		trendLabel,
 		compact = false,
 		borderless = false,
+		variant = 'default',
 		semantic,
 		loading = false
 	}: {
@@ -19,9 +20,12 @@
 		trendLabel?: string;
 		compact?: boolean;
 		borderless?: boolean;
+		variant?: 'default' | 'dense';
 		semantic?: 'positive' | 'negative' | 'warning' | 'neutral';
 		loading?: boolean;
 	} = $props();
+
+	let isDense = $derived(variant === 'dense');
 
 	let trendDirection = $derived(
 		trend == null ? 'neutral' : trend > 0 ? 'positive' : trend < 0 ? 'negative' : 'neutral'
@@ -47,14 +51,14 @@
 </script>
 
 {#if compact}
-<div class="relative bg-[--surface-1] {semantic ? 'pl-3.5' : 'px-2.5'} pr-2.5 py-2">
+<div class="relative bg-[--surface-1] {semantic ? 'pl-3.5' : 'px-2.5'} pr-2.5 {isDense ? 'py-1.5' : 'py-2'}">
 	{#if semantic}
 		<div class="absolute top-0 left-0 bottom-0 w-[2px] {semanticBarColor}"></div>
 	{/if}
-	<p class="text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider">{label}</p>
+	<p class="{isDense ? 'text-[10px]' : 'text-[11px]'} font-medium text-[--text-tertiary] uppercase tracking-wider">{label}</p>
 	{#if loading}
 		<div class="mt-0.5">
-			<Skeleton width="80px" height="20px" />
+			<Skeleton width="80px" height={isDense ? "16px" : "20px"} />
 		</div>
 		{#if sublabel}
 			<div class="mt-0.5">
@@ -63,9 +67,9 @@
 		{/if}
 	{:else}
 		<div class="mt-0.5 flex items-baseline gap-1.5">
-			<p class="text-[20px] font-semibold tracking-tight {valueColor} data-mono">{value}</p>
+			<p class="{isDense ? 'text-[18px]' : 'text-[20px]'} font-semibold tracking-tight {valueColor} data-mono">{value}</p>
 			{#if trendFormatted}
-				<span class="inline-flex items-center gap-0.5 text-xs font-medium data-mono rounded-sm px-1 py-0.5
+				<span class="inline-flex items-center gap-0.5 {isDense ? 'text-[10px]' : 'text-xs'} font-medium data-mono rounded-sm px-1 py-0.5
 					{trendDirection === 'positive' ? 'text-[--positive] bg-[--positive-muted]' : trendDirection === 'negative' ? 'text-[--negative] bg-[--negative-muted]' : 'text-[--neutral] bg-[--surface-2]'}">
 					{#if trendDirection === 'positive'}
 						<svg class="w-3 h-3" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
@@ -90,16 +94,16 @@
 	{/if}
 </div>
 {:else}
-<div class="group relative overflow-hidden rounded-md {borderless ? 'borderless-card' : 'border border-[--border-muted] bg-[--surface-1] card-shadow'} px-3 py-3 hover:-translate-y-px">
+<div class="group relative overflow-hidden {isDense ? 'rounded-none bg-[--surface-1]' : 'rounded-md'} {isDense ? '' : borderless ? 'borderless-card' : 'border border-[--border-muted] bg-[--surface-1] card-shadow'} {isDense ? 'px-2.5 py-1.5' : 'px-3 py-3'} {isDense ? '' : 'hover:-translate-y-px'}">
 	{#if semantic}
-		<div class="absolute top-0 left-0 bottom-0 w-[2px] {semanticBarColor} rounded-l-md"></div>
-	{:else}
+		<div class="absolute top-0 left-0 bottom-0 w-[2px] {semanticBarColor} {isDense ? '' : 'rounded-l-md'}"></div>
+	{:else if !isDense}
 		<div class="absolute top-0 left-0 right-0 h-[2px] bg-[--accent] rounded-t-md opacity-0 group-hover:opacity-100 transition-opacity duration-150"></div>
 	{/if}
-	<p class="text-[11px] font-medium text-[--text-tertiary] uppercase tracking-wider {semantic ? 'ml-1' : ''}">{label}</p>
+	<p class="{isDense ? 'text-[10px]' : 'text-[11px]'} font-medium text-[--text-tertiary] uppercase tracking-wider {semantic ? 'ml-1' : ''}">{label}</p>
 	{#if loading}
 		<div class="mt-0.5 {semantic ? 'ml-1' : ''}">
-			<Skeleton width="100px" height="22px" />
+			<Skeleton width="100px" height={isDense ? "18px" : "22px"} />
 		</div>
 		{#if sublabel}
 			<div class="mt-0.5 {semantic ? 'ml-1' : ''}">
@@ -108,9 +112,9 @@
 		{/if}
 	{:else}
 		<div class="mt-0.5 flex items-baseline gap-1.5 {semantic ? 'ml-1' : ''}">
-			<p class="text-[22px] font-semibold tracking-tight {valueColor} data-mono">{value}</p>
+			<p class="{isDense ? 'text-[18px]' : 'text-[22px]'} font-semibold tracking-tight {valueColor} data-mono">{value}</p>
 			{#if trendFormatted}
-				<span class="inline-flex items-center gap-0.5 text-xs font-medium data-mono rounded-sm px-1 py-0.5
+				<span class="inline-flex items-center gap-0.5 {isDense ? 'text-[10px]' : 'text-xs'} font-medium data-mono rounded-sm px-1 py-0.5
 					{trendDirection === 'positive' ? 'text-[--positive] bg-[--positive-muted]' : trendDirection === 'negative' ? 'text-[--negative] bg-[--negative-muted]' : 'text-[--neutral] bg-[--surface-2]'}">
 					{#if trendDirection === 'positive'}
 						<svg class="w-3 h-3" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
@@ -130,9 +134,9 @@
 			{/if}
 		</div>
 		{#if sublabel}
-			<p class="mt-0.5 text-[11px] text-[--text-tertiary] {semantic ? 'ml-1' : ''}">{sublabel}</p>
+			<p class="mt-0.5 {isDense ? 'text-[9px]' : 'text-[11px]'} text-[--text-tertiary] {semantic ? 'ml-1' : ''}">{sublabel}</p>
 		{/if}
-		{#if trendLabel}
+		{#if trendLabel && !isDense}
 			<div class="mt-1 max-h-0 overflow-hidden opacity-0 transition-all duration-200
 						group-hover:max-h-8 group-hover:opacity-100 {semantic ? 'ml-1' : ''}">
 				<p class="text-[11px] text-[--text-tertiary]">{trendLabel}</p>

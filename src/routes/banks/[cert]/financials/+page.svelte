@@ -261,7 +261,7 @@
 								<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
 								<h3 class="text-[13px] font-semibold text-[--text-primary]">{group.label}</h3>
 							</div>
-							<TimeSeriesChart series={group.series} yAxisFormat={group.format} />
+							<TimeSeriesChart series={group.series} yAxisFormat={group.format} showMovingAverage={mode === 'power'} />
 						</section>
 					{/each}
 				</div>

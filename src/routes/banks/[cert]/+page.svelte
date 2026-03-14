@@ -4,6 +4,10 @@
 	import EmptyState from '$lib/components/data/EmptyState.svelte';
 	import { formatCurrency, formatPercent, formatDate, formatNumber, getMetricStatus, semanticColor } from '$lib/utils/formatters.js';
 	import { getRegulatorName, getCharterClassName } from '$lib/utils/field-meta.js';
+	import { getMode } from '$lib/stores/mode.svelte.js';
+
+	let mode = $derived(getMode());
+	let isPower = $derived(mode === 'power');
 
 	let { data } = $props();
 	let bank = $derived(data.bank);
@@ -98,19 +102,28 @@
 		return fields;
 	});
 
-	const detailRow = 'flex justify-between items-center px-3 py-2 gap-2';
-	const detailLabel = 'text-[13px] text-[--text-tertiary] shrink-0';
-	const detailValue = 'text-[13px] font-medium text-[--text-primary] text-right break-words min-w-0';
+	let detailRow = $derived(isPower
+		? 'flex justify-between items-center px-3 py-1.5 gap-2'
+		: 'flex justify-between items-center px-3 py-2 gap-2'
+	);
+	let detailLabel = $derived(isPower
+		? 'text-[12px] text-[--text-tertiary] shrink-0'
+		: 'text-[13px] text-[--text-tertiary] shrink-0'
+	);
+	let detailValue = $derived(isPower
+		? 'text-[12px] font-medium text-[--text-primary] text-right break-words min-w-0'
+		: 'text-[13px] font-medium text-[--text-primary] text-right break-words min-w-0'
+	);
 </script>
 
-<div class="space-y-5 pt-3">
+<div class="{isPower ? 'space-y-3 pt-2' : 'space-y-5 pt-3'}">
 	<!-- Institution Details: grouped into Identity, Location, Regulatory -->
 	<section>
 		<div class="flex items-center gap-2 mb-3">
 			<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
 			<h2 class="text-[15px] font-semibold text-[--text-primary]">Institution Details</h2>
 		</div>
-		<div class="rounded-md bg-[--surface-1]" style="box-shadow: var(--shadow-sm)">
+		<div class="{isPower ? 'rounded-none' : 'rounded-md'} bg-[--surface-1] {isPower ? 'border border-[--border-muted]' : ''}" style="{isPower ? '' : 'box-shadow: var(--shadow-sm)'}">
 			<div class="grid grid-cols-1 md:grid-cols-2">
 				<!-- Identity & Location -->
 				<div class="divide-y divide-[--surface-2]">
@@ -225,21 +238,24 @@
 		</div>
 
 		{#if hasFinancials && metricsSource}
-			<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-px bg-[--border-muted] rounded-[5px] overflow-hidden border border-[--border-muted]" style="box-shadow: var(--shadow-sm)">
+			<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-px bg-[--border-muted] {isPower ? 'rounded-none' : 'rounded-[5px]'} overflow-hidden border border-[--border-muted]" style="{isPower ? '' : 'box-shadow: var(--shadow-sm)'}">
 				<MetricCard
 					compact
+					variant={isPower ? 'dense' : 'default'}
 					label="Total Assets"
 					value={formatCurrency(metricsSource.total_assets)}
 					trend={effectiveTrends.total_assets}
 				/>
 				<MetricCard
 					compact
+					variant={isPower ? 'dense' : 'default'}
 					label="Total Deposits"
 					value={formatCurrency(metricsSource.total_deposits)}
 					trend={effectiveTrends.total_deposits}
 				/>
 				<MetricCard
 					compact
+					variant={isPower ? 'dense' : 'default'}
 					label="ROA"
 					value={formatPercent(metricsSource.roa)}
 					sublabel="Return on Assets"
@@ -248,6 +264,7 @@
 				/>
 				<MetricCard
 					compact
+					variant={isPower ? 'dense' : 'default'}
 					label="ROE"
 					value={formatPercent(metricsSource.roe)}
 					sublabel="Return on Equity"
@@ -256,6 +273,7 @@
 				/>
 				<MetricCard
 					compact
+					variant={isPower ? 'dense' : 'default'}
 					label="NIM"
 					value={formatPercent(metricsSource.nim)}
 					sublabel="Net Interest Margin"
@@ -264,6 +282,7 @@
 				/>
 				<MetricCard
 					compact
+					variant={isPower ? 'dense' : 'default'}
 					label="NPL Ratio"
 					value={formatPercent(metricsSource.npl_ratio)}
 					sublabel="Non-Performing Loans"
@@ -272,6 +291,7 @@
 				/>
 				<MetricCard
 					compact
+					variant={isPower ? 'dense' : 'default'}
 					label="Tier 1 Capital"
 					value={formatPercent(metricsSource.tier1_ratio)}
 					sublabel="Risk-Based Capital"

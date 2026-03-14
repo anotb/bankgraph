@@ -4,6 +4,12 @@
 
 	let { data, children } = $props();
 
+	let hasPeerData = $derived(
+		(data.peerComparison ?? []).length > 0 &&
+		(data.peerComparison ?? []).some((m: { percentile: number | null }) => m.percentile !== null)
+	);
+	let hasCriticalAnomalies = $derived((data.anomalyCounts?.critical ?? 0) > 0);
+
 	let tabs = $derived([
 		{ label: 'Overview', href: `/banks/${data.bank.cert}`, comingSoon: false },
 		{ label: 'Financials', href: `/banks/${data.bank.cert}/financials`, comingSoon: false },
@@ -69,6 +75,12 @@
 								: 'border-transparent text-[--text-tertiary] hover:text-[--text-secondary] hover:border-[--border]'}"
 				>
 					{tab.label}
+					{#if tab.label === 'Peers' && hasPeerData}
+						<span class="w-1.5 h-1.5 rounded-full bg-[--accent] opacity-60"></span>
+					{/if}
+					{#if tab.label === 'Risk' && hasCriticalAnomalies}
+						<span class="w-1.5 h-1.5 rounded-full bg-[--negative]"></span>
+					{/if}
 					{#if tab.comingSoon}
 						<span class="text-[10px] text-[--text-disabled]">(soon)</span>
 					{/if}

@@ -79,7 +79,7 @@
 	<!-- Results count -->
 	{#if query.trim()}
 		<p class="text-[11px] text-[--text-tertiary]">
-			{filtered.length} field{filtered.length === 1 ? '' : 's'} matching "{query.trim()}"
+			Showing {filtered.length} of {allEntries.length} terms
 		</p>
 	{/if}
 

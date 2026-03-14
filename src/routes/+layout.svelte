@@ -7,7 +7,7 @@
 	import NavigationProgress from '$lib/components/layout/NavigationProgress.svelte';
 	import { getMode } from '$lib/stores/mode.svelte.js';
 
-	let { children } = $props();
+	let { children, data } = $props();
 	let currentMode = $derived(getMode());
 
 	function isActive(href: string): boolean {
@@ -48,7 +48,7 @@
 						class="relative py-3 sm:py-0 px-2 sm:px-0 sm:pb-[9px] sm:-mb-[9px] transition-colors duration-150 whitespace-nowrap
 							{isActive(link.href) ? 'text-[--accent-text] font-semibold' : 'text-[--text-secondary] hover:text-[--text-primary] font-medium'}"
 					>
-						{link.label}
+						{link.label}{#if link.href === '/banks' && data.activeBankCount}<span class="text-[11px] text-[--text-tertiary] font-normal ml-0.5">({data.activeBankCount.toLocaleString()})</span>{/if}
 						{#if isActive(link.href)}
 							<span class="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[--accent] rounded-full"></span>
 						{/if}

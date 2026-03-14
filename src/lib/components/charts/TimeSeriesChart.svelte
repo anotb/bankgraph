@@ -16,13 +16,15 @@
 		title,
 		yAxisFormat = 'number',
 		height = '320px',
-		markAreas = []
+		markAreas = [],
+		showMovingAverage = false
 	}: {
 		series: SeriesConfig[];
 		title?: string;
 		yAxisFormat?: 'currency' | 'percent' | 'number';
 		height?: string;
 		markAreas?: MarkAreaRange[];
+		showMovingAverage?: boolean;
 	} = $props();
 
 	let chartContainer: HTMLDivElement;
@@ -57,6 +59,29 @@
 			default:
 				return String(value);
 		}
+	}
+
+	/** Compute a simple moving average over `period` data points */
+	function computeSMA(
+		data: Array<[string, number | null]>,
+		period: number
+	): Array<[string, number]> {
+		const result: Array<[string, number]> = [];
+		for (let i = period - 1; i < data.length; i++) {
+			let sum = 0;
+			let count = 0;
+			for (let j = i - period + 1; j <= i; j++) {
+				const val = data[j][1];
+				if (val !== null) {
+					sum += val;
+					count++;
+				}
+			}
+			if (count === period) {
+				result.push([data[i][0], sum / period]);
+			}
+		}
+		return result;
 	}
 
 	/** Parse YYYYMMDD to ISO date string for ECharts */
@@ -163,7 +188,9 @@
 					textStyle: {
 						fontSize: 11,
 						color: isDark ? '#a8a39c' : '#6b6660'
-					}
+					},
+					// Hide SMA series from legend
+					data: currentSeries.map((s) => s.label)
 				},
 				grid: {
 					left: 8,
@@ -237,44 +264,80 @@
 					},
 					splitLine: { lineStyle: { color: isDark ? '#282c33' : '#e8e5df', type: 'dashed' } }
 				},
-				series: currentSeries.map((s, i) => {
-					const seriesColor = s.color || colors[i % colors.length];
-					const base: any = {
-						name: s.label,
-						type: 'line',
-						symbolSize: 4,
-						symbol: 'none',
-						smooth: false,
-						lineStyle: { width: 2, color: seriesColor },
-						itemStyle: { color: seriesColor },
-						emphasis: {
-							focus: 'series',
-							lineStyle: { width: 3 },
-							itemStyle: { borderWidth: 2 }
-						},
-						blur: {
-							lineStyle: { width: 1, opacity: 0.2 },
-							itemStyle: { opacity: 0.2 }
-						},
-						data: s.data
+				series: (() => {
+					const SMA_PERIOD = 4;
+					const allSeries: any[] = [];
+
+					currentSeries.forEach((s, i) => {
+						const seriesColor = s.color || colors[i % colors.length];
+						const chartData = s.data
 							.filter((d) => d.value !== null)
-							.map((d) => [parseDate(d.date), d.value])
-					};
-					// Add recession bands to the first series only
-					if (i === 0 && markAreas.length > 0) {
-						base.markArea = {
-							silent: true,
-							itemStyle: {
-								color: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'
+							.map((d) => [parseDate(d.date), d.value] as [string, number | null]);
+
+						const base: any = {
+							name: s.label,
+							type: 'line',
+							symbolSize: 4,
+							symbol: 'none',
+							smooth: false,
+							lineStyle: { width: 2, color: seriesColor },
+							itemStyle: { color: seriesColor },
+							emphasis: {
+								focus: 'series',
+								lineStyle: { width: 3 },
+								itemStyle: { borderWidth: 2 }
 							},
-							data: markAreas.map(([start, end]) => [
-								{ xAxis: start },
-								{ xAxis: end }
-							])
+							blur: {
+								lineStyle: { width: 1, opacity: 0.2 },
+								itemStyle: { opacity: 0.2 }
+							},
+							data: chartData
 						};
-					}
-					return base;
-				})
+						// Add recession bands to the first series only
+						if (i === 0 && markAreas.length > 0) {
+							base.markArea = {
+								silent: true,
+								itemStyle: {
+									color: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'
+								},
+								data: markAreas.map(([start, end]) => [
+									{ xAxis: start },
+									{ xAxis: end }
+								])
+							};
+						}
+						allSeries.push(base);
+
+						// Add SMA overlay if enabled and enough data
+						if (showMovingAverage && chartData.length > SMA_PERIOD) {
+							const smaData = computeSMA(chartData, SMA_PERIOD);
+							allSeries.push({
+								name: `${s.label} (${SMA_PERIOD}Q SMA)`,
+								type: 'line',
+								symbol: 'none',
+								smooth: false,
+								lineStyle: {
+									type: 'dashed',
+									width: 1.5,
+									color: seriesColor,
+									opacity: 0.6
+								},
+								itemStyle: { color: seriesColor, opacity: 0.6 },
+								emphasis: {
+									focus: 'series',
+									lineStyle: { width: 2 }
+								},
+								blur: {
+									lineStyle: { width: 1, opacity: 0.1 },
+									itemStyle: { opacity: 0.1 }
+								},
+								data: smaData
+							});
+						}
+					});
+
+					return allSeries;
+				})()
 			};
 
 			chart.setOption(option, true);
