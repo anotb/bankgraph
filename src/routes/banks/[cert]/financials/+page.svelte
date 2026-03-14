@@ -239,11 +239,16 @@
 
 		{#if mode === 'power' && view === 'table'}
 			<!-- Pivot Table view (power mode, table toggle) -->
+			{@const pivotFields = selectedFields.length > 0 ? selectedFields : DEFAULT_FIELDS}
 			<PivotTable
 				data={filtered}
-				metrics={selectedFields.length > 0
-					? selectedFields
-					: DEFAULT_FIELDS}
+				rowKey="repdte"
+				rowLabel="Quarter"
+				columns={pivotFields.map(f => ({
+					key: f,
+					label: getFieldLabel(f).replace(/\s*\(.*\)/, ''),
+					format: (['roa','roe','nimy','nclnlsr','lnatresr','rbcrwaj','rbc1rwaj','rbc1aaj'].includes(f) ? 'percent' : 'currency') as 'percent' | 'currency' | 'number'
+				}))}
 			/>
 		{:else}
 			<!-- Charts grid, driven by FieldPicker selection -->

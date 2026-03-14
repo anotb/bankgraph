@@ -13,7 +13,7 @@
 		color?: string;
 	} = $props();
 
-	let chartContainer: HTMLDivElement;
+	let chartContainer = $state<HTMLDivElement | null>(null);
 	let chart: any;
 
 	let dark = $derived(getIsDark());

@@ -1,66 +1,75 @@
 <script lang="ts">
-	import { getFieldLabel, getFieldMdrm, getFieldDef } from '$lib/utils/field-meta.js';
-	import { formatPercent, formatCurrency, formatDate, formatNumber } from '$lib/utils/formatters.js';
-	import { getMode } from '$lib/stores/mode.svelte.js';
-	import type { Financial } from '$lib/types';
+	import { formatPercent, formatCurrency, formatNumber } from '$lib/utils/formatters.js';
 
-	let mode = $derived(getMode());
+	type ColumnDef = {
+		key: string;
+		label: string;
+		format?: 'percent' | 'currency' | 'number';
+	};
 
 	let {
 		data,
-		metrics = ['roa', 'roe', 'nimy']
+		columns,
+		rowKey,
+		rowLabel = '',
+		transpose = false
 	}: {
-		data: Financial[];
-		metrics?: string[];
+		data: Record<string, any>[];
+		columns: ColumnDef[];
+		rowKey: string;
+		rowLabel?: string;
+		transpose?: boolean;
 	} = $props();
 
-	/** Safely access a dynamic field on a Financial record */
-	function fieldVal(row: Financial, key: string): unknown {
-		return (row as unknown as Record<string, unknown>)[key];
-	}
-
 	let transposed = $state(false);
-	let sortCol = $state('repdte');
+	let sortCol = $state('');
 	let sortDir: 'asc' | 'desc' = $state('desc');
 
-	// Fields reported in thousands (currency formatting)
-	const CURRENCY_FIELDS = new Set([
-		'asset', 'dep', 'eq', 'lnlsnet', 'lnre', 'lnci', 'lncon', 'sec',
-		'netinc', 'intinc', 'eintexp', 'nim', 'nonii', 'nonix', 'elnatr', 'othbfhlb'
-	]);
+	// Sync external transpose prop into local state on mount
+	$effect(() => {
+		transposed = transpose;
+	});
 
-	// Fields where lower values are better (inverted highlighting)
-	const LOWER_IS_BETTER = new Set([
-		'nclnlsr', 'nco_ratio', 'eeffr', 'lnlsdepr', 'eintexp', 'nonix', 'elnatr'
-	]);
+	// Default sortCol to rowKey
+	$effect(() => {
+		if (!sortCol) sortCol = rowKey;
+	});
 
-	function formatVal(key: string, val: number | null): string {
+	function formatVal(col: ColumnDef, val: unknown): string {
 		if (val === null || val === undefined) return '\u2014';
-		if (CURRENCY_FIELDS.has(key)) return formatCurrency(val);
-		if (key === 'numemp') return formatNumber(val);
-		return formatPercent(val);
+		const n = Number(val);
+		if (Number.isNaN(n)) return String(val);
+		if (col.format === 'percent') return formatPercent(n);
+		if (col.format === 'currency') return formatCurrency(n);
+		if (col.format === 'number') return formatNumber(n);
+		return String(val);
 	}
 
-	// Compute min/max for each metric column
+	function isNumericCol(col: ColumnDef): boolean {
+		return col.format === 'percent' || col.format === 'currency' || col.format === 'number';
+	}
+
+	// Min/max per numeric column
 	let minMax = $derived.by(() => {
 		const result: Record<string, { min: number; max: number }> = {};
-		for (const m of metrics) {
+		for (const col of columns) {
+			if (!isNumericCol(col)) continue;
 			const values = data
-				.map((d) => fieldVal(d, m))
-				.filter((v): v is number => v !== null && typeof v === 'number');
+				.map((d) => d[col.key])
+				.filter((v): v is number => v !== null && v !== undefined && typeof v === 'number');
 			if (values.length >= 2) {
-				result[m] = { min: Math.min(...values), max: Math.max(...values) };
+				result[col.key] = { min: Math.min(...values), max: Math.max(...values) };
 			}
 		}
 		return result;
 	});
 
-	// Sort data by current sort column/direction
+	// Sort data
 	let sortedData = $derived.by(() => {
 		const sorted = [...data];
 		sorted.sort((a, b) => {
-			const aVal = fieldVal(a, sortCol);
-			const bVal = fieldVal(b, sortCol);
+			const aVal = a[sortCol];
+			const bVal = b[sortCol];
 			if (aVal == null && bVal == null) return 0;
 			if (aVal == null) return 1;
 			if (bVal == null) return -1;
@@ -76,47 +85,34 @@
 			sortDir = sortDir === 'asc' ? 'desc' : 'asc';
 		} else {
 			sortCol = col;
-			sortDir = col === 'repdte' ? 'desc' : 'desc';
+			sortDir = 'desc';
 		}
 	}
 
-	/** Get highlight class for a cell value based on min/max and field semantics */
-	function cellClass(val: number | null, m: string): string {
-		if (val === null) return 'text-[--text-disabled]';
-		const mm = minMax[m];
+	function cellClass(val: unknown, key: string): string {
+		if (val === null || val === undefined) return 'text-[--text-disabled]';
+		const mm = minMax[key];
 		if (!mm || mm.min === mm.max) return 'text-[--text-secondary]';
-
-		const inverted = LOWER_IS_BETTER.has(m);
-		if (val === mm.max) {
-			return inverted
-				? 'text-[--negative] font-medium'
-				: 'text-[--positive] font-medium';
-		}
-		if (val === mm.min) {
-			return inverted
-				? 'text-[--positive] font-medium'
-				: 'text-[--negative]';
-		}
+		const n = Number(val);
+		if (Number.isNaN(n)) return 'text-[--text-secondary]';
+		if (n === mm.max) return 'text-[--positive] font-semibold';
+		if (n === mm.min) return 'text-[--negative]';
 		return 'text-[--text-secondary]';
 	}
 
-	/** Short label: strip parenthetical suffixes like "(ROA)" */
-	function shortLabel(field: string): string {
-		return getFieldLabel(field).replace(/\s*\(.*\)/, '');
-	}
-
-	/** Sort indicator character */
 	function sortIndicator(col: string): string {
 		if (sortCol !== col) return '';
 		return sortDir === 'asc' ? ' \u25B2' : ' \u25BC';
 	}
+
+	let effectiveRowLabel = $derived(rowLabel || rowKey);
 </script>
 
 <div>
 	<!-- Toolbar -->
 	<div class="flex items-center justify-between mb-1.5">
 		<span class="text-[11px] text-[--text-tertiary] data-mono">
-			{sortedData.length} quarters &times; {metrics.length} metrics
+			{sortedData.length} rows &times; {columns.length} columns
 		</span>
 		<button
 			type="button"
@@ -134,29 +130,25 @@
 		style="box-shadow: var(--shadow-sm)"
 	>
 		{#if !transposed}
-			<!-- Normal: rows = quarters, columns = metrics -->
+			<!-- Normal: rows = data rows, columns = column defs -->
 			<table class="w-full text-[12px] border-collapse">
 				<thead>
 					<tr class="bg-[--surface-2] border-b border-[--border-muted]">
 						<th
 							class="pivot-sticky-col px-2 py-1.5 text-left text-[10px] font-semibold text-[--text-tertiary] uppercase tracking-wider cursor-pointer select-none bg-[--surface-2] z-20"
-							onclick={() => handleSort('repdte')}
+							onclick={() => handleSort(rowKey)}
 						>
 							<span class="inline-flex items-center gap-0.5">
-								Quarter{sortIndicator('repdte')}
+								{effectiveRowLabel}{sortIndicator(rowKey)}
 							</span>
 						</th>
-						{#each metrics as m}
+						{#each columns as col}
 							<th
 								class="px-2 py-1.5 text-right text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none whitespace-nowrap
-									{sortCol === m ? 'text-[--accent]' : 'text-[--text-tertiary]'}"
-								onclick={() => handleSort(m)}
-								title={getFieldDef(m)?.description ?? ''}
+									{sortCol === col.key ? 'text-[--accent]' : 'text-[--text-tertiary]'}"
+								onclick={() => handleSort(col.key)}
 							>
-								{shortLabel(m)}{sortIndicator(m)}
-								{#if mode === 'power' && getFieldMdrm(m)}
-									<br /><span class="text-[9px] normal-case tracking-normal font-normal text-[--text-disabled]">{getFieldMdrm(m)}</span>
-								{/if}
+								{col.label}{sortIndicator(col.key)}
 							</th>
 						{/each}
 					</tr>
@@ -168,15 +160,15 @@
 							style:background-color={i % 2 === 1 ? 'var(--surface-stripe)' : undefined}
 						>
 							<td
-								class="pivot-sticky-col px-2 py-0.5 font-medium text-[--text-primary] tabular-nums whitespace-nowrap"
+								class="pivot-sticky-col px-2 py-0.5 font-medium text-[--text-primary] data-mono whitespace-nowrap"
 								style:background-color={i % 2 === 1 ? 'var(--surface-stripe)' : 'var(--surface-1)'}
 							>
-								{formatDate(row.repdte)}
+								{row[rowKey] ?? '\u2014'}
 							</td>
-							{#each metrics as m}
-								{@const val = fieldVal(row, m) as number | null}
-								<td class="px-2 py-0.5 text-right tabular-nums whitespace-nowrap {cellClass(val, m)}">
-									{formatVal(m, val)}
+							{#each columns as col}
+								{@const val = row[col.key]}
+								<td class="px-2 py-0.5 text-right data-mono whitespace-nowrap {cellClass(val, col.key)}">
+									{formatVal(col, val)}
 								</td>
 							{/each}
 						</tr>
@@ -184,7 +176,7 @@
 				</tbody>
 			</table>
 		{:else}
-			<!-- Transposed: rows = metrics, columns = quarters -->
+			<!-- Transposed: rows = column defs, columns = data rows -->
 			<table class="w-full text-[12px] border-collapse">
 				<thead>
 					<tr class="bg-[--surface-2] border-b border-[--border-muted]">
@@ -195,15 +187,15 @@
 						</th>
 						{#each sortedData as row}
 							<th
-								class="px-2 py-1.5 text-right text-[10px] font-semibold text-[--text-tertiary] tabular-nums whitespace-nowrap"
+								class="px-2 py-1.5 text-right text-[10px] font-semibold text-[--text-tertiary] data-mono whitespace-nowrap"
 							>
-								{formatDate(row.repdte)}
+								{row[rowKey] ?? '\u2014'}
 							</th>
 						{/each}
 					</tr>
 				</thead>
 				<tbody class="bg-[--surface-1]">
-					{#each metrics as m, i}
+					{#each columns as col, i}
 						<tr
 							class="pivot-row"
 							style:background-color={i % 2 === 1 ? 'var(--surface-stripe)' : undefined}
@@ -211,17 +203,13 @@
 							<td
 								class="pivot-sticky-col px-2 py-0.5 font-medium text-[--text-primary] whitespace-nowrap"
 								style:background-color={i % 2 === 1 ? 'var(--surface-stripe)' : 'var(--surface-1)'}
-								title={getFieldDef(m)?.description ?? ''}
 							>
-								{shortLabel(m)}
-								{#if mode === 'power' && getFieldMdrm(m)}
-									{' '}<span class="text-[9px] text-[--text-disabled]">{getFieldMdrm(m)}</span>
-								{/if}
+								{col.label}
 							</td>
 							{#each sortedData as row}
-								{@const val = fieldVal(row, m) as number | null}
-								<td class="px-2 py-0.5 text-right tabular-nums whitespace-nowrap {cellClass(val, m)}">
-									{formatVal(m, val)}
+								{@const val = row[col.key]}
+								<td class="px-2 py-0.5 text-right data-mono whitespace-nowrap {cellClass(val, col.key)}">
+									{formatVal(col, val)}
 								</td>
 							{/each}
 						</tr>
@@ -254,6 +242,10 @@
 	/* Corner cell: sticky both axes */
 	thead .pivot-sticky-col {
 		z-index: 25;
+	}
+
+	.pivot-row {
+		height: 24px;
 	}
 
 	.pivot-row:hover {

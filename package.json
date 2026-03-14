@@ -10,9 +10,11 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "backfill": "npx tsx scripts/backfill.ts",
+    "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "npx playwright test"
+    "test:e2e": "npx playwright test",
+    "ci": "npm run typecheck && npm run test && npm run build"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260310.1",

@@ -19,11 +19,11 @@
 
 	/** Navigation sections for the quick-nav cards */
 	const navSections = [
-		{ href: '/banks', label: 'Banks', description: 'Browse, search, and filter all FDIC-insured institutions', icon: 'bank' },
-		{ href: '/industry', label: 'Industry', description: 'Aggregate metrics, segment breakdowns, and trends', icon: 'chart' },
-		{ href: '/macro', label: 'Macro', description: 'Fed rates, treasury yields, and economic indicators', icon: 'globe' },
-		{ href: '/compare', label: 'Compare', description: 'Side-by-side financial comparison of up to 10 banks', icon: 'scale' },
-		{ href: '/glossary', label: 'Glossary', description: 'Definitions for financial metrics and ratios', icon: 'book' }
+		{ href: '/banks', label: 'Banks', description: 'Browse 4,400+ FDIC-insured institutions', icon: 'bank' },
+		{ href: '/industry', label: 'Industry', description: 'Market segments and industry trends', icon: 'chart' },
+		{ href: '/compare', label: 'Compare', description: 'Side-by-side bank comparison', icon: 'scale' },
+		{ href: '/macro', label: 'Macro', description: 'Federal Reserve economic data', icon: 'globe' },
+		{ href: '/glossary', label: 'Glossary', description: 'Financial field definitions', icon: 'book' }
 	];
 </script>
 
@@ -55,6 +55,45 @@
 		/>
 	</div>
 </div>
+
+<!-- Explore -->
+<section class="mb-6">
+	<div class="flex items-center gap-2 mb-3">
+		<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
+		<h2 class="text-[15px] font-semibold text-[--text-primary]">Explore</h2>
+	</div>
+	<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+		{#each navSections as section}
+			<a
+				href={section.href}
+				class="group rounded-md bg-[--surface-1] border border-transparent px-3 py-3 transition-all duration-150 hover:border-[--accent] hover:bg-[--accent-muted]"
+				style="box-shadow: var(--shadow-sm)"
+				onmouseenter={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
+				onmouseleave={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}
+			>
+				<div class="flex flex-col items-start gap-2">
+					<div class="shrink-0 w-8 h-8 rounded-md bg-[--surface-3] flex items-center justify-center text-[--text-tertiary] group-hover:bg-[--accent] group-hover:text-white transition-colors">
+						{#if section.icon === 'bank'}
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/></svg>
+						{:else if section.icon === 'chart'}
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3v18h18M7 16l4-4 4 4 5-5"/></svg>
+						{:else if section.icon === 'globe'}
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="1.5"/><path stroke-linecap="round" stroke-width="1.5" d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10A15.3 15.3 0 0112 2z"/></svg>
+						{:else if section.icon === 'scale'}
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 6l3 1m0 0l-3 9a5 5 0 006 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5 5 0 006 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+						{:else if section.icon === 'book'}
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg>
+						{/if}
+					</div>
+					<div class="min-w-0">
+						<span class="text-[14px] font-semibold text-[--text-primary] group-hover:text-[--accent] transition-colors">{section.label}</span>
+						<p class="text-[12px] text-[--text-tertiary] mt-0.5 leading-snug">{section.description}</p>
+					</div>
+				</div>
+			</a>
+		{/each}
+	</div>
+</section>
 
 <!-- Hero stats -->
 <section>
@@ -192,7 +231,7 @@
 			<section>
 				<div class="flex items-center gap-2 mb-3">
 					<div class="w-0.5 h-4 bg-[--warning] rounded-full"></div>
-					<h2 class="text-[15px] font-semibold text-[--text-primary]">Bank Failures</h2>
+					<h2 class="text-[15px] font-semibold text-[--text-primary]">Recent Bank Failures</h2>
 					<span class="text-[11px] text-[--text-tertiary]">{formatNumber(data.failureSummary.total_failures)} total</span>
 				</div>
 				{#if data.failureSummary.recent_5yr_count > 0}
@@ -265,45 +304,16 @@
 	{/if}
 </div>
 
-<!-- Quick navigation -->
-<section class="mt-6">
-	<div class="flex items-center gap-2 mb-3">
-		<div class="w-0.5 h-4 bg-[--accent] rounded-full"></div>
-		<h2 class="text-[15px] font-semibold text-[--text-primary]">Explore</h2>
+<!-- Data Status -->
+<footer class="mt-10 border-t border-[--border] pt-6 pb-4">
+	<div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-[11px] text-[--text-tertiary]">
+		{#if data.meta.latest_quarter}
+			<span>Latest quarter: <span class="data-mono font-medium text-[--text-secondary]">{formatDate(data.meta.latest_quarter)}</span></span>
+		{/if}
+		{#if data.meta.active_count}
+			<span>Institutions: <span class="data-mono font-medium text-[--text-secondary]">{formatNumber(data.meta.active_count)}</span></span>
+		{/if}
+		<span>Source: FDIC BankFind Suite</span>
 	</div>
-	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-		{#each navSections as section}
-			<a
-				href={section.href}
-				class="group rounded-md bg-[--surface-1] px-4 py-3.5 hover:bg-[--accent-muted] transition-colors"
-				style="box-shadow: var(--shadow-sm)"
-			>
-				<div class="flex items-start gap-3">
-					<div class="shrink-0 mt-0.5 w-8 h-8 rounded-md bg-[--surface-3] flex items-center justify-center text-[--text-tertiary] group-hover:bg-[--accent] group-hover:text-white transition-colors">
-						{#if section.icon === 'bank'}
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/></svg>
-						{:else if section.icon === 'chart'}
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3v18h18M7 16l4-4 4 4 5-5"/></svg>
-						{:else if section.icon === 'globe'}
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="1.5"/><path stroke-linecap="round" stroke-width="1.5" d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10A15.3 15.3 0 0112 2z"/></svg>
-						{:else if section.icon === 'scale'}
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 6l3 1m0 0l-3 9a5 5 0 006 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5 5 0 006 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
-						{:else if section.icon === 'book'}
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg>
-						{/if}
-					</div>
-					<div class="min-w-0">
-						<span class="text-[14px] font-semibold text-[--text-primary] group-hover:text-[--accent] transition-colors">{section.label}</span>
-						<p class="text-[12px] text-[--text-tertiary] mt-0.5 leading-snug">{section.description}</p>
-					</div>
-				</div>
-			</a>
-		{/each}
-	</div>
-</section>
-
-<!-- Attribution & Disclaimer -->
-<div class="mt-10 space-y-1 border-t border-[--border] pt-6 text-center text-[11px] text-[--text-tertiary]">
-	<p>Data from FDIC BankFind, Federal Reserve, FFIEC.</p>
-	<p>Not financial advice. Data provided as-is for educational purposes.</p>
-</div>
+	<p class="mt-2 text-center text-[11px] text-[--text-tertiary]">Not financial advice. Data provided as-is for educational purposes.</p>
+</footer>

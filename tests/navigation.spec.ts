@@ -68,16 +68,17 @@ test.describe('Navigation smoke tests', () => {
 	test('clicking a bank in the listing navigates to detail page', async ({ page }) => {
 		await page.goto('/banks');
 
-		// Wait for table rows to load
-		const firstRow = page.locator('table tbody tr').first();
-		await expect(firstRow).toBeVisible();
+		// Wait for clickable (hydrated) rows
+		const firstRow = page.locator('table tbody tr.cursor-pointer').first();
+		await expect(firstRow).toBeVisible({ timeout: 15000 });
 
-		// Click the first bank name cell (more reliable than clicking the row)
-		const firstCell = firstRow.locator('td').first();
-		await firstCell.click();
+		// Small delay for hydration to complete
+		await page.waitForTimeout(500);
+
+		await firstRow.click();
 
 		// Should navigate to /banks/[cert]
-		await expect(page).toHaveURL(/\/banks\/\d+/, { timeout: 10000 });
+		await expect(page).toHaveURL(/\/banks\/\d+/, { timeout: 15000 });
 
 		// Detail page should show institution details
 		await expect(page.getByText('Institution Details')).toBeVisible({ timeout: 10000 });
