@@ -41,54 +41,54 @@
    ============================================================ */
 
 :root {
-  /* Surfaces - increased contrast between levels */
-  --surface-0: #f5f3f0;
-  --surface-1: #ffffff;
-  --surface-2: #edeae5;
-  --surface-3: #e2dfd8;
+  /* Surfaces - warm parchment feel, cards clearly elevated */
+  --surface-0: #f3f1ed;
+  --surface-1: #faf9f7;
+  --surface-2: #eae8e3;
+  --surface-3: #dfddd7;
 
-  /* Borders - lighter since we rely less on borders */
-  --border: #d6d2cb;
-  --border-muted: #e8e5e0;
+  /* Borders - warm, visible but not harsh */
+  --border: #ccc8c0;
+  --border-muted: #e0ddd7;
 
-  /* Text */
-  --text-primary: #1c1a17;
-  --text-secondary: #6b6660;
-  --text-tertiary: #948f88;
-  --text-disabled: #b5b1ab;
+  /* Text - warm charcoal, not pure black */
+  --text-primary: #24211d;
+  --text-secondary: #5e5a54;
+  --text-tertiary: #8a857e;
+  --text-disabled: #b0aba4;
 
-  /* Accent (teal) */
-  --accent: #0d7d7d;
-  --accent-hover: #096a6b;
-  --accent-muted: #e0f2f1;
-  --accent-text: #0a6565;
+  /* Accent (deep teal - rich, not neon) */
+  --accent: #0e7c7c;
+  --accent-hover: #0a6868;
+  --accent-muted: #e4f0ef;
+  --accent-text: #0b6a6a;
 
   /* Semantic */
-  --positive: #1a8a4a;
-  --positive-muted: #e4f5ec;
-  --negative: #c53d2f;
+  --positive: #1d8c4e;
+  --positive-muted: #e6f5ec;
+  --negative: #c24030;
   --negative-muted: #fce8e5;
-  --warning: #c48a00;
+  --warning: #b88200;
   --warning-muted: #fef3d6;
-  --neutral: #918c85;
+  --neutral: #8a857e;
 
-  /* Surface stripe (alternating rows) - more visible */
-  --surface-stripe: hsl(36deg 10% 50% / 0.07);
+  /* Surface stripe (alternating rows) */
+  --surface-stripe: hsl(36deg 12% 50% / 0.06);
 
   /* Accent glow */
   --accent-glow: 0 0 8px hsl(175deg 40% 50% / 0.1);
 
-  /* Chart palette */
-  --chart-1: #0d7d7d;
-  --chart-2: #c53d2f;
+  /* Chart palette - rich, high contrast on light bg */
+  --chart-1: #0e7c7c;
+  --chart-2: #c24030;
   --chart-3: #6b5ce7;
-  --chart-4: #c48a00;
-  --chart-5: #1a8a4a;
-  --chart-6: #c44e8a;
-  --chart-7: #4a82c4;
-  --chart-8: #7da82e;
-  --chart-9: #b04e6e;
-  --chart-10: #3e9a8a;
+  --chart-4: #b88200;
+  --chart-5: #1d8c4e;
+  --chart-6: #b84a82;
+  --chart-7: #4a7ebc;
+  --chart-8: #78a028;
+  --chart-9: #a84868;
+  --chart-10: #3c9488;
 }
 
 /* ============================================================
@@ -98,60 +98,60 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 .dark {
-  /* Surfaces - deeper, more dramatic contrast */
-  --surface-0: #0c0e12;
-  --surface-1: #171a21;
-  --surface-2: #1e222b;
-  --surface-3: #282d37;
+  /* Surfaces - softer dark with warm undertone, not pure black */
+  --surface-0: #161819;
+  --surface-1: #1e2023;
+  --surface-2: #26282c;
+  --surface-3: #2f3237;
 
-  /* Borders */
-  --border: #383c44;
-  --border-muted: #282c33;
+  /* Borders - subtle, low contrast */
+  --border: #3a3d42;
+  --border-muted: #2c2f34;
 
-  /* Text */
-  --text-primary: #e8e5e0;
-  --text-secondary: #a8a39c;
-  --text-tertiary: #7a7e86;
-  --text-disabled: #555961;
+  /* Text - softer than pure white to reduce eye strain */
+  --text-primary: #d4d1cc;
+  --text-secondary: #9a958f;
+  --text-tertiary: #6e7178;
+  --text-disabled: #4e5258;
 
-  /* Accent (teal, lifted) */
-  --accent: #2db5a8;
-  --accent-hover: #3fc8ba;
-  --accent-muted: #1a3535;
-  --accent-text: #2db5a8;
+  /* Accent (teal, lifted for dark bg) */
+  --accent: #38b2a8;
+  --accent-hover: #4cc4ba;
+  --accent-muted: #1c3230;
+  --accent-text: #38b2a8;
 
   /* Semantic */
-  --positive: #34c772;
-  --positive-muted: #142e1f;
-  --negative: #e85c4a;
-  --negative-muted: #301a17;
-  --warning: #e0a620;
-  --warning-muted: #302810;
-  --neutral: #7a7e86;
+  --positive: #3aba6a;
+  --positive-muted: #172b1f;
+  --negative: #e06858;
+  --negative-muted: #2c1c19;
+  --warning: #d8a420;
+  --warning-muted: #2a2414;
+  --neutral: #6e7178;
 
-  /* Shadows (deeper, cooler) - override @theme defaults for dark mode */
-  --shadow-xs: 0 1px 3px hsl(220deg 10% 4% / 0.5), 0 0 1px hsl(220deg 10% 4% / 0.3);
-  --shadow-sm: 0 2px 6px hsl(220deg 10% 4% / 0.5), 0 1px 2px hsl(220deg 10% 4% / 0.3);
-  --shadow-md: 0 4px 12px -2px hsl(220deg 10% 4% / 0.6), 0 2px 4px hsl(220deg 10% 4% / 0.3);
-  --shadow-lg: 0 12px 24px -4px hsl(220deg 10% 4% / 0.6), 0 4px 8px hsl(220deg 10% 4% / 0.3);
+  /* Shadows - subtle, not dramatic (dark bg already provides depth) */
+  --shadow-xs: 0 1px 2px hsl(220deg 8% 4% / 0.35), 0 0 1px hsl(220deg 8% 4% / 0.2);
+  --shadow-sm: 0 2px 4px hsl(220deg 8% 4% / 0.35), 0 1px 2px hsl(220deg 8% 4% / 0.2);
+  --shadow-md: 0 4px 10px -2px hsl(220deg 8% 4% / 0.4), 0 2px 4px hsl(220deg 8% 4% / 0.2);
+  --shadow-lg: 0 8px 20px -4px hsl(220deg 8% 4% / 0.4), 0 4px 8px hsl(220deg 8% 4% / 0.2);
 
   /* Surface stripe (alternating rows) */
-  --surface-stripe: hsl(220deg 10% 80% / 0.06);
+  --surface-stripe: hsl(220deg 8% 80% / 0.04);
 
-  /* Accent glow */
-  --accent-glow: 0 0 12px hsl(175deg 60% 45% / 0.15);
+  /* Accent glow - subtle halo for interactive elements */
+  --accent-glow: 0 0 10px hsl(175deg 50% 45% / 0.12);
 
-  /* Chart palette (lifted lightness) */
-  --chart-1: #2db5a8;
-  --chart-2: #e07060;
-  --chart-3: #8b7ef0;
-  --chart-4: #e0a620;
-  --chart-5: #34c772;
-  --chart-6: #e070a8;
-  --chart-7: #6aa0e0;
+  /* Chart palette (warm, readable on dark) */
+  --chart-1: #38b2a8;
+  --chart-2: #e07868;
+  --chart-3: #9088f0;
+  --chart-4: #d8a420;
+  --chart-5: #3aba6a;
+  --chart-6: #e078a8;
+  --chart-7: #70a4e0;
   --chart-8: #a0c850;
-  --chart-9: #d07090;
-  --chart-10: #5ec0aa;
+  --chart-9: #d07898;
+  --chart-10: #60c0aa;
 }
 
 /* ============================================================
