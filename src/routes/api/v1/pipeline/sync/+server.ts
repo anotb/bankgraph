@@ -51,6 +51,7 @@ export const POST: RequestHandler = async ({ platform, url, request }) => {
   }
   const startTime = Date.now();
   const stage = url.searchParams.get('stage');
+  const resetParam = url.searchParams.get('reset');
 
   const VALID_STAGES = ['institutions', 'financials', 'failures', 'snapshot', 'analytics', 'trends', 'anomalies', 'risk', 'fred', 'correlations'];
   if (stage && !VALID_STAGES.includes(stage)) {
@@ -60,6 +61,17 @@ export const POST: RequestHandler = async ({ platform, url, request }) => {
   try {
     const db = getDB(platform);
     const results: Record<string, unknown> = {};
+
+    // Reset financials sync offset if requested
+    if (resetParam === 'financials' || (resetParam === 'true' && stage === 'financials')) {
+      const { execute } = await import('$lib/server/db');
+      const now = new Date().toISOString();
+      await execute(db, 'INSERT OR REPLACE INTO pipeline_state (key, value, updated_at) VALUES (?, ?, ?)', ['financials_sync_offset', '0', now]);
+      await execute(db, 'INSERT OR REPLACE INTO pipeline_state (key, value, updated_at) VALUES (?, ?, ?)', ['financials_sync_count', '0', now]);
+      await execute(db, 'INSERT OR REPLACE INTO pipeline_state (key, value, updated_at) VALUES (?, ?, ?)', ['financials_sync_status', 'idle', now]);
+      console.log('=== Reset financials sync state ===');
+      results.reset = { financials: true };
+    }
 
     // Stage: institutions
     if (!stage || stage === 'institutions') {

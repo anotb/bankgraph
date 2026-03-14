@@ -2,6 +2,7 @@
 	import { formatCurrency, formatPercent, formatNumber } from '$lib/utils/formatters.js';
 	import { isDark as getIsDark } from '$lib/stores/theme.svelte.js';
 	import { echarts } from './echarts-setup.js';
+	import { getCSSVar, getChartPalette } from '$lib/utils/chart-colors.js';
 
 	type SeriesDataPoint = { date: string; value: number | null };
 	type SeriesConfig = {
@@ -38,16 +39,6 @@
 		series.reduce((sum, s) => sum + s.data.filter((d) => d.value !== null).length, 0)
 	);
 	let hasEnoughData = $derived(totalDataPoints > 1);
-
-	const lightColors = [
-		'#0d7d7d', '#c53d2f', '#6b5ce7', '#c48a00', '#1a8a4a',
-		'#c44e8a', '#4a82c4', '#7da82e', '#b04e6e', '#3e9a8a'
-	];
-
-	const darkColors = [
-		'#2db5a8', '#e07060', '#8b7ef0', '#e0a620', '#34c772',
-		'#e070a8', '#6aa0e0', '#a0c850', '#d07090', '#5ec0aa'
-	];
 
 	function formatYValue(value: number): string {
 		switch (yAxisFormat) {
@@ -115,7 +106,21 @@
 			if (!chart) {
 				chart = echarts.init(chartContainer);
 			}
-			const colors = isDark ? darkColors : lightColors;
+
+			// Read all colors at render time from the active theme
+			const colors = getChartPalette();
+			const surface0 = getCSSVar('--surface-0');
+			const surface1 = getCSSVar('--surface-1');
+			const border = getCSSVar('--border');
+			const borderMuted = getCSSVar('--border-muted');
+			const textPrimary = getCSSVar('--text-primary');
+			const textSecondary = getCSSVar('--text-secondary');
+			const textTertiary = getCSSVar('--text-tertiary');
+			const textDisabled = getCSSVar('--text-disabled');
+			const accent = getCSSVar('--accent');
+			const accentFiller = isDark ? 'rgba(45,181,168,0.15)' : 'rgba(13,125,125,0.1)';
+			const accentArea = isDark ? 'rgba(45,181,168,0.08)' : 'rgba(13,125,125,0.06)';
+			const accentAreaSelected = isDark ? 'rgba(45,181,168,0.15)' : 'rgba(13,125,125,0.12)';
 
 			const option: any = {
 				backgroundColor: 'transparent',
@@ -129,18 +134,18 @@
 							textStyle: {
 								fontSize: 15,
 								fontWeight: 600,
-								color: isDark ? '#e8e5e0' : '#1c1a17',
+								color: textPrimary,
 								fontFamily: "'Inter', system-ui, sans-serif"
 							}
 						}
 					: undefined,
 				tooltip: {
 					trigger: 'axis',
-					backgroundColor: isDark ? '#22262f' : '#ffffff',
-					borderColor: isDark ? '#383c44' : '#d6d2cb',
+					backgroundColor: surface1,
+					borderColor: border,
 					borderWidth: 1,
 					textStyle: {
-						color: isDark ? '#e8e5e0' : '#1c1a17',
+						color: textPrimary,
 						fontSize: 12,
 						fontFamily: "'Inter', system-ui, sans-serif"
 					},
@@ -150,12 +155,12 @@
 					axisPointer: {
 						type: 'cross',
 						crossStyle: {
-							color: isDark ? '#555961' : '#b5b1ab',
+							color: textDisabled,
 							type: 'dashed',
 							width: 1
 						},
 						lineStyle: {
-							color: isDark ? '#555961' : '#b5b1ab',
+							color: textDisabled,
 							type: 'dashed',
 							width: 1
 						},
@@ -171,7 +176,7 @@
 							if (p.value == null || p.value[1] == null) continue;
 							html += `<div style="display:flex;align-items:center;gap:6px;margin:2px 0;font-size:12px">`;
 							html += `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color}"></span>`;
-							html += `<span style="color:${isDark ? '#a8a39c' : '#6b6660'}">${p.seriesName}</span>`;
+							html += `<span style="color:${textSecondary}">${p.seriesName}</span>`;
 							html += `<span style="margin-left:auto;font-weight:600;font-variant-numeric:tabular-nums">${formatYValue(p.value[1])}</span>`;
 							html += `</div>`;
 						}
@@ -185,7 +190,7 @@
 					itemGap: 16,
 					textStyle: {
 						fontSize: 11,
-						color: isDark ? '#a8a39c' : '#6b6660'
+						color: textSecondary
 					},
 					// Hide SMA series from legend
 					data: currentSeries.map((s) => s.label)
@@ -210,34 +215,34 @@
 						end: 100,
 						height: 16,
 						bottom: 24,
-						borderColor: isDark ? '#383c44' : '#d6d2cb',
-						backgroundColor: isDark ? '#1e222b' : '#f5f3f0',
-						fillerColor: isDark ? 'rgba(45,181,168,0.15)' : 'rgba(13,125,125,0.1)',
+						borderColor: border,
+						backgroundColor: surface0,
+						fillerColor: accentFiller,
 						handleStyle: {
-							color: isDark ? '#2db5a8' : '#0d7d7d',
-							borderColor: isDark ? '#2db5a8' : '#0d7d7d'
+							color: accent,
+							borderColor: accent
 						},
 						moveHandleSize: 4,
 						dataBackground: {
-							lineStyle: { color: isDark ? '#383c44' : '#d6d2cb', width: 0.5 },
-							areaStyle: { color: isDark ? 'rgba(45,181,168,0.08)' : 'rgba(13,125,125,0.06)' }
+							lineStyle: { color: border, width: 0.5 },
+							areaStyle: { color: accentArea }
 						},
 						selectedDataBackground: {
-							lineStyle: { color: isDark ? '#2db5a8' : '#0d7d7d', width: 0.5 },
-							areaStyle: { color: isDark ? 'rgba(45,181,168,0.15)' : 'rgba(13,125,125,0.12)' }
+							lineStyle: { color: accent, width: 0.5 },
+							areaStyle: { color: accentAreaSelected }
 						},
 						textStyle: {
-							color: isDark ? '#7a7e86' : '#948f88',
+							color: textTertiary,
 							fontSize: 10
 						}
 					}
 				],
 				xAxis: {
 					type: 'time',
-					axisLine: { lineStyle: { color: isDark ? '#383c44' : '#d6d2cb' } },
-					axisTick: { lineStyle: { color: isDark ? '#383c44' : '#d6d2cb' } },
+					axisLine: { lineStyle: { color: border } },
+					axisTick: { lineStyle: { color: border } },
 					axisLabel: {
-						color: isDark ? '#7a7e86' : '#948f88',
+						color: textTertiary,
 						fontSize: 11,
 						fontFamily: "'Inter', system-ui, sans-serif",
 						formatter: (value: number) => {
@@ -255,12 +260,12 @@
 					axisLine: { show: false },
 					axisTick: { show: false },
 					axisLabel: {
-						color: isDark ? '#7a7e86' : '#948f88',
+						color: textTertiary,
 						fontSize: 11,
 						fontFamily: "'Inter', system-ui, sans-serif",
 						formatter: (value: number) => formatYValue(value)
 					},
-					splitLine: { lineStyle: { color: isDark ? '#282c33' : '#e8e5df', type: 'dashed' } }
+					splitLine: { lineStyle: { color: borderMuted, type: 'dashed' } }
 				},
 				series: (() => {
 					const SMA_PERIOD = 4;

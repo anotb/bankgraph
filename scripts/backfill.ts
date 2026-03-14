@@ -249,10 +249,8 @@ async function main(): Promise<void> {
     if (only === 'financials') {
       if (reset) {
         console.log('  Resetting financials sync offset...');
-        // Call a dummy sync that will read state; we need to reset via a direct call
-        // The reset happens by setting pipeline_state values via the sync endpoint
-        // For now, just run it - it resumes from last offset
-        console.log('  (Use wrangler d1 execute to reset pipeline_state if needed)');
+        await callSync('financials', { reset: 'financials' });
+        console.log('  Reset complete, starting from offset 0');
       }
       await runFinancialsChunked();
     } else {

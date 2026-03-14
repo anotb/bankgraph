@@ -2,6 +2,7 @@
 	import { formatNumber } from '$lib/utils/formatters.js';
 	import { isDark as getIsDark } from '$lib/stores/theme.svelte.js';
 	import { echarts } from './echarts-setup.js';
+	import { getCSSVar } from '$lib/utils/chart-colors.js';
 
 	let {
 		data,
@@ -35,8 +36,13 @@
 				chart = echarts.init(chartContainer);
 			}
 
-			const accentColor = barColor || (isDark ? '#2db5a8' : '#0d7d7d');
-			const accentHover = isDark ? '#3fc8ba' : '#096a6b';
+			const accentColor = barColor || getCSSVar('--accent');
+			const accentHover = getCSSVar('--accent-hover');
+			const surface1 = getCSSVar('--surface-1');
+			const border = getCSSVar('--border');
+			const textPrimary = getCSSVar('--text-primary');
+			const textSecondary = getCSSVar('--text-secondary');
+			const textTertiary = getCSSVar('--text-tertiary');
 
 			// Reverse for horizontal bars (ECharts renders bottom-to-top)
 			const reversed = [...currentData].reverse();
@@ -48,11 +54,11 @@
 				animationEasing: 'cubicOut',
 				tooltip: {
 					trigger: 'axis',
-					backgroundColor: isDark ? '#22262f' : '#ffffff',
-					borderColor: isDark ? '#383c44' : '#d6d2cb',
+					backgroundColor: surface1,
+					borderColor: border,
 					borderWidth: 1,
 					textStyle: {
-						color: isDark ? '#e8e5e0' : '#1c1a17',
+						color: textPrimary,
 						fontSize: 12,
 						fontFamily: "'Inter', system-ui, sans-serif"
 					},
@@ -96,7 +102,7 @@
 					axisLine: { show: false },
 					axisTick: { show: false },
 					axisLabel: {
-						color: isDark ? '#a8a39c' : '#6b6660',
+						color: textSecondary,
 						fontSize: 11,
 						fontFamily: "'Inter', system-ui, sans-serif",
 						width: 70,
@@ -121,7 +127,7 @@
 						label: {
 							show: true,
 							position: 'right',
-							color: isDark ? '#7a7e86' : '#948f88',
+							color: textTertiary,
 							fontSize: 10,
 							fontFamily: "'Inter', system-ui, sans-serif",
 							formatter: (params: any) => valueFormatter(params.value)

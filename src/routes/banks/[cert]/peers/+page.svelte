@@ -27,7 +27,8 @@
 	}
 
 	function metricFormat(key: string): 'percent' | 'number' {
-		return 'percent';
+		const currencyMetrics = ['asset', 'dep', 'eq', 'lnlsnet', 'netinc', 'sec'];
+		return currencyMetrics.includes(key) ? 'number' : 'percent';
 	}
 
 	/** Asset tier human labels */

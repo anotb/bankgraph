@@ -2,15 +2,18 @@
 	import { formatNumber } from '$lib/utils/formatters.js';
 	import { isDark as getIsDark } from '$lib/stores/theme.svelte.js';
 	import { echarts } from './echarts-setup.js';
+	import { getCSSVar } from '$lib/utils/chart-colors.js';
 
 	let {
 		data,
 		height = '200px',
-		color
+		color,
+		tooltipLabel = 'Value'
 	}: {
 		data: Array<{ label: string; value: number }>;
 		height?: string;
 		color?: string;
+		tooltipLabel?: string;
 	} = $props();
 
 	let chartContainer = $state<HTMLDivElement | null>(null);
@@ -32,8 +35,14 @@
 			if (!chart) {
 				chart = echarts.init(chartContainer);
 			}
-			const accentColor = barColor || (isDark ? '#2db5a8' : '#0d7d7d');
-			const accentHover = isDark ? '#3fc8ba' : '#096a6b';
+			const accentColor = barColor || getCSSVar('--accent');
+			const accentHover = getCSSVar('--accent-hover');
+			const surface1 = getCSSVar('--surface-1');
+			const border = getCSSVar('--border');
+			const textPrimary = getCSSVar('--text-primary');
+			const textSecondary = getCSSVar('--text-secondary');
+			const textTertiary = getCSSVar('--text-tertiary');
+			const borderMuted = getCSSVar('--border-muted');
 
 			const option: any = {
 				backgroundColor: 'transparent',
@@ -42,11 +51,11 @@
 				animationEasing: 'cubicOut',
 				tooltip: {
 					trigger: 'axis',
-					backgroundColor: isDark ? '#22262f' : '#ffffff',
-					borderColor: isDark ? '#383c44' : '#d6d2cb',
+					backgroundColor: surface1,
+					borderColor: border,
 					borderWidth: 1,
 					textStyle: {
-						color: isDark ? '#e8e5e0' : '#1c1a17',
+						color: textPrimary,
 						fontSize: 12,
 						fontFamily: "'Inter', system-ui, sans-serif"
 					},
@@ -65,7 +74,7 @@
 						let html = `<div style="font-weight:600;margin-bottom:2px;font-size:12px">${p.name}</div>`;
 						html += `<div style="display:flex;align-items:center;gap:6px;font-size:12px">`;
 						html += `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color}"></span>`;
-						html += `<span style="color:${isDark ? '#a8a39c' : '#6b6660'}">Failures</span>`;
+						html += `<span style="color:${textSecondary}">${tooltipLabel}</span>`;
 						html += `<span style="margin-left:auto;font-weight:600;font-variant-numeric:tabular-nums">${formatNumber(p.value)}</span>`;
 						html += `</div>`;
 						return html;
@@ -81,10 +90,10 @@
 				xAxis: {
 					type: 'category',
 					data: currentData.map((d) => d.label),
-					axisLine: { lineStyle: { color: isDark ? '#383c44' : '#d6d2cb' } },
+					axisLine: { lineStyle: { color: border } },
 					axisTick: { show: false },
 					axisLabel: {
-						color: isDark ? '#7a7e86' : '#948f88',
+						color: textTertiary,
 						fontSize: 9,
 						fontFamily: "'Inter', system-ui, sans-serif",
 						interval: (index: number) => {
@@ -105,11 +114,11 @@
 					axisLine: { show: false },
 					axisTick: { show: false },
 					axisLabel: {
-						color: isDark ? '#7a7e86' : '#948f88',
+						color: textTertiary,
 						fontSize: 10,
 						fontFamily: "'Inter', system-ui, sans-serif"
 					},
-					splitLine: { lineStyle: { color: isDark ? '#282c33' : '#e8e5df', type: 'dashed' } }
+					splitLine: { lineStyle: { color: borderMuted, type: 'dashed' } }
 				},
 				series: [
 					{

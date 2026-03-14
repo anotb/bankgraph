@@ -2,6 +2,7 @@
 	import DataTable from '$lib/components/data/DataTable.svelte';
 	import MetricCard from '$lib/components/data/MetricCard.svelte';
 	import BarChart from '$lib/components/charts/BarChart.svelte';
+	import ExportButton from '$lib/components/data/ExportButton.svelte';
 	import { formatCurrency, formatNumber } from '$lib/utils/formatters.js';
 	import { getMode } from '$lib/stores/mode.svelte.js';
 	import type { Column } from '$lib/components/data/DataTable.svelte';
@@ -98,9 +99,12 @@
 		&larr; Industry Overview
 	</a>
 
-	<div>
-		<h1 class="text-2xl font-semibold text-[--text-primary]">Bank Failures</h1>
-		<p class="text-[13px] text-[--text-tertiary]">{formatNumber(data.failures.length)} failed institutions since records began</p>
+	<div class="flex items-start justify-between gap-4">
+		<div>
+			<h1 class="text-2xl font-semibold text-[--text-primary]">Bank Failures</h1>
+			<p class="text-[13px] text-[--text-tertiary]">{formatNumber(data.failures.length)} failed institutions since records began</p>
+		</div>
+		<ExportButton baseUrl="/api/v1/industry/failures" filename="bank_failures" />
 	</div>
 
 	<!-- Cost analysis summary -->
@@ -148,7 +152,7 @@
 					<h2 class="text-[15px] font-semibold text-[--text-primary]">Failures by Year</h2>
 				</div>
 				<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
-					<BarChart data={barChartData} height="220px" color="var(--warning)" />
+					<BarChart data={barChartData} height="220px" color="var(--warning)" tooltipLabel="Failures" />
 				</div>
 			</section>
 		{/if}
@@ -162,7 +166,7 @@
 					<span class="text-[11px] text-[--text-tertiary]">(billions)</span>
 				</div>
 				<div class="rounded-md bg-[--surface-1] p-3" style="box-shadow: var(--shadow-sm)">
-					<BarChart data={decadeBarData} height="220px" color="var(--negative)" />
+					<BarChart data={decadeBarData} height="220px" color="var(--negative)" tooltipLabel="Cost ($B)" />
 				</div>
 			</section>
 		{/if}

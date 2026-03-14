@@ -196,13 +196,3 @@ export async function computeCorrelations(db: D1Database): Promise<number> {
   return totalInserted;
 }
 
-/**
- * Noncurrent loans ratio has a different metric name in the industry agg.
- * Map "median_npl" to "median_npl" in agg_industry; we need to create this
- * aggregate if it doesn't exist. For now, we derive it from existing data.
- *
- * NOTE: The industry-agg module computes median_roa, median_roe, median_nim.
- * We'll need to add median_npl there in a follow-up, or compute it inline.
- * For now, correlations against median_npl will produce empty results unless
- * the agg_industry table has that metric.
- */
