@@ -44,23 +44,23 @@ export const load: PageServerLoad = async ({ url, fetch, platform }) => {
     try {
       const db = getDB(platform);
       const placeholders = certs.map(() => '?').join(',');
+      // Bound to the latest 8 quarters per cert in SQL (windowed) rather than
+      // fetching every quarter and slicing in JS. Already chronological (rn ASC reversed).
       const sparklineData = await queryAll<{ cert: number; repdte: string; roa: number | null }>(
         db,
-        `SELECT cert, repdte, roa FROM financials
-         WHERE cert IN (${placeholders})
-         ORDER BY cert, repdte DESC`,
+        `SELECT cert, repdte, roa FROM (
+          SELECT cert, repdte, roa,
+            ROW_NUMBER() OVER (PARTITION BY cert ORDER BY repdte DESC) as rn
+          FROM financials
+          WHERE cert IN (${placeholders})
+        ) WHERE rn <= 8
+        ORDER BY cert, repdte ASC`,
         certs
       );
 
-      // Group by cert, take last 8, reverse to chronological
       for (const row of sparklineData) {
         if (!sparklines[row.cert]) sparklines[row.cert] = [];
-        if (sparklines[row.cert].length < 8) {
-          sparklines[row.cert].push(row.roa);
-        }
-      }
-      for (const cert in sparklines) {
-        sparklines[cert].reverse();
+        sparklines[row.cert].push(row.roa);
       }
     } catch {
       // If DB query fails (e.g. dev mode without D1), return empty sparklines

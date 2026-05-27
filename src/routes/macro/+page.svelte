@@ -446,7 +446,7 @@
 		<EmptyState
 			icon="chart"
 			title="No macro data available"
-			message="Run the FRED sync pipeline to populate macro economic series."
+			message="Macro economic series are not available yet."
 		/>
 	{:else}
 		<!-- Date range selector -->

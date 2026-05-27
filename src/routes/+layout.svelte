@@ -1,50 +1,43 @@
 <script lang="ts">
 	import '../app.css';
-	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import { onNavigate } from '$app/navigation';
 	import ModeToggle from '$lib/components/layout/ModeToggle.svelte';
 	import ThemeToggle from '$lib/components/layout/ThemeToggle.svelte';
 	import KeyboardShortcuts from '$lib/components/layout/KeyboardShortcuts.svelte';
 	import NavigationProgress from '$lib/components/layout/NavigationProgress.svelte';
 	import ScrollToTop from '$lib/components/layout/ScrollToTop.svelte';
-	import SearchBar from '$lib/components/data/SearchBar.svelte';
+	import CommandPalette from '$lib/components/layout/CommandPalette.svelte';
 	import { getMode } from '$lib/stores/mode.svelte.js';
-	import { formatNumber, formatDate } from '$lib/utils/formatters.js';
+	import { formatNumber } from '$lib/utils/formatters.js';
+	import { browser } from '$app/environment';
 
 	let { children, data } = $props();
 	let currentMode = $derived(getMode());
 	let keyboardShortcutsRef: ReturnType<typeof KeyboardShortcuts> | undefined = $state();
-	let navSearchExpanded = $state(false);
-	let navSearchEl: HTMLDivElement | undefined = $state();
+	let commandPaletteRef: ReturnType<typeof CommandPalette> | undefined = $state();
+	let modKeyLabel = $derived(browser && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl');
 	let navScrollEl: HTMLDivElement | undefined = $state();
 	let navCanScrollRight = $state(true);
+
+	// View Transitions API for smooth route changes.
+	// Falls back gracefully on browsers without support.
+	onNavigate((navigation) => {
+		if (typeof document === 'undefined') return;
+		const startViewTransition = (document as Document & { startViewTransition?: (cb: () => Promise<void>) => unknown }).startViewTransition;
+		if (typeof startViewTransition !== 'function') return;
+		return new Promise<void>((resolve) => {
+			startViewTransition.call(document, async () => {
+				resolve();
+				await navigation.complete;
+			});
+		});
+	});
 
 	function isActive(href: string): boolean {
 		const path = $page.url.pathname;
 		if (href === '/') return path === '/';
 		return path.startsWith(href);
-	}
-
-	function handleNavSearch(query: string) {
-		if (query) {
-			goto(`/banks?q=${encodeURIComponent(query)}`);
-			navSearchExpanded = false;
-		}
-	}
-
-	function handleNavSelect({ cert }: import('$lib/types').Institution) {
-		goto(`/banks/${cert}`);
-		navSearchExpanded = false;
-	}
-
-	function toggleNavSearch() {
-		navSearchExpanded = !navSearchExpanded;
-		if (navSearchExpanded) {
-			// Focus the input after it renders
-			setTimeout(() => {
-				navSearchEl?.querySelector('input')?.focus();
-			}, 50);
-		}
 	}
 
 	function checkNavScroll() {
@@ -120,52 +113,33 @@
 			</div>
 
 			<div class="ml-auto flex items-center gap-1 sm:gap-2 shrink-0">
-				<!-- Nav search: icon on mobile, inline input on desktop -->
+				<!-- Command palette trigger: icon on mobile, pill on desktop -->
 				<button
 					type="button"
-					onclick={toggleNavSearch}
-					aria-label={navSearchExpanded ? "Close search" : "Search banks"}
+					onclick={() => commandPaletteRef?.show()}
+					aria-label="Open command palette"
 					class="sm:hidden p-1.5 rounded text-[--text-secondary] hover:text-[--text-primary] hover:bg-[--surface-2] transition-colors"
 				>
-					{#if navSearchExpanded}
-						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-						</svg>
-					{:else}
-						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-						</svg>
-					{/if}
+					<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+					</svg>
 				</button>
-				<div class="hidden sm:block w-44 lg:w-52">
-					<SearchBar
-						placeholder="Search banks..."
-						onsearch={handleNavSearch}
-						autocomplete={true}
-						onselect={handleNavSelect}
-						compact={true}
-					/>
-				</div>
+				<button
+					type="button"
+					onclick={() => commandPaletteRef?.show()}
+					aria-label="Open command palette"
+					class="cmdk-trigger hidden sm:inline-flex"
+				>
+					<svg class="h-3.5 w-3.5 text-[--text-tertiary]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+					</svg>
+					<span class="cmdk-trigger__label">Search banks, jump to a page</span>
+					<span class="cmdk-trigger__kbd"><kbd>{modKeyLabel}</kbd><kbd>K</kbd></span>
+				</button>
 				<ThemeToggle />
 				<ModeToggle />
 			</div>
 		</div>
-
-		<!-- Mobile search expansion -->
-		{#if navSearchExpanded}
-			<div
-				class="sm:hidden px-4 pb-2 pt-1"
-				bind:this={navSearchEl}
-			>
-				<SearchBar
-					placeholder="Search banks..."
-					onsearch={handleNavSearch}
-					autocomplete={true}
-					onselect={handleNavSelect}
-					compact={true}
-				/>
-			</div>
-		{/if}
 	</nav>
 
 	<!-- Main content -->
@@ -205,4 +179,49 @@
 </div>
 
 <KeyboardShortcuts bind:this={keyboardShortcutsRef} />
+<CommandPalette bind:this={commandPaletteRef} />
 <ScrollToTop />
+
+<style>
+	.cmdk-trigger {
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.3rem 0.5rem 0.3rem 0.625rem;
+		background-color: var(--surface-2);
+		border: 1px solid var(--border-muted);
+		border-radius: 6px;
+		color: var(--text-tertiary);
+		font-size: 12px;
+		font-family: inherit;
+		cursor: pointer;
+		min-width: 220px;
+		transition: border-color 0.15s ease, background-color 0.15s ease;
+	}
+	.cmdk-trigger:hover {
+		background-color: var(--surface-1);
+		border-color: var(--border);
+		color: var(--text-secondary);
+	}
+	.cmdk-trigger__label { flex: 1; text-align: left; }
+	.cmdk-trigger__kbd {
+		display: inline-flex;
+		gap: 1px;
+	}
+	.cmdk-trigger__kbd :global(kbd) {
+		display: inline-block;
+		min-width: 14px;
+		padding: 0px 4px;
+		font-family: inherit;
+		font-size: 10px;
+		font-weight: 500;
+		text-align: center;
+		color: var(--text-tertiary);
+		background-color: var(--surface-1);
+		border: 1px solid var(--border-muted);
+		border-radius: 3px;
+	}
+	@media (max-width: 1023px) {
+		.cmdk-trigger { min-width: 160px; }
+		.cmdk-trigger__label { font-size: 11px; }
+	}
+</style>

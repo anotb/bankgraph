@@ -1,11 +1,10 @@
 import type { PageServerLoad } from './$types';
 import { getDB, queryOne, queryAll } from '$lib/server/db';
+import { generateNarrative, type NarrativeMover } from '$lib/utils/narrative.js';
 
 interface MetaData {
   bank_count: number;
   active_count: number;
-  total_assets: number | null;
-  total_deposits: number | null;
   latest_quarter: string | null;
 }
 
@@ -63,6 +62,30 @@ interface StateDistribution {
   total_assets: number | null;
 }
 
+interface MacroSnapshot {
+  fedfunds: { value: number; date: string } | null;
+  dgs10: { value: number; date: string } | null;
+  dgs2: { value: number; date: string } | null;
+}
+
+export interface MoverEntry {
+  cert: number;
+  name: string;
+  state: string | null;
+  total_assets: number | null;
+  curr: number;
+  prev: number;
+  delta_bps: number;
+  roa_trend: (number | null)[];
+}
+
+interface MoversBoard {
+  up: MoverEntry[];
+  down: MoverEntry[];
+  improved: number;
+  deteriorated: number;
+}
+
 const EMPTY_INDUSTRY: IndustryMetrics = {
   median_roa: null, median_roe: null, median_nim: null,
   total_assets: null, total_deposits: null, repdte: null
@@ -70,16 +93,22 @@ const EMPTY_INDUSTRY: IndustryMetrics = {
 
 const EMPTY_META: MetaData = {
   bank_count: 0, active_count: 0,
-  total_assets: null, total_deposits: null,
   latest_quarter: null
+};
+
+const EMPTY_DELTAS: QoQDeltas = {
+  median_roa: null, median_roe: null, median_nim: null,
+  total_assets: null, total_deposits: null, bank_count: null
 };
 
 export const load: PageServerLoad = async ({ platform }) => {
   try {
     const db = getDB(platform);
 
-    // Core counts + aggregates from institutions
-    const [counts, quarter, assetAgg] = await Promise.all([
+    // Core counts from institutions. Industry-wide asset/deposit totals come from
+    // the pre-aggregated agg_industry table (see industryMetrics below), so we don't
+    // re-SUM the institutions table here.
+    const [counts, quarter] = await Promise.all([
       queryOne<{ bank_count: number; active_count: number }>(
         db,
         `SELECT
@@ -90,25 +119,28 @@ export const load: PageServerLoad = async ({ platform }) => {
       queryOne<{ latest_quarter: string | null }>(
         db,
         'SELECT MAX(latest_repdte) as latest_quarter FROM institutions'
-      ),
-      queryOne<{ total_assets: number | null; total_deposits: number | null }>(
-        db,
-        'SELECT SUM(total_assets) as total_assets, SUM(total_deposits) as total_deposits FROM institutions WHERE active = 1'
       )
     ]);
 
     const meta: MetaData = {
       bank_count: counts?.bank_count ?? 0,
       active_count: counts?.active_count ?? 0,
-      total_assets: assetAgg?.total_assets ?? null,
-      total_deposits: assetAgg?.total_deposits ?? null,
       latest_quarter: quarter?.latest_quarter ?? null
     };
 
-    // Run all remaining queries in parallel (they're independent of each other)
     const fiveYearsAgo = `${new Date().getFullYear() - 5}0101`;
 
-    const [industryMetrics, recentAnomalies, failureSummary, topBanks, industryTrends, stateDistribution] = await Promise.all([
+    const [
+      industryMetrics,
+      recentAnomalies,
+      failureSummary,
+      topBanks,
+      industryTrends,
+      stateDistribution,
+      anomalyCounts,
+      movers,
+      macroSnapshot
+    ] = await Promise.all([
       // Industry metrics from agg_industry (latest quarter)
       (async (): Promise<IndustryMetrics> => {
         try {
@@ -136,8 +168,6 @@ export const load: PageServerLoad = async ({ platform }) => {
       // Recent anomalies (top 5 critical/warning, one per bank)
       (async (): Promise<RecentAnomaly[]> => {
         try {
-          // Fetch more rows than needed, then deduplicate in JS
-          // (D1 SQLite has limited window function support)
           const raw = await queryAll<RecentAnomaly>(
             db,
             `SELECT a.cert, i.name, a.metric, a.severity, a.description, a.value, a.repdte
@@ -147,7 +177,6 @@ export const load: PageServerLoad = async ({ platform }) => {
              ORDER BY CASE a.severity WHEN 'critical' THEN 0 ELSE 1 END, a.repdte DESC
              LIMIT 20`
           );
-          // Keep only the most severe anomaly per bank (first seen wins due to ORDER BY)
           const seen = new Set<number>();
           const deduped: RecentAnomaly[] = [];
           for (const row of raw) {
@@ -160,7 +189,7 @@ export const load: PageServerLoad = async ({ platform }) => {
         } catch { return []; }
       })(),
 
-      // Failures summary (3 sub-queries parallelized)
+      // Failures summary
       (async (): Promise<FailureSummary> => {
         try {
           const [failCount, recent5yr, recentFails] = await Promise.all([
@@ -224,7 +253,7 @@ export const load: PageServerLoad = async ({ platform }) => {
         } catch { return []; }
       })(),
 
-      // Last 12 quarters of industry-wide data for trend charts + QoQ deltas
+      // Last 12 quarters of industry-wide data
       (async (): Promise<IndustryTrendQuarter[]> => {
         try {
           const rows = await queryAll<{ repdte: string; metric: string; value: number | null }>(
@@ -244,7 +273,7 @@ export const load: PageServerLoad = async ({ platform }) => {
         } catch { return []; }
       })(),
 
-      // State distribution: bank count and total assets by state
+      // State distribution
       (async (): Promise<StateDistribution[]> => {
         try {
           return await queryAll<StateDistribution>(
@@ -256,41 +285,218 @@ export const load: PageServerLoad = async ({ platform }) => {
              ORDER BY bank_count DESC`
           );
         } catch { return []; }
+      })(),
+
+      // Anomaly severity counts at the most recent quarter — DISTINCT banks per severity
+      (async (): Promise<{ critical: number; warning: number }> => {
+        try {
+          const rows = await queryAll<{ severity: string; cnt: number }>(
+            db,
+            `SELECT a.severity, COUNT(DISTINCT a.cert) as cnt
+             FROM anomalies a
+             JOIN institutions i ON i.cert = a.cert AND i.active = 1
+             WHERE a.repdte = (SELECT MAX(repdte) FROM anomalies)
+             GROUP BY a.severity`
+          );
+          let critical = 0, warning = 0;
+          for (const r of rows) {
+            if (r.severity === 'critical') critical = r.cnt;
+            else if (r.severity === 'warning') warning = r.cnt;
+          }
+          return { critical, warning };
+        } catch { return { critical: 0, warning: 0 }; }
+      })(),
+
+      // Movers board: top 5 up + top 5 down by ROA QoQ change, plus aggregate counts.
+      // Uses self-join on financials with the "previous filing per cert" pattern.
+      (async (): Promise<MoversBoard> => {
+        const empty: MoversBoard = { up: [], down: [], improved: 0, deteriorated: 0 };
+        try {
+          const latest = await queryOne<{ repdte: string | null }>(
+            db, `SELECT MAX(repdte) as repdte FROM financials`
+          );
+          if (!latest?.repdte) return empty;
+
+          // All banks > $500M assets that have data in both latest and prior quarter
+          const rows = await queryAll<{
+            cert: number; name: string; state: string | null;
+            total_assets: number | null;
+            curr: number; prev: number;
+          }>(
+            db,
+            `SELECT i.cert, i.name, i.state, i.total_assets,
+                    f1.roa as curr, f2.roa as prev
+             FROM financials f1
+             JOIN financials f2 ON f1.cert = f2.cert
+             JOIN institutions i ON i.cert = f1.cert
+             WHERE f1.repdte = ?
+               AND f2.repdte = (
+                 SELECT MAX(repdte) FROM financials WHERE cert = f1.cert AND repdte < f1.repdte
+               )
+               AND f1.roa IS NOT NULL AND f2.roa IS NOT NULL
+               AND i.active = 1
+               AND i.total_assets > 500000`,
+            [latest.repdte]
+          );
+
+          let improved = 0, deteriorated = 0;
+          const enriched = rows.map(r => {
+            const delta_bps = Math.round((r.curr - r.prev) * 100);
+            if (delta_bps > 0) improved++;
+            else if (delta_bps < 0) deteriorated++;
+            return { ...r, delta_bps };
+          });
+
+          const up = enriched
+            .filter(r => r.delta_bps > 0)
+            .sort((a, b) => b.delta_bps - a.delta_bps)
+            .slice(0, 5);
+          const down = enriched
+            .filter(r => r.delta_bps < 0)
+            .sort((a, b) => a.delta_bps - b.delta_bps)
+            .slice(0, 5);
+
+          // Pull 6-quarter ROA sparklines for the 10 banks shown
+          const featured = [...up, ...down];
+          const sparkByCert = new Map<number, (number | null)[]>();
+          if (featured.length > 0) {
+            const certs = featured.map(r => r.cert);
+            const placeholders = certs.map(() => '?').join(',');
+            const sparkRows = await queryAll<{ cert: number; repdte: string; roa: number | null }>(
+              db,
+              `SELECT cert, repdte, roa FROM (
+                SELECT cert, repdte, roa,
+                  ROW_NUMBER() OVER (PARTITION BY cert ORDER BY repdte DESC) as rn
+                FROM financials
+                WHERE cert IN (${placeholders})
+              ) WHERE rn <= 6 ORDER BY cert, repdte ASC`,
+              certs
+            );
+            for (const row of sparkRows) {
+              if (!sparkByCert.has(row.cert)) sparkByCert.set(row.cert, []);
+              sparkByCert.get(row.cert)!.push(row.roa);
+            }
+          }
+
+          const attach = (r: typeof enriched[number]): MoverEntry => ({
+            cert: r.cert,
+            name: r.name,
+            state: r.state,
+            total_assets: r.total_assets,
+            curr: r.curr,
+            prev: r.prev,
+            delta_bps: r.delta_bps,
+            roa_trend: sparkByCert.get(r.cert) ?? []
+          });
+
+          return {
+            up: up.map(attach),
+            down: down.map(attach),
+            improved,
+            deteriorated
+          };
+        } catch { return empty; }
+      })(),
+
+      // Macro snapshot (latest values for headline rates — fails gracefully if FRED hasn't synced)
+      (async (): Promise<MacroSnapshot> => {
+        const snap: MacroSnapshot = { fedfunds: null, dgs10: null, dgs2: null };
+        try {
+          for (const id of ['FEDFUNDS', 'DGS10', 'DGS2'] as const) {
+            const row = await queryOne<{ value: number | null; date: string }>(
+              db,
+              `SELECT value, date FROM macro_data WHERE series_id = ? AND value IS NOT NULL ORDER BY date DESC LIMIT 1`,
+              [id]
+            );
+            if (row && row.value != null) {
+              const key = id.toLowerCase() as 'fedfunds' | 'dgs10' | 'dgs2';
+              snap[key] = { value: row.value, date: row.date };
+            }
+          }
+        } catch { /* macro table may not exist */ }
+        return snap;
       })()
     ]);
 
-    // Compute QoQ deltas from the first two quarters of industryTrends
-    const EMPTY_DELTAS: QoQDeltas = {
-      median_roa: null, median_roe: null, median_nim: null,
-      total_assets: null, total_deposits: null, bank_count: null
-    };
+    // QoQ deltas from first two industry trend quarters.
+    // `deltas` = relative % change (used for the hero chip + dollar aggregates).
+    // `rateDeltasBps` = absolute basis-point change for the rate metrics (used by the narrative).
     let deltas = EMPTY_DELTAS;
+    let rateDeltasBps = { median_roa: null as number | null, median_roe: null as number | null, median_nim: null as number | null };
     if (industryTrends.length >= 2) {
       const curr = industryTrends[0].metrics;
       const prev = industryTrends[1].metrics;
-      const delta = (key: string): number | null => {
+      const relDelta = (key: string): number | null => {
         const c = curr[key];
         const p = prev[key];
         if (c == null || p == null || p === 0) return null;
         return ((c - p) / Math.abs(p)) * 100;
       };
+      const bpsDelta = (key: string): number | null => {
+        const c = curr[key];
+        const p = prev[key];
+        if (c == null || p == null) return null;
+        return Math.round((c - p) * 100); // metric is in %, so pct-point × 100 = bps
+      };
       deltas = {
-        median_roa: delta('median_roa'),
-        median_roe: delta('median_roe'),
-        median_nim: delta('median_nim'),
-        total_assets: delta('total_assets'),
-        total_deposits: delta('total_deposits'),
-        bank_count: delta('bank_count')
+        median_roa: relDelta('median_roa'),
+        median_roe: relDelta('median_roe'),
+        median_nim: relDelta('median_nim'),
+        total_assets: relDelta('total_assets'),
+        total_deposits: relDelta('total_deposits'),
+        bank_count: relDelta('bank_count')
+      };
+      rateDeltasBps = {
+        median_roa: bpsDelta('median_roa'),
+        median_roe: bpsDelta('median_roe'),
+        median_nim: bpsDelta('median_nim')
       };
     }
 
-    return { meta, industryMetrics, recentAnomalies, failureSummary, topBanks, industryTrends, deltas, stateDistribution };
-  } catch {
-    // DB not available (local dev, first deploy, etc.)
-    const EMPTY_DELTAS: QoQDeltas = {
-      median_roa: null, median_roe: null, median_nim: null,
-      total_assets: null, total_deposits: null, bank_count: null
+    // Top mover: derive from the movers board (biggest absolute ROA swing) — no extra query.
+    const moverPool = [...movers.up, ...movers.down]
+      .sort((a, b) => Math.abs(b.delta_bps) - Math.abs(a.delta_bps));
+    const topMover: NarrativeMover | null = moverPool.length > 0 && Math.abs(moverPool[0].delta_bps) >= 10
+      ? {
+          cert: moverPool[0].cert,
+          name: moverPool[0].name,
+          metric: 'roa',
+          current: moverPool[0].curr,
+          delta_bps: moverPool[0].delta_bps
+        }
+      : null;
+
+    // Programmatic narrative
+    const narrative = generateNarrative({
+      latestQuarter: meta.latest_quarter,
+      metrics: {
+        median_roa: industryMetrics.median_roa,
+        median_roe: industryMetrics.median_roe,
+        median_nim: industryMetrics.median_nim
+      },
+      rateDeltasBps,
+      assetsDeltaPct: deltas.total_assets,
+      depositsDeltaPct: deltas.total_deposits,
+      recent5yrFailures: failureSummary.recent_5yr_count,
+      topMover
+    });
+
+    return {
+      meta,
+      industryMetrics,
+      recentAnomalies,
+      failureSummary,
+      topBanks,
+      industryTrends,
+      deltas,
+      stateDistribution,
+      anomalyCounts,
+      topMover,
+      macroSnapshot,
+      narrative,
+      movers
     };
+  } catch {
     return {
       meta: EMPTY_META,
       industryMetrics: EMPTY_INDUSTRY,
@@ -299,7 +505,12 @@ export const load: PageServerLoad = async ({ platform }) => {
       topBanks: [] as TopBank[],
       industryTrends: [] as IndustryTrendQuarter[],
       deltas: EMPTY_DELTAS,
-      stateDistribution: [] as StateDistribution[]
+      stateDistribution: [] as StateDistribution[],
+      anomalyCounts: { critical: 0, warning: 0 },
+      topMover: null as NarrativeMover | null,
+      macroSnapshot: { fedfunds: null, dgs10: null, dgs2: null } as MacroSnapshot,
+      narrative: [] as string[],
+      movers: { up: [], down: [], improved: 0, deteriorated: 0 } as MoversBoard
     };
   }
 };

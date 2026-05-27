@@ -117,11 +117,11 @@
 					<h1 class="text-2xl font-semibold text-[--text-primary] truncate">{data.bank.name}</h1>
 					<!-- Active/inactive badge -->
 					{#if isActiveProp}
-						<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold tracking-wide bg-[--positive-muted] text-[--positive]">
+						<span class="inline-flex items-center rounded-sm px-2 py-0.5 text-[11px] font-semibold tracking-wide bg-[--positive-muted] text-[--positive]">
 							Active
 						</span>
 					{:else}
-						<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold tracking-wide bg-[--negative-muted] text-[--negative]">
+						<span class="inline-flex items-center rounded-sm px-2 py-0.5 text-[11px] font-semibold tracking-wide bg-[--negative-muted] text-[--negative]">
 							Inactive
 						</span>
 					{/if}

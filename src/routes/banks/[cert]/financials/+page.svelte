@@ -194,7 +194,7 @@
 		<EmptyState
 			icon="chart"
 			title="No financial data available"
-			message="Run the backfill pipeline to populate quarterly financials for this institution."
+			message="No quarterly financial data is on file for this institution."
 		/>
 	{:else}
 		<!-- Controls row: DateRangePicker + view toggle + FieldPicker + ExportButton -->

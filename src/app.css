@@ -309,6 +309,47 @@ th[class*="text-right"] {
   animation: fadeIn 0.15s ease-out;
 }
 
+/* View Transitions API: smooth route changes on supporting browsers (Chromium 111+, Safari 18+). */
+@view-transition {
+  navigation: auto;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 180ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+::view-transition-old(root) {
+  animation-name: vtFadeOut;
+}
+::view-transition-new(root) {
+  animation-name: vtFadeIn;
+}
+@keyframes vtFadeOut {
+  to { opacity: 0; transform: translateY(-2px); }
+}
+@keyframes vtFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
+}
+
+/* Global motion guard: honor prefers-reduced-motion everywhere (hero pulse,
+   command-palette slide, nav nudge, hover lifts). Standard a11y baseline. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ============================================================
    PRINT STYLES
    ============================================================ */

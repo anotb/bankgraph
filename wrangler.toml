@@ -20,3 +20,8 @@ bucket_name = "bank-exports"
 # [vars]
 # FRED_API_KEY = "" # Do NOT put actual key here; use wrangler secret put
 # PIPELINE_SECRET = "" # Do NOT put actual key here; use wrangler secret put
+
+# Nightly sync runs via GitHub Actions (.github/workflows/nightly-sync.yml).
+# Set repo var SYNC_BASE_URL and repo secret PIPELINE_SECRET to wire it up.
+# Cloudflare cron triggers would also work, but adapter-cloudflare doesn't
+# currently expose a scheduled() handler — the GH Action path is simpler.

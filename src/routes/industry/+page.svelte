@@ -369,7 +369,7 @@
 		<EmptyState
 			icon="data"
 			title="No industry metadata available"
-			message="Run the aggregation pipeline to populate industry-wide statistics."
+			message="Industry-wide statistics are not available yet."
 			onRetry={() => invalidateAll()}
 		/>
 	{/if}

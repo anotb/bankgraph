@@ -152,18 +152,20 @@
 	});
 
 	async function loadBanksFromCerts(certs: number[]): Promise<void> {
-		const banks: Institution[] = [];
-		for (const cert of certs.slice(0, 10)) {
-			try {
-				const res = await fetch(`/api/v1/banks/${cert}`);
-				if (res.ok) {
+		// Fetch in parallel and preserve the requested cert order.
+		const results = await Promise.all(
+			certs.slice(0, 10).map(async (cert) => {
+				try {
+					const res = await fetch(`/api/v1/banks/${cert}`);
+					if (!res.ok) return null;
 					const json = (await res.json()) as Institution & { latest_financials?: unknown };
-					if (json.cert) banks.push(json);
+					return json.cert ? json : null;
+				} catch {
+					return null;
 				}
-			} catch {
-				// Skip banks that fail to load
-			}
-		}
+			})
+		);
+		const banks = results.filter((b): b is Institution => b !== null);
 		if (banks.length > 0) {
 			selectedBanks = banks;
 		}
@@ -586,7 +588,7 @@
 			<div class="flex flex-wrap gap-1.5 mt-2">
 				{#each selectedBanks as bank (bank.cert)}
 					<span
-						class="inline-flex items-center gap-1.5 rounded-full bg-[--accent-muted] text-[--accent-text] px-3 py-1.5 sm:px-2.5 sm:py-1 text-[12px] font-medium"
+						class="inline-flex items-center gap-1.5 rounded-sm bg-[--accent-muted] text-[--accent-text] px-3 py-1.5 sm:px-2.5 sm:py-1 text-[12px] font-medium"
 					>
 						<a href="/banks/{bank.cert}" class="hover:underline" title={bank.name}>
 							{bank.name.length > 25 ? bank.name.slice(0, 25) + '...' : bank.name}
@@ -642,7 +644,7 @@
 		<div class="flex flex-wrap gap-1.5">
 			{#each availableMetrics as metric (metric.key)}
 				<button
-					class="{isPower ? 'px-2.5 py-0.5' : 'px-3.5 py-2 sm:px-3 sm:py-1'} text-[13px] rounded-full font-medium transition-colors
+					class="{isPower ? 'px-2.5 py-0.5' : 'px-3.5 py-2 sm:px-3 sm:py-1'} text-[13px] rounded-sm font-medium transition-colors
 						{selectedMetricKeys.has(metric.key)
 						? 'bg-[--accent] text-white'
 						: 'bg-[--surface-2] text-[--text-secondary] hover:bg-[--surface-3]'}"
@@ -700,7 +702,7 @@
 							{#each popularComparisons as comp}
 								<button
 									type="button"
-									class="{isPower ? 'px-2.5 py-0.5' : 'px-3.5 py-2.5 sm:px-3 sm:py-1.5'} text-[12px] rounded-full border border-[--border-muted] bg-[--surface-2] text-[--text-secondary]
+									class="{isPower ? 'px-2.5 py-0.5' : 'px-3.5 py-2.5 sm:px-3 sm:py-1.5'} text-[12px] rounded-sm border border-[--border-muted] bg-[--surface-2] text-[--text-secondary]
 										hover:border-[--accent] hover:text-[--accent-text] transition-colors"
 									onclick={() => loadPopularComparison(comp.certs)}
 								>

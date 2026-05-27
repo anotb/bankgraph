@@ -105,7 +105,7 @@
 		<EmptyState
 			icon="data"
 			title="No peer comparison data available"
-			message="This bank may not have financials for the latest quarter. Run the peer aggregation pipeline to generate comparisons."
+			message="Peer comparisons are not available for this institution in the latest quarter."
 			onRetry={() => invalidateAll()}
 		/>
 	{:else}
