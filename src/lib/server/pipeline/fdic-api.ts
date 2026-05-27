@@ -1,10 +1,11 @@
 /**
  * Shared FDIC BankFind API client.
- * Base URL: https://banks.data.fdic.gov/api
+ * Base URL: https://api.fdic.gov/banks (the legacy banks.data.fdic.gov/api host
+ * now 301-redirects here; we target the canonical host directly).
  * No auth required; may rate limit.
  */
 
-const BASE_URL = 'https://banks.data.fdic.gov/api';
+const BASE_URL = 'https://api.fdic.gov/banks';
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 500;
 

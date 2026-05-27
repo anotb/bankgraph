@@ -20,7 +20,7 @@ import type { RequestHandler } from './$types';
 import { getDB, queryOne, queryAll } from '$lib/server/db';
 import { syncInstitutions } from '$lib/server/pipeline/fdic-institutions';
 import { syncLatestFinancials } from '$lib/server/pipeline/fdic-financials-snapshot';
-import { syncFinancials } from '$lib/server/pipeline/fdic-financials';
+import { syncFinancials, syncLatestQuarterFinancials } from '$lib/server/pipeline/fdic-financials';
 import { syncFailures } from '$lib/server/pipeline/fdic-failures';
 import { computePeerStats } from '$lib/server/analytics/peer-stats';
 import { computeIndustryAggregates } from '$lib/server/analytics/industry-agg';
@@ -53,7 +53,7 @@ export const POST: RequestHandler = async ({ platform, url, request }) => {
   const stage = url.searchParams.get('stage');
   const resetParam = url.searchParams.get('reset');
 
-  const VALID_STAGES = ['institutions', 'financials', 'failures', 'snapshot', 'analytics', 'trends', 'anomalies', 'risk', 'fred', 'correlations', 'fix-dates'];
+  const VALID_STAGES = ['institutions', 'financials', 'financials-latest', 'failures', 'snapshot', 'analytics', 'trends', 'anomalies', 'risk', 'fred', 'correlations', 'fix-dates'];
   if (stage && !VALID_STAGES.includes(stage)) {
     return pipelineJson({ ok: false, error: `Unknown stage: ${stage}` }, 400);
   }
@@ -91,6 +91,20 @@ export const POST: RequestHandler = async ({ platform, url, request }) => {
       const financialsResult = await syncFinancials(db);
       results.financials = {
         ...financialsResult,
+        elapsed_seconds: Number(((Date.now() - t0) / 1000).toFixed(1))
+      };
+    }
+
+    // Stage: financials-latest (incremental — upsert ONLY the newest quarter into
+    // the financials time series). Explicit-only: the "all" path uses the full
+    // backfill above. Run this nightly to pick up a freshly-published quarter
+    // without re-fetching the full history; follow with analytics/trends/anomalies.
+    if (stage === 'financials-latest') {
+      console.log('=== Stage: financials-latest ===');
+      const t0 = Date.now();
+      const latestResult = await syncLatestQuarterFinancials(db);
+      results['financials-latest'] = {
+        ...latestResult,
         elapsed_seconds: Number(((Date.now() - t0) / 1000).toFixed(1))
       };
     }

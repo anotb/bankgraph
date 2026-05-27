@@ -6,7 +6,7 @@
 import { batchInsert } from '$lib/server/db';
 import { delay } from './fdic-api';
 
-const FDIC_BASE_URL = 'https://banks.data.fdic.gov/api';
+const FDIC_BASE_URL = 'https://api.fdic.gov/banks';
 const PAGE_SIZE = 10_000;
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 500;

@@ -43,11 +43,12 @@ jobs:
           }
 
           run_stage institutions
-          run_stage snapshot
+          run_stage financials-latest  # upsert the newest quarter into the time series
+          run_stage snapshot           # refresh institutions summary columns
           run_stage failures
-          run_stage analytics
+          run_stage analytics          # recompute peer stats + industry aggregates
           run_stage trends
           run_stage anomalies
           run_stage risk
-          run_stage fred
+          run_stage fred               # macro series (no-op without FRED_API_KEY)
           run_stage correlations

@@ -6,12 +6,12 @@
  */
 
 import { batchInsert, execute, queryOne } from '$lib/server/db';
-import { delay } from './fdic-api';
+import { delay, fetchFinancialsForQuarter, fetchLatestQuarter } from './fdic-api';
 
 const PAGE_SIZE = 10_000;
 const DELAY_BETWEEN_PAGES_MS = 100;
 
-const FDIC_BASE_URL = 'https://banks.data.fdic.gov/api';
+const FDIC_BASE_URL = 'https://api.fdic.gov/banks';
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 500;
 
@@ -217,4 +217,44 @@ export async function syncFinancials(
   console.log(`Financials: backfill complete, ${totalProcessed} total rows`);
 
   return { processed: totalProcessed, done: true, offset: 0 };
+}
+
+export interface SyncLatestQuarterResult {
+  repdte: string | null;
+  inserted: number;
+}
+
+/**
+ * Incrementally ingest the single most recent quarter into the `financials`
+ * time-series table (idempotent upsert on cert+repdte). Unlike syncFinancials,
+ * this fetches just one quarter (~4.4k rows = one page), so it completes in a
+ * single Worker invocation and is suitable for a nightly run. Use it to pick up
+ * a newly-published quarter without re-backfilling the full history.
+ *
+ * Note: the `snapshot` stage updates the institutions summary columns; this
+ * stage feeds the time series that powers charts, trends, movers, and anomalies.
+ * Run both (then analytics/trends/anomalies) when a new quarter lands.
+ */
+export async function syncLatestQuarterFinancials(
+  db: D1Database,
+  repdte?: string
+): Promise<SyncLatestQuarterResult> {
+  const quarter = repdte ?? (await fetchLatestQuarter());
+  if (!quarter) return { repdte: null, inserted: 0 };
+
+  let offset = 0;
+  let inserted = 0;
+  while (true) {
+    const response = await fetchFinancialsForQuarter(quarter, offset, PAGE_SIZE);
+    if (response.data.length === 0) break;
+    const rows = response.data.map((item) => mapFinancial(item.data));
+    await batchInsert(db, 'financials', rows, ['cert', 'repdte']);
+    inserted += rows.length;
+    if (response.data.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+    await delay(DELAY_BETWEEN_PAGES_MS);
+  }
+
+  console.log(`Financials (latest quarter ${quarter}): upserted ${inserted} rows`);
+  return { repdte: quarter, inserted };
 }
