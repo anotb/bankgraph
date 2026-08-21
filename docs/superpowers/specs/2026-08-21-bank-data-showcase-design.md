@@ -113,3 +113,19 @@ Per phase: parallel develop workers on independent workstreams → reviewer agen
 full phase diff (defect-first) → fix workers → `npm run ci` + Playwright verify → next
 phase. All subagents are ox-alpha (ocx-self). Personas (e.g., "The Skeptic", "The
 Showman", "The Cartographer") decide naming/tone/cuts autonomously.
+
+## Binding branding decisions (persona panel, 2026-08-21)
+
+| Decision | Value |
+|---|---|
+| Product name | **Bankgraph** (runner-up: Ledgerline) |
+| Tagline | "Explore every U.S. bank, from 1934 to today." |
+| Badge | bankgraph.app |
+| Risk score name | **Fragility Index** (SVB Score vetoed by Skeptic) |
+| Recap feature | **Year in Review** (avoids Spotify "Wrapped" mark) |
+| AI chat feature | **Ask the Data** |
+
+Phase-1 cuts (binding): defer 76k branch-location ingest UI, defer 1984 CSV backfill
+(ship 1992+ via API), defer motion polish beyond shell basics to Phase 3. One recorded
+dissent (Showman: motion timing). All user-facing strings live in
+`src/lib/config/branding.ts` for single-file swap.
