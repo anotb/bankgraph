@@ -1,0 +1,6 @@
+# Use a long random value. This protects the private data-pipeline endpoint.
+PIPELINE_SECRET="replace-with-a-long-random-value"
+
+# Enables the explicit /workspace?demo=recorded route during local demos.
+# Keep this false or unset in production.
+ALLOW_RECORDED_DEMO="true"

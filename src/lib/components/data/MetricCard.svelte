@@ -1,11 +1,13 @@
 <script lang="ts">
 	import Skeleton from './Skeleton.svelte';
+	import { formatMetricTrend, type MetricTrendUnit } from './metric-trend';
 
 	let {
 		label,
 		value,
 		sublabel,
 		trend,
+		trendUnit = 'percent',
 		trendLabel,
 		invertTrend = false,
 		compact = false,
@@ -19,8 +21,9 @@
 		value: string;
 		sublabel?: string;
 		trend?: number | null;
+		trendUnit?: MetricTrendUnit;
 		trendLabel?: string;
-		/** When true, a positive trend is bad (e.g. rising NPL ratio) */
+		/** When true, a positive trend is bad (e.g. a rising noncurrent loan ratio) */
 		invertTrend?: boolean;
 		compact?: boolean;
 		borderless?: boolean;
@@ -40,12 +43,10 @@
 		: 'neutral'
 	);
 
-	let trendFormatted = $derived(
-		trend != null ? (trend > 0 ? `+${trend.toFixed(2)}%` : `${trend.toFixed(2)}%`) : null
-	);
+	let formattedTrend = $derived(trend != null ? formatMetricTrend(trend, trendUnit) : null);
 
 	let trendAriaLabel = $derived(
-		trendFormatted != null ? `Quarter-over-quarter change: ${trendFormatted}` : undefined
+		formattedTrend?.aria
 	);
 
 	let valueColor = $derived(
@@ -64,7 +65,7 @@
 </script>
 
 {#snippet trendBadge()}
-	{#if trendFormatted}
+	{#if formattedTrend}
 		<span aria-label={trendAriaLabel} class="inline-flex items-center gap-0.5 {isDense ? 'text-[10px]' : 'text-xs'} font-medium data-mono rounded-sm px-1 py-0.5
 			{trendDirection === 'positive' ? 'text-[--positive] bg-[--positive-muted]' : trendDirection === 'negative' ? 'text-[--negative] bg-[--negative-muted]' : 'text-[--neutral] bg-[--surface-2]'}">
 			{#if trendDirection === 'positive'}
@@ -80,7 +81,7 @@
 					<rect x="2" y="5" width="8" height="2" rx="0.5"/>
 				</svg>
 			{/if}
-			{trendFormatted}
+			{formattedTrend.visual}
 		</span>
 	{/if}
 {/snippet}

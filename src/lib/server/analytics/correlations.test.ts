@@ -1,11 +1,21 @@
 import { describe, it, expect } from 'vitest';
-import { pearsonCorrelation, repdteToQuarterStart } from './correlations';
+import {
+	CORRELATION_METHOD,
+	CORRELATION_PLAN,
+	MIN_CORRELATION_OBSERVATIONS,
+	addQuarters,
+	alignQuarterlySeries,
+	analyzeContemporaneousYearOverYearChanges,
+	pearsonCorrelation,
+	repdteToQuarterStart,
+	yearOverYearChanges
+} from './correlations';
 
 describe('pearsonCorrelation', () => {
-	it('returns NaN for arrays shorter than 3', () => {
+	it('returns NaN without two paired values', () => {
 		expect(pearsonCorrelation([], [])).toBeNaN();
 		expect(pearsonCorrelation([1], [2])).toBeNaN();
-		expect(pearsonCorrelation([1, 2], [3, 4])).toBeNaN();
+		expect(pearsonCorrelation([1, 2], [3, 4])).toBeCloseTo(1, 10);
 	});
 
 	it('returns 1.0 for perfectly correlated arrays', () => {
@@ -39,11 +49,10 @@ describe('pearsonCorrelation', () => {
 		expect(pearsonCorrelation(x, y)).toBeNaN();
 	});
 
-	it('uses the shorter array length when arrays differ in size', () => {
+	it('rejects arrays with different lengths rather than silently truncating a series', () => {
 		const x = [1, 2, 3, 4, 5, 6, 7];
-		const y = [2, 4, 6]; // only 3 elements
-		// Should compute on first 3 elements: x=[1,2,3], y=[2,4,6] -> perfect correlation
-		expect(pearsonCorrelation(x, y)).toBeCloseTo(1.0, 10);
+		const y = [2, 4, 6];
+		expect(pearsonCorrelation(x, y)).toBeNaN();
 	});
 
 	it('handles very large values without overflow', () => {
@@ -56,6 +65,86 @@ describe('pearsonCorrelation', () => {
 		const x = [1.000001, 1.000002, 1.000003];
 		const y = [2.000001, 2.000002, 2.000003];
 		expect(pearsonCorrelation(x, y)).toBeCloseTo(1.0, 5);
+	});
+});
+
+describe('quarterly lag alignment', () => {
+	it('uses calendar quarter arithmetic instead of array offsets across gaps', () => {
+		const macro = new Map([['2024-01-01', 1], ['2024-07-01', 3]]);
+		const bank = new Map([['2024-04-01', 10], ['2024-10-01', 30]]);
+		expect(addQuarters('2024-10-01', 1)).toBe('2025-01-01');
+		expect(alignQuarterlySeries(macro, bank, 1)).toEqual({
+			x: [1, 3],
+			y: [10, 30],
+			macroQuarters: ['2024-01-01', '2024-07-01'],
+			bankQuarters: ['2024-04-01', '2024-10-01']
+		});
+	});
+});
+
+describe('macro-bank co-movement methodology', () => {
+	it('uses one predeclared contemporaneous test per economic pair', () => {
+		expect(CORRELATION_METHOD).toBe('pearson_yoy_change_contemporaneous');
+		expect(MIN_CORRELATION_OBSERVATIONS).toBe(2);
+		expect(CORRELATION_PLAN).toEqual([
+			{ macroSeries: 'FRB_FEDFUNDS', bankMetric: 'median_nim' },
+			{ macroSeries: 'BLS_UNRATE', bankMetric: 'median_npl' },
+			{ macroSeries: 'UST10Y2Y', bankMetric: 'median_roa' },
+			{ macroSeries: 'UST10Y', bankMetric: 'median_nim' }
+		]);
+	});
+
+	it('computes changes against the same quarter one year earlier and leaves gaps unpaired', () => {
+		const levels = new Map([
+			['2023-01-01', 1],
+			['2023-04-01', 2],
+			['2024-01-01', 4],
+			['2024-04-01', 7],
+			['2025-04-01', 11]
+		]);
+
+		expect([...yearOverYearChanges(levels)]).toEqual([
+			['2024-01-01', 3],
+			['2024-04-01', 5],
+			['2025-04-01', 4]
+		]);
+	});
+
+	it('calculates from two nonconstant paired changes and reports the exact window', () => {
+		const macro = new Map<string, number>();
+		const bank = new Map<string, number>();
+		let quarter = '2010-01-01';
+		for (let index = 0; index < 5; index++) {
+			macro.set(quarter, index * index + Math.sin(index));
+			bank.set(quarter, index * index * 0.5 + Math.cos(index));
+			quarter = addQuarters(quarter, 1);
+		}
+
+		expect(analyzeContemporaneousYearOverYearChanges(macro, bank)).toBeNull();
+
+		macro.set(quarter, 25 + Math.sin(5));
+		bank.set(quarter, 12.5 + Math.cos(5));
+		const result = analyzeContemporaneousYearOverYearChanges(macro, bank);
+		expect(result).not.toBeNull();
+		expect(result?.observations).toBe(2);
+		expect(result?.windowStart).toBe('2011-01-01');
+		expect(result?.windowEnd).toBe('2011-04-01');
+	});
+
+	it('does not publish a correlation when changes have no variance', () => {
+		const macro = new Map<string, number>();
+		const bank = new Map<string, number>();
+		let quarter = '2010-01-01';
+		for (let index = 0; index < 32; index++) {
+			macro.set(quarter, index);
+			bank.set(quarter, index * 2);
+			quarter = addQuarters(quarter, 1);
+		}
+
+		// Both level series trend perfectly, but their year-over-year changes are
+		// constant and therefore do not support a correlation estimate.
+		expect(pearsonCorrelation([...macro.values()], [...bank.values()])).toBeCloseTo(1);
+		expect(analyzeContemporaneousYearOverYearChanges(macro, bank)).toBeNull();
 	});
 });
 

@@ -15,7 +15,6 @@
 		showFill?: boolean;
 	} = $props();
 
-	let uid = $derived(`spark-${Math.random().toString(36).slice(2, 8)}`);
 	let valid = $derived(data.filter((d): d is number => d !== null));
 
 	let points = $derived.by(() => {
@@ -68,15 +67,10 @@
 {#if points}
 	<svg {width} {height} class="inline-block align-middle" aria-hidden="true">
 		{#if showFill}
-			<defs>
-				<linearGradient id={uid} x1="0" y1="0" x2="0" y2="1">
-					<stop offset="0%" stop-color={trendColor} stop-opacity="0.2" />
-					<stop offset="100%" stop-color={trendColor} stop-opacity="0.02" />
-				</linearGradient>
-			</defs>
 			<polygon
 				points={areaPoints}
-				fill="url(#{uid})"
+				fill={trendColor}
+				fill-opacity="0.1"
 			/>
 		{/if}
 		<polyline

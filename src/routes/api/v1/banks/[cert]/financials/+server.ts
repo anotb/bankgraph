@@ -2,32 +2,46 @@ import type { RequestHandler } from './$types';
 import { getDB, queryAll } from '$lib/server/db';
 import { cacheWrap } from '$lib/server/cache';
 import { jsonResponse, errorResponse } from '$lib/server/response';
+import { encodeCsvRow } from '$lib/server/csv';
 import type { Financial, FinancialsResponse } from '$lib/types';
+import {
+  releaseLineage,
+  setReleaseLineageHeaders,
+  stalePageReleaseResponse
+} from '$lib/server/release-lineage';
 
 const SIX_HOURS = 21600;
 
-function csvEscape(val: unknown): string {
-  if (val === null || val === undefined) return '';
-  const s = String(val);
-  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
-    return '"' + s.replace(/"/g, '""') + '"';
-  }
-  return s;
-}
-
 const VALID_FIELDS = new Set([
   'cert', 'repdte', 'asset', 'dep', 'eq', 'lnlsnet', 'lnre', 'lnci', 'lncon', 'sec',
+  'chbal', 'frepo', 'trade', 'ore', 'bkprem', 'intan', 'oa',
+  'frepp', 'othbor', 'subnd', 'tradel', 'allothl',
   'netinc', 'intinc', 'eintexp', 'nim', 'nonii', 'nonix', 'elnatr',
+  'netincq', 'nimq', 'noniiq', 'nonixq', 'elnatq', 'iglsecq', 'itaxq', 'extraq',
   'roa', 'roe', 'nimy', 'eeffr', 'rbcrwaj', 'rbc1rwaj', 'rbc1aaj', 'eqv',
   'nclnlsr', 'lnatresr', 'nco_ratio', 'lnlsdepr', 'othbfhlb', 'numemp', 'asset_bucket'
 ]);
 
 const DATE_RE = /^\d{8}$/;
+const MAX_CERT = 9_999_999;
 
-export const GET: RequestHandler = async ({ params, platform, url }) => {
-  const cert = parseInt(params.cert, 10);
-  if (isNaN(cert) || cert < 1) {
+export function _buildFinancialsCacheKey(
+  cert: number,
+  fields: string,
+  from: string | null,
+  to: string | null,
+  limit: number
+): string {
+  return `fin:${cert}:${fields}:${from || ''}:${to || ''}:${limit}`;
+}
+
+export const GET: RequestHandler = async ({ params, platform, url, locals, request }) => {
+  if (!/^[1-9]\d*$/.test(params.cert)) {
     return errorResponse('cert must be a positive integer', 400);
+  }
+  const cert = Number(params.cert);
+  if (!Number.isSafeInteger(cert) || cert > MAX_CERT) {
+    return errorResponse(`cert must not exceed ${MAX_CERT}`, 400);
   }
 
   // Parse and validate query params
@@ -35,6 +49,11 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
   const from = url.searchParams.get('from');
   const to = url.searchParams.get('to');
   const limitRaw = url.searchParams.get('limit');
+  const format = url.searchParams.get('format') || 'json';
+  const download = url.searchParams.has('download');
+  const staleResponse = stalePageReleaseResponse({ locals, url, request });
+  if (staleResponse) return staleResponse;
+  const lineage = releaseLineage(locals);
 
   // Validate dates
   if (from && !DATE_RE.test(from)) {
@@ -76,10 +95,10 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
   }
 
   const kv = platform?.env?.CACHE;
-  const cacheKey = `fin:${cert}:${fieldsSorted}:${from || ''}:${to || ''}`;
+  const cacheKey = _buildFinancialsCacheKey(cert, fieldsSorted, from, to, limit);
 
   try {
-    const data = await cacheWrap<Financial[]>(kv, cacheKey, SIX_HOURS, async () => {
+    const loadFinancials = async (): Promise<Financial[]> => {
       const db = getDB(platform);
 
       const conditions: string[] = ['cert = ?'];
@@ -95,49 +114,59 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
       }
 
       const where = conditions.join(' AND ');
-      const sql = `SELECT ${selectFields} FROM financials WHERE ${where} ORDER BY repdte ASC LIMIT ?`;
+      const sql = `SELECT ${selectFields} FROM published_financials WHERE ${where} ORDER BY repdte ASC LIMIT ?`;
       bindParams.push(limit);
 
       return queryAll<Financial>(db, sql, bindParams);
-    });
+    };
+    // Date ranges and field subsets are combinatorial. Only the canonical
+    // latest-history request is shared enough to merit a KV entry.
+    const shouldCache = fieldsRaw === null
+      && from === null
+      && to === null
+      && limitRaw === null
+      && format === 'json'
+      && !download;
+    const data = shouldCache
+      ? await cacheWrap<Financial[]>(kv, cacheKey, SIX_HOURS, loadFinancials, locals?.liveDataGeneration)
+      : await loadFinancials();
 
     const response: FinancialsResponse = {
       data,
       cert,
       from: from || null,
-      to: to || null
+      to: to || null,
+      ...lineage
     };
-
-    const format = url.searchParams.get('format') || 'json';
 
     if (format === 'csv') {
       if (data.length === 0) {
-        return new Response('', {
+        return setReleaseLineageHeaders(new Response('', {
           status: 200,
           headers: {
             'Content-Type': 'text/csv',
             'Content-Disposition': `attachment; filename="bank_${cert}_financials.csv"`
           }
-        });
+        }), lineage);
       }
       const csvHeaders = Object.keys(data[0]);
       const csvRows = [
-        csvHeaders.join(','),
-        ...data.map(row => csvHeaders.map(h =>
-          csvEscape((row as unknown as Record<string, unknown>)[h])
-        ).join(','))
+        encodeCsvRow(csvHeaders),
+        ...data.map(row => encodeCsvRow(csvHeaders.map(h =>
+          (row as unknown as Record<string, unknown>)[h]
+        )))
       ];
-      return new Response(csvRows.join('\n'), {
+      return setReleaseLineageHeaders(new Response(csvRows.join('\n'), {
         status: 200,
         headers: {
           'Content-Type': 'text/csv',
           'Content-Disposition': `attachment; filename="bank_${cert}_financials.csv"`,
           'Access-Control-Allow-Origin': '*'
         }
-      });
+      }), lineage);
     }
 
-    if (format === 'json' && url.searchParams.has('download')) {
+    if (format === 'json' && download) {
       return new Response(JSON.stringify(response, null, 2), {
         status: 200,
         headers: {

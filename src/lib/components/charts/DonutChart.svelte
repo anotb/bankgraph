@@ -1,8 +1,13 @@
 <script lang="ts">
 	import { formatNumber, formatPercent } from '$lib/utils/formatters.js';
 	import { isDark as getIsDark } from '$lib/stores/theme.svelte.js';
-	import { echarts } from './echarts-setup.js';
+	import {
+		loadPieECharts,
+		whenChartIsNearViewport,
+		type EChartsRuntime
+	} from './echarts-setup.js';
 	import { getCSSVar, getChartPalette } from '$lib/utils/chart-colors.js';
+	import { escapeHtml, safeCssColor } from '$lib/utils/html.js';
 
 	let {
 		data,
@@ -21,19 +26,46 @@
 
 	let chartContainer = $state<HTMLDivElement | null>(null);
 	let chart: any;
+	let chartRuntime = $state<EChartsRuntime | null>(null);
+	let chartLoadState = $state<'waiting' | 'loading' | 'ready' | 'error'>('waiting');
 	let dark = $derived(getIsDark());
 
 	let total = $derived(data.reduce((s, d) => s + d.value, 0));
 
 	$effect(() => {
+		const element = chartContainer;
+		if (!element) return;
+
+		let active = true;
+		const stopObserving = whenChartIsNearViewport(element, () => {
+			chartLoadState = 'loading';
+			void loadPieECharts()
+				.then((runtime) => {
+					if (!active) return;
+					chartRuntime = runtime;
+					chartLoadState = 'ready';
+				})
+				.catch(() => {
+					if (active) chartLoadState = 'error';
+				});
+		});
+
+		return () => {
+			active = false;
+			stopObserving();
+		};
+	});
+
+	$effect(() => {
 		const currentData = data;
 		const isDark = dark;
 		const currentTotal = total;
+		const runtime = chartRuntime;
 
-		if (!currentData.length || !chartContainer) return;
+		if (!currentData.length || !chartContainer || !runtime) return;
 
 		if (!chart) {
-			chart = echarts.init(chartContainer);
+			chart = runtime.init(chartContainer);
 		}
 
 		const palette = getChartPalette();
@@ -62,11 +94,11 @@
 					: 'border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);',
 				formatter: (params: any) => {
 					const pct = currentTotal > 0 ? ((params.value / currentTotal) * 100).toFixed(1) : '0';
-					return `<div style="font-weight:600;margin-bottom:2px;font-size:12px">${params.name}</div>` +
+					return `<div style="font-weight:600;margin-bottom:2px;font-size:12px">${escapeHtml(params.name)}</div>` +
 						`<div style="display:flex;align-items:center;gap:6px;font-size:12px">` +
-						`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${params.color}"></span>` +
-						`<span>${valueFormatter(params.value)}</span>` +
-						`<span style="color:${textTertiary}">(${pct}%)</span>` +
+						`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${safeCssColor(params.color)}"></span>` +
+						`<span>${escapeHtml(valueFormatter(params.value))}</span>` +
+						`<span style="color:${safeCssColor(textTertiary)}">(${escapeHtml(pct)}%)</span>` +
 						`</div>`;
 				}
 			},
@@ -156,7 +188,16 @@
 </script>
 
 {#if data.length > 0}
-	<div bind:this={chartContainer} style="width:100%;height:{height}" aria-hidden="true"></div>
+	<div class="relative" style="width:100%;height:{height}">
+		<div bind:this={chartContainer} style="width:100%;height:100%" aria-hidden="true"></div>
+		{#if chartLoadState === 'loading'}
+			<p class="sr-only" role="status">Loading chart</p>
+		{:else if chartLoadState === 'error'}
+			<p class="absolute inset-0 flex items-center justify-center text-[12px] text-[--text-tertiary]" role="alert">
+				Chart unavailable. Reload or use the exact values table.
+			</p>
+		{/if}
+	</div>
 	<p class="sr-only">Donut chart showing distribution of {data.length} categories. Total: {valueFormatter(total)}.</p>
 {:else}
 	<div

@@ -44,9 +44,10 @@ test.describe('Banks listing page', () => {
 		await expect(table).toBeVisible({ timeout: 10000 });
 
 		// Required column headers per the DataTable column config
-		for (const col of ['Name', 'State', 'Total Assets', 'Total Deposits', 'Regulator', 'Status']) {
+		for (const col of ['Name', 'State', 'Total Assets', 'Total Deposits', 'Status']) {
 			await expect(table.locator('th').filter({ hasText: col })).toBeVisible();
 		}
+		await expect(table.locator('th').filter({ hasText: 'Regulator' })).toHaveCount(0);
 	});
 
 	test('table has data rows with non-empty bank names', async ({ page }) => {
@@ -66,6 +67,46 @@ test.describe('Banks listing page', () => {
 		const firstNameCell = rows.first().locator('td').first();
 		const name = await firstNameCell.innerText();
 		expect(name.trim().length).toBeGreaterThan(0);
+	});
+
+	test('mobile results expose analytical values and direct actions without horizontal discovery', async ({ page }) => {
+		await page.setViewportSize({ width: 390, height: 844 });
+		await page.goto('/banks');
+
+		const mobileResults = page.getByTestId('bank-mobile-results');
+		await expect(mobileResults).toBeVisible({ timeout: 10000 });
+		await expect(page.locator('table')).toBeHidden();
+
+		const firstResult = mobileResults.locator('article').first();
+		for (const label of ['Assets', 'Deposits', 'ROA', 'NIM']) {
+			await expect(firstResult.getByText(label, { exact: true })).toBeVisible();
+		}
+		const openProfile = firstResult.getByRole('link', { name: 'Open profile' });
+		await expect(openProfile).toBeVisible();
+		await expect(firstResult.getByRole('link', { name: 'Research bank' })).toBeVisible();
+		await expect(firstResult.getByText(/^(OCC|FED|FDIC)$/)).toHaveCount(0);
+
+		for (const control of [
+			page.getByPlaceholder('Search by name...'),
+			page.getByRole('button', { name: 'Search banks or jump to a page' }),
+			page.getByRole('button', { name: 'Toggle navigation' }),
+			openProfile
+		]) {
+			const box = await control.boundingBox();
+			expect(box?.height).toBeGreaterThanOrEqual(44);
+		}
+	});
+
+	test('an empty active-only search offers historical institutions without dropping the query', async ({ page }) => {
+		await page.goto('/banks?q=unlikely-bankgraph-no-match&active=1');
+
+		const recovery = page.getByRole('button', { name: 'Include historical institutions' });
+		await expect(recovery).toBeVisible({ timeout: 10000 });
+		await recovery.click();
+
+		await expect(page).toHaveURL(/q=unlikely-bankgraph-no-match/, { timeout: 10000 });
+		await expect(page).toHaveURL(/active=all/, { timeout: 10000 });
+		await expect(page.locator('select').filter({ hasText: 'Active and historical' })).toHaveValue('all');
 	});
 
 	test('data values are real numbers not placeholders', async ({ request }) => {

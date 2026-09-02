@@ -5,9 +5,46 @@ build
 .env
 .env.*
 !.env.example
-.dev.vars
+.dev.vars*
+!.dev.vars.example
 .DS_Store
 test-results/
 playwright-report/
+/.playwright-cli/
+output/playwright/
+/output/
 screenshots/
 .claude/
+
+# Local databases and downloaded/exported datasets never belong in the public repository.
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.duckdb
+*.parquet
+*.arrow
+*.csv
+*.tsv
+*.jsonl
+*.ndjson
+/data/
+/downloads/
+/exports/
+/.data/
+/.venv-lake/
+/.tmp-sod-lake-migration-*/
+__pycache__/
+*.py[cod]
+
+# Keep the curated design contract; raw review captures and tool sidecars stay local.
+/.impeccable/*
+!/.impeccable/design.json
+
+# Local public-release preflight clones and archives are disposable.
+/.release-preflight/
+
+# Competition forms, recording notes, and owner-only launch records stay local.
+/submission/
+/.codex/

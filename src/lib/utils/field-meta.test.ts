@@ -6,6 +6,10 @@ import {
 	getFieldDef,
 	getFieldLabel,
 	getFieldDescription,
+	getFieldDisplayFormat,
+	getFieldPeriodLabel,
+	getFieldShortLabel,
+	getQuarterlyComparisonField,
 	getRegulatorName,
 	getCharterClassName,
 	getFieldLabelWithMdrm,
@@ -33,8 +37,82 @@ describe('getFieldDescription', () => {
 		);
 	});
 
+	it('keeps exact BankFind fields distinct from product interpretation', () => {
+		expect(fieldDefs.dep.sourceField).toBe('DEP');
+		expect(fieldDefs.dep.sourceDefinition).toContain('foreign-office deposits');
+		expect(fieldDefs.dep.productInterpretation).toContain('not the annual Summary of Deposits');
+		expect(fieldDefs.offdom.sourceField).toBe('OFFDOM');
+		expect(fieldDefs.offdom.sourceDefinition).toContain('including headquarters');
+		expect(fieldDefs.offdom.productInterpretation).toContain('not a branch-only count');
+		expect(fieldDefs.rbc1rwaj.sourceField).toBe('RBC1RWAJ');
+	});
+
 	it('returns empty string for unknown fields', () => {
 		expect(getFieldDescription('nonexistent')).toBe('');
+	});
+});
+
+describe('income-statement period basis', () => {
+	const pairs = [
+		['netincq', 'netinc', 'NETINCQ', 'NETINC'],
+		['nimq', 'nim', 'NIMQ', 'NIM'],
+		['noniiq', 'nonii', 'NONIIQ', 'NONII'],
+		['nonixq', 'nonix', 'NONIXQ', 'NONIX'],
+		['elnatq', 'elnatr', 'ELNATQ', 'ELNATR']
+	] as const;
+
+	it('keeps each reported quarter field distinct from its year-to-date companion', () => {
+		for (const [quarterKey, ytdKey, quarterSource, ytdSource] of pairs) {
+			expect(fieldDefs[quarterKey]).toMatchObject({
+				sourceField: quarterSource,
+				timeBasis: 'single_quarter',
+				yearToDateField: ytdKey,
+				displayFormat: 'currency'
+			});
+			expect(fieldDefs[ytdKey]).toMatchObject({
+				sourceField: ytdSource,
+				timeBasis: 'year_to_date',
+				quarterlyField: quarterKey,
+				displayFormat: 'currency'
+			});
+			expect(fieldDefs[quarterKey].label).toContain('Quarter');
+			expect(fieldDefs[ytdKey].label).toContain('Year to Date');
+			expect(getQuarterlyComparisonField(ytdKey)).toBe(quarterKey);
+		}
+	});
+
+	it('provides compact period labels without hiding the source basis', () => {
+		expect(getFieldShortLabel('netincq')).toBe('Net Income');
+		expect(getFieldPeriodLabel('netincq')).toBe('Quarter');
+		expect(getFieldPeriodLabel('netinc')).toBe('YTD');
+		expect(getFieldPeriodLabel('asset')).toBeNull();
+		expect(getQuarterlyComparisonField('netincq')).toBe('netincq');
+		expect(getQuarterlyComparisonField('asset')).toBe('asset');
+	});
+
+	it('labels cumulative interest fields as year to date without inventing quarter fields', () => {
+		expect(fieldDefs.intinc).toMatchObject({
+			sourceField: 'INTINC',
+			timeBasis: 'year_to_date',
+			displayFormat: 'currency'
+		});
+		expect(fieldDefs.eintexp).toMatchObject({
+			sourceField: 'EINTEXP',
+			timeBasis: 'year_to_date',
+			displayFormat: 'currency'
+		});
+		expect(fieldDefs.intinc.quarterlyField).toBeUndefined();
+		expect(fieldDefs.eintexp.quarterlyField).toBeUndefined();
+		expect(getQuarterlyComparisonField('intinc')).toBe('intinc');
+	});
+
+	it('formats reported flows as dollar amounts in thousands', () => {
+		for (const [quarterKey, ytdKey] of pairs) {
+			expect(getFieldDisplayFormat(quarterKey)).toBe('currency');
+			expect(getFieldDisplayFormat(ytdKey)).toBe('currency');
+		}
+		expect(getFieldDisplayFormat('roa')).toBe('percent');
+		expect(getFieldDisplayFormat('numemp')).toBe('number');
 	});
 });
 
@@ -114,7 +192,8 @@ describe('fieldDefs structure', () => {
 	it('has entries for all expected fields', () => {
 		const expectedFields = [
 			'asset', 'dep', 'eq', 'lnlsnet', 'netinc', 'roa', 'roe',
-			'nimy', 'eeffr', 'rbcrwaj', 'nclnlsr', 'lnlsdepr', 'numemp'
+			'netincq', 'nimq', 'noniiq', 'nonixq', 'elnatq',
+			'nimy', 'eeffr', 'rbcrwaj', 'nclnlsr', 'lnlsdepr', 'numemp', 'offdom'
 		];
 		for (const field of expectedFields) {
 			expect(fieldDefs[field]).toBeDefined();

@@ -10,8 +10,8 @@
 		{currentMode === 'power'
 			? 'bg-[--accent]/10 text-[--accent] border-[--accent]/30'
 			: 'text-[--text-tertiary] hover:text-[--text-primary] border-[--border]'}"
-	title="Switch to {currentMode === 'accessible' ? 'Power' : 'Accessible'} mode"
-	aria-label="Current mode: {currentMode}. Switch to {currentMode === 'accessible' ? 'Power' : 'Accessible'} mode"
+	title="Switch to {currentMode === 'accessible' ? 'compact' : 'comfortable'} density"
+	aria-label="Current density: {currentMode === 'accessible' ? 'comfortable' : 'compact'}. Switch to {currentMode === 'accessible' ? 'compact' : 'comfortable'} density"
 >
-	{currentMode === 'accessible' ? 'Power Mode' : 'Accessible'}
+	{currentMode === 'accessible' ? 'Compact' : 'Comfortable'}
 </button>

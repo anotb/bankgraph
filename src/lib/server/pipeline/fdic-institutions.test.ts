@@ -57,12 +57,12 @@ describe('mapInstitution', () => {
 			STALP: 'IL',
 			ZIP: '62701',
 			COUNTY: 'Sangamon',
-			CHRTAGNT: 'N',
+			BKCLASS: 'N',
 			REGAGNT: 'OCC',
 			ACTIVE: '1',
 			ESTYMD: '19500101',
 			INSDATE: '19500601',
-			HCTMULT: 'First Bancorp',
+			NAMEHCR: 'FIRST BANCORP, INC.',
 			RSSDHCR: '11111',
 			ASSET: '500000',
 			DEP: '400000',
@@ -84,7 +84,7 @@ describe('mapInstitution', () => {
 		expect(result.active).toBe(1);
 		expect(result.established_date).toBe('19500101');
 		expect(result.insured_date).toBe('19500601');
-		expect(result.holding_company).toBe('First Bancorp');
+		expect(result.holding_company).toBe('FIRST BANCORP, INC.');
 		expect(result.hc_rssd_id).toBe(11111);
 		expect(result.asset_tier).toBe(3); // $500M
 		expect(result.total_assets).toBe(500000);
@@ -104,12 +104,12 @@ describe('mapInstitution', () => {
 			STALP: null,
 			ZIP: null,
 			COUNTY: null,
-			CHRTAGNT: null,
+			BKCLASS: null,
 			REGAGNT: null,
 			ACTIVE: null,
 			ESTYMD: null,
 			INSDATE: null,
-			HCTMULT: null,
+			NAMEHCR: null,
 			RSSDHCR: null,
 			OFFDOM: null,
 			NUMEMP: null
@@ -124,8 +124,24 @@ describe('mapInstitution', () => {
 		expect(result.state).toBeNull();
 		expect(result.asset_tier).toBeNull();
 		expect(result.total_assets).toBeNull();
+		expect(result.charter_class).toBeNull();
+		expect(result.holding_company).toBeNull();
 		// ACTIVE null defaults to 1
 		expect(result.active).toBe(1);
+	});
+
+	it('does not confuse charter agency or holding-company structure fields with names', () => {
+		const result = mapInstitution({
+			CERT: '12345',
+			NAME: 'Example Bank',
+			BKCLASS: 'SM',
+			CHRTAGNT: 'STATE',
+			NAMEHCR: 'EXAMPLE FINANCIAL CORP.',
+			HCTMULT: '1'
+		});
+
+		expect(result.charter_class).toBe('SM');
+		expect(result.holding_company).toBe('EXAMPLE FINANCIAL CORP.');
 	});
 
 	it('treats ACTIVE=0 as inactive', () => {

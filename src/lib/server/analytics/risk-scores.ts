@@ -1,43 +1,54 @@
 /**
- * CAMELS-proxy risk scoring for banks.
+ * Analytical financial-risk proxy scoring for banks.
  * Computes scores for Capital, Asset Quality, Earnings, and Liquidity
- * based on regulatory thresholds, peer percentiles, and trend data.
+ * based on disclosed reference thresholds, peer percentiles, and trend data.
  */
 
 import { queryAll, batchInsert } from '$lib/server/db';
+import type { CapitalAdequacyCategory } from '$lib/types';
+import { MIN_RISK_COMPOSITE_COMPONENTS } from './analysis-methodology';
 
 const BANK_BATCH_SIZE = 80; // D1 limits ~100 SQL variables; trend query uses cert IN(...) + 1
+const RISK_PEER_METRICS = ['nclnlsr', 'roa', 'lnlsdepr'] as const;
+type RiskPeerMetric = (typeof RISK_PEER_METRICS)[number];
+type PeerDistributions = Map<string, number[]>;
+interface RiskScoringRow {
+  cert: number;
+  asset_bucket: number | null;
+  rbcrwaj: number | null;
+  rbc1rwaj: number | null;
+  rbc1aaj: number | null;
+  nclnlsr: number | null;
+  roa: number | null;
+  lnlsdepr: number | null;
+}
 
-// --- PCA Classification ---
+// --- Deterministic capital-ratio threshold screen ---
 
-export interface PCAInput {
+export interface CapitalRatioInput {
   rbcrwaj: number | null;
   rbc1rwaj: number | null;
   rbc1aaj: number | null;
 }
 
-type PCACategory =
-  | 'well_capitalized'
-  | 'adequately_capitalized'
-  | 'undercapitalized'
-  | 'significantly_undercapitalized'
-  | 'critically_undercapitalized';
-
-export function classifyPCA(data: PCAInput): PCACategory {
+/**
+ * Screen the three reported capital ratios against fixed reference thresholds.
+ * This is not an official Prompt Corrective Action classification: the source
+ * data do not establish institution-specific framework applicability,
+ * supervisory restrictions, CET1/SLR/CBLR status, or tangible equity.
+ */
+export function screenCapitalRatios(data: CapitalRatioInput): CapitalAdequacyCategory {
   // Treat 0 as unreported (many institutions don't report risk-weighted ratios)
   const rbcrwaj = data.rbcrwaj && data.rbcrwaj > 0 ? data.rbcrwaj : null;
   const rbc1rwaj = data.rbc1rwaj && data.rbc1rwaj > 0 ? data.rbc1rwaj : null;
   const rbc1aaj = data.rbc1aaj && data.rbc1aaj > 0 ? data.rbc1aaj : null;
 
-  // Can't classify without data
+  // No screen result without a reported ratio.
   if (rbcrwaj == null && rbc1rwaj == null && rbc1aaj == null) {
-    return 'well_capitalized'; // Default assumption if no data
+    return 'unclassified';
   }
 
-  // Critically undercapitalized: tangible equity/assets <= 2%
-  if (rbc1aaj != null && rbc1aaj <= 2) return 'critically_undercapitalized';
-
-  // Significantly undercapitalized: any ratio below undercapitalized threshold by more
+  // Materially below a minimum reference threshold.
   if (
     (rbcrwaj != null && rbcrwaj < 6) ||
     (rbc1rwaj != null && rbc1rwaj < 4) ||
@@ -46,7 +57,7 @@ export function classifyPCA(data: PCAInput): PCACategory {
     return 'significantly_undercapitalized';
   }
 
-  // Undercapitalized: below adequately capitalized
+  // Below a minimum reference threshold.
   if (
     (rbcrwaj != null && rbcrwaj < 8) ||
     (rbc1rwaj != null && rbc1rwaj < 6) ||
@@ -55,7 +66,7 @@ export function classifyPCA(data: PCAInput): PCACategory {
     return 'undercapitalized';
   }
 
-  // Adequately capitalized: meets minimums but not well-capitalized
+  // Meets minimum references but not every upper reference.
   if (
     (rbcrwaj != null && rbcrwaj < 10) ||
     (rbc1rwaj != null && rbc1rwaj < 8) ||
@@ -67,15 +78,18 @@ export function classifyPCA(data: PCAInput): PCACategory {
   return 'well_capitalized';
 }
 
+/** @deprecated Use screenCapitalRatios; retained for internal compatibility. */
+export const classifyPCA = screenCapitalRatios;
+
 // --- Capital Score (0-100) ---
 
-export function computeCapitalScore(data: PCAInput): number {
-  const category = classifyPCA(data);
+export function computeCapitalScore(data: CapitalRatioInput): number | null {
+  const category = screenCapitalRatios(data);
   const rbcrwaj = data.rbcrwaj && data.rbcrwaj > 0 ? data.rbcrwaj : null;
   const rbc1rwaj = data.rbc1rwaj && data.rbc1rwaj > 0 ? data.rbc1rwaj : null;
   const rbc1aaj = data.rbc1aaj && data.rbc1aaj > 0 ? data.rbc1aaj : null;
 
-  if (category === 'critically_undercapitalized') return 5;
+  if (category === 'unclassified') return null;
   if (category === 'significantly_undercapitalized') return 15;
   if (category === 'undercapitalized') return 30;
 
@@ -106,11 +120,38 @@ export function computeCapitalScore(data: PCAInput): number {
   return Math.min(80, Math.max(60, 60 + avgBuffer * 10));
 }
 
+export interface CompositeRiskScores {
+  capital: number | null;
+  assetQuality: number | null;
+  earnings: number | null;
+  liquidity: number | null;
+}
+
+/** Weighted average when at least three dimensions are classified. */
+export function computeCompositeScore(scores: CompositeRiskScores): number | null {
+  const dimensions = [
+    { score: scores.capital, weight: 0.30 },
+    { score: scores.assetQuality, weight: 0.25 },
+    { score: scores.earnings, weight: 0.25 },
+    { score: scores.liquidity, weight: 0.20 }
+  ];
+  const available = dimensions.filter(
+    (dimension): dimension is { score: number; weight: number } => dimension.score != null
+  );
+  const availableWeight = available.reduce((sum, dimension) => sum + dimension.weight, 0);
+
+  if (available.length < MIN_RISK_COMPOSITE_COMPONENTS) return null;
+  return available.reduce(
+    (sum, dimension) => sum + dimension.score * dimension.weight,
+    0
+  ) / availableWeight;
+}
+
 // --- Asset Quality Score (0-100) ---
 // Based on NPL ratio peer percentile (inverted: low NPL = high score)
 
-export function computeAssetQualityScore(nclnlsrPercentile: number | null): number {
-  if (nclnlsrPercentile == null) return 50; // default
+export function computeAssetQualityScore(nclnlsrPercentile: number | null): number | null {
+  if (nclnlsrPercentile == null) return null;
 
   // Invert: high percentile (high NPL, bad) = low score
   if (nclnlsrPercentile > 75) {
@@ -135,8 +176,8 @@ export function computeAssetQualityScore(nclnlsrPercentile: number | null): numb
 export function computeEarningsScore(
   roaPercentile: number | null,
   roaTrendSlope: number | null
-): number {
-  if (roaPercentile == null) return 50;
+): number | null {
+  if (roaPercentile == null) return null;
 
   // Base score directly from percentile
   let score = roaPercentile;
@@ -154,8 +195,8 @@ export function computeEarningsScore(
 // --- Liquidity Score (0-100) ---
 // Based on loan-to-deposit ratio peer percentile (inverted: high LTD = lower score)
 
-export function computeLiquidityScore(lnlsdeprPercentile: number | null): number {
-  if (lnlsdeprPercentile == null) return 50;
+export function computeLiquidityScore(lnlsdeprPercentile: number | null): number | null {
+  if (lnlsdeprPercentile == null) return null;
 
   // Invert: high LTD percentile = lower score (less liquid)
   return Math.min(100, Math.max(0, 100 - lnlsdeprPercentile));
@@ -165,60 +206,43 @@ export function computeLiquidityScore(lnlsdeprPercentile: number | null): number
 
 /**
  * Compute risk scores for all banks for a given quarter.
- * Requires peer_stats and bank_trends to be computed first.
+ * Requires bank_trends to be computed first.
  * Returns total rows inserted.
  */
 export async function computeRiskScores(db: D1Database, repdte: string): Promise<number> {
   let totalInserted = 0;
   let offset = 0;
 
-  // Pre-load peer stats for percentile computation
-  // We need nclnlsr, roa, lnlsdepr stats per peer group
-  const peerStatsRows = await queryAll<{
-    peer_group: string;
-    metric: string;
-    mean: number;
-    stddev: number;
-    p25: number;
-    p75: number;
-    min_val: number;
-    max_val: number;
-    count: number;
-  }>(
+  // Read the quarter once, then rank each reported value against its exact
+  // same-quarter asset cohort. This avoids distribution assumptions and keeps
+  // D1 reads bounded to one narrow pass over the quarter.
+  const quarterRows = await queryAll<RiskScoringRow>(
     db,
-    `SELECT peer_group, metric, mean, stddev, p25, p75, min_val, max_val, count
-     FROM peer_stats
-     WHERE repdte = ? AND metric IN ('nclnlsr', 'roa', 'lnlsdepr')`,
+    `SELECT cert, asset_bucket, rbcrwaj, rbc1rwaj, rbc1aaj, nclnlsr, roa, lnlsdepr
+       FROM financials
+      WHERE repdte = ?
+      ORDER BY cert`,
     [repdte]
   );
 
-  const peerMap = new Map<string, { mean: number; stddev: number; count: number }>();
-  for (const ps of peerStatsRows) {
-    peerMap.set(`${ps.peer_group}:${ps.metric}`, {
-      mean: ps.mean,
-      stddev: ps.stddev,
-      count: ps.count
-    });
+  const peerDistributions: PeerDistributions = new Map();
+  for (const row of quarterRows) {
+    if (row.asset_bucket == null) continue;
+    for (const metric of RISK_PEER_METRICS) {
+      const value = row[metric];
+      if (value == null || !Number.isFinite(value)) continue;
+      const key = `asset_bucket:${row.asset_bucket}:${metric}`;
+      const values = peerDistributions.get(key) ?? [];
+      values.push(value);
+      peerDistributions.set(key, values);
+    }
+  }
+  for (const values of peerDistributions.values()) {
+    values.sort((a, b) => a - b);
   }
 
   while (true) {
-    // Get banks with financial data for this quarter
-    const banks = await queryAll<{
-      cert: number;
-      asset_bucket: number | null;
-      rbcrwaj: number | null;
-      rbc1rwaj: number | null;
-      rbc1aaj: number | null;
-      nclnlsr: number | null;
-      roa: number | null;
-      lnlsdepr: number | null;
-    }>(
-      db,
-      `SELECT cert, asset_bucket, rbcrwaj, rbc1rwaj, rbc1aaj, nclnlsr, roa, lnlsdepr
-       FROM financials WHERE repdte = ?
-       ORDER BY cert LIMIT ? OFFSET ?`,
-      [repdte, BANK_BATCH_SIZE, offset]
-    );
+    const banks = quarterRows.slice(offset, offset + BANK_BATCH_SIZE);
 
     if (banks.length === 0) break;
 
@@ -244,15 +268,14 @@ export async function computeRiskScores(db: D1Database, repdte: string): Promise
     for (const bank of banks) {
       const peerGroup = bank.asset_bucket != null ? `asset_bucket:${bank.asset_bucket}` : null;
 
-      // Compute peer percentiles using z-score approximation
-      const nclnlsrPercentile = computePercentileFromPeer(
-        bank.nclnlsr, peerGroup, 'nclnlsr', peerMap
+      const nclnlsrPercentile = computePeerPercentile(
+        bank.nclnlsr, peerGroup, 'nclnlsr', peerDistributions
       );
-      const roaPercentile = computePercentileFromPeer(
-        bank.roa, peerGroup, 'roa', peerMap
+      const roaPercentile = computePeerPercentile(
+        bank.roa, peerGroup, 'roa', peerDistributions
       );
-      const lnlsdeprPercentile = computePercentileFromPeer(
-        bank.lnlsdepr, peerGroup, 'lnlsdepr', peerMap
+      const lnlsdeprPercentile = computePeerPercentile(
+        bank.lnlsdepr, peerGroup, 'lnlsdepr', peerDistributions
       );
 
       const roaTrendSlope = trendMap.get(bank.cert) ?? null;
@@ -267,14 +290,14 @@ export async function computeRiskScores(db: D1Database, repdte: string): Promise
       const earningsScore = computeEarningsScore(roaPercentile, roaTrendSlope);
       const liquidityScore = computeLiquidityScore(lnlsdeprPercentile);
 
-      // Weighted composite: Capital 30%, Asset Quality 25%, Earnings 25%, Liquidity 20%
-      const compositeScore =
-        capitalScore * 0.30 +
-        assetQualityScore * 0.25 +
-        earningsScore * 0.25 +
-        liquidityScore * 0.20;
+      const compositeScore = computeCompositeScore({
+        capital: capitalScore,
+        assetQuality: assetQualityScore,
+        earnings: earningsScore,
+        liquidity: liquidityScore
+      });
 
-      const pcaCategory = classifyPCA({
+      const capitalRatioScreen = screenCapitalRatios({
         rbcrwaj: bank.rbcrwaj,
         rbc1rwaj: bank.rbc1rwaj,
         rbc1aaj: bank.rbc1aaj
@@ -283,12 +306,13 @@ export async function computeRiskScores(db: D1Database, repdte: string): Promise
       scoreRows.push({
         cert: bank.cert,
         repdte,
-        capital_score: Math.round(capitalScore * 100) / 100,
-        asset_quality_score: Math.round(assetQualityScore * 100) / 100,
-        earnings_score: Math.round(earningsScore * 100) / 100,
-        liquidity_score: Math.round(liquidityScore * 100) / 100,
-        composite_score: Math.round(compositeScore * 100) / 100,
-        pca_category: pcaCategory
+        capital_score: capitalScore == null ? null : Math.round(capitalScore * 100) / 100,
+        asset_quality_score: assetQualityScore == null ? null : Math.round(assetQualityScore * 100) / 100,
+        earnings_score: earningsScore == null ? null : Math.round(earningsScore * 100) / 100,
+        liquidity_score: liquidityScore == null ? null : Math.round(liquidityScore * 100) / 100,
+        composite_score: compositeScore == null ? null : Math.round(compositeScore * 100) / 100,
+        // Legacy storage column; values represent the ratio screen above.
+        pca_category: capitalRatioScreen
       });
     }
 
@@ -305,46 +329,44 @@ export async function computeRiskScores(db: D1Database, repdte: string): Promise
 }
 
 /**
- * Approximate a value's percentile within its peer group using z-score
- * and normal CDF approximation. Returns 0-100.
+ * Return an exact empirical percentile from a sorted cohort. Tied values share
+ * the midpoint of their occupied positions: (below + 0.5 * equal) / N.
  */
-export function computePercentileFromPeer(
+export function computeEmpiricalPercentile(
   value: number | null,
-  peerGroup: string | null,
-  metric: string,
-  peerMap: Map<string, { mean: number; stddev: number; count: number }>
+  sortedValues: readonly number[] | null | undefined
 ): number | null {
-  if (value == null || peerGroup == null) return null;
+  if (value == null || !Number.isFinite(value) || !sortedValues || sortedValues.length < 2) {
+    return null;
+  }
 
-  const stats = peerMap.get(`${peerGroup}:${metric}`);
-  if (!stats || stats.stddev === 0) return 50;
+  let lowerStart = 0;
+  let lowerEnd = sortedValues.length;
+  while (lowerStart < lowerEnd) {
+    const middle = Math.floor((lowerStart + lowerEnd) / 2);
+    if (sortedValues[middle] < value) lowerStart = middle + 1;
+    else lowerEnd = middle;
+  }
 
-  const z = (value - stats.mean) / stats.stddev;
+  let upperStart = lowerStart;
+  let upperEnd = sortedValues.length;
+  while (upperStart < upperEnd) {
+    const middle = Math.floor((upperStart + upperEnd) / 2);
+    if (sortedValues[middle] <= value) upperStart = middle + 1;
+    else upperEnd = middle;
+  }
 
-  // Normal CDF approximation (Abramowitz and Stegun)
-  return normalCDF(z) * 100;
+  const below = lowerStart;
+  const equal = upperStart - lowerStart;
+  return ((below + 0.5 * equal) / sortedValues.length) * 100;
 }
 
-/** Approximate standard normal CDF using rational approximation. */
-export function normalCDF(z: number): number {
-  if (z < -6) return 0;
-  if (z > 6) return 1;
-
-  const a1 = 0.254829592;
-  const a2 = -0.284496736;
-  const a3 = 1.421413741;
-  const a4 = -1.453152027;
-  const a5 = 1.061405429;
-  const p = 0.3275911;
-
-  const sign = z < 0 ? -1 : 1;
-  const x = Math.abs(z) / Math.sqrt(2);
-  const t = 1 / (1 + p * x);
-  const t2 = t * t;
-  const t3 = t2 * t;
-  const t4 = t3 * t;
-  const t5 = t4 * t;
-  const y = 1 - (a1 * t + a2 * t2 + a3 * t3 + a4 * t4 + a5 * t5) * Math.exp(-x * x);
-
-  return 0.5 * (1 + sign * y);
+function computePeerPercentile(
+  value: number | null,
+  peerGroup: string | null,
+  metric: RiskPeerMetric,
+  distributions: PeerDistributions
+): number | null {
+  if (peerGroup == null) return null;
+  return computeEmpiricalPercentile(value, distributions.get(`${peerGroup}:${metric}`));
 }

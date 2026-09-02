@@ -1,0 +1,64 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "bankgraph",
+  "account_id": "a80c76f9ab8e80a5df4d271920d14156",
+  "main": "./.svelte-kit/cloudflare/_worker.js",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": true,
+
+  "assets": {
+    "directory": ".svelte-kit/cloudflare",
+    "binding": "ASSETS"
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bankgraph-prod",
+      "database_id": "70cd3e25-4db2-4599-9bc0-0b1d944d11b7",
+      "migrations_dir": "./migrations"
+    }
+  ],
+
+  "kv_namespaces": [
+    {
+      "binding": "CACHE",
+      "id": "ac308512b4734853b3017bf283e58f80"
+    }
+  ],
+
+  "r2_buckets": [
+    {
+      "binding": "EXPORTS",
+      "bucket_name": "bankgraph-exports"
+    }
+  ],
+
+  "vars": {
+    "ALLOW_RECORDED_DEMO": "false"
+  },
+
+  "secrets": {
+    "required": ["PIPELINE_SECRET"]
+  },
+
+  "limits": {
+    "cpu_ms": 30000,
+    "subrequests": 1000
+  },
+
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 0.1,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.01
+    }
+  }
+}

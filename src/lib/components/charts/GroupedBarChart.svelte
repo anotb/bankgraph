@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { isDark as getIsDark } from '$lib/stores/theme.svelte.js';
-	import { echarts } from './echarts-setup.js';
+	import {
+		loadBarECharts,
+		whenChartIsNearViewport,
+		type EChartsRuntime
+	} from './echarts-setup.js';
 	import { getCSSVar, getChartPalette } from '$lib/utils/chart-colors.js';
+	import { escapeHtml, safeCssColor } from '$lib/utils/html.js';
 
 	type GroupedBarSeries = {
 		key: string;
@@ -28,22 +33,49 @@
 
 	let chartContainer = $state<HTMLDivElement | null>(null);
 	let chart: any;
+	let chartRuntime = $state<EChartsRuntime | null>(null);
+	let chartLoadState = $state<'waiting' | 'loading' | 'ready' | 'error'>('waiting');
 
 	let dark = $derived(getIsDark());
 
 	let hasData = $derived(categories.length > 0 && series.length > 0);
 
 	$effect(() => {
+		const element = chartContainer;
+		if (!element) return;
+
+		let active = true;
+		const stopObserving = whenChartIsNearViewport(element, () => {
+			chartLoadState = 'loading';
+			void loadBarECharts()
+				.then((runtime) => {
+					if (!active) return;
+					chartRuntime = runtime;
+					chartLoadState = 'ready';
+				})
+				.catch(() => {
+					if (active) chartLoadState = 'error';
+				});
+		});
+
+		return () => {
+			active = false;
+			stopObserving();
+		};
+	});
+
+	$effect(() => {
 		const currentSeries = series;
 		const currentCategories = categories;
 		const isDark = dark;
+		const runtime = chartRuntime;
 		let disposed = false;
 
-		if (!hasData || !chartContainer) return;
+		if (!hasData || !chartContainer || !runtime) return;
 
 		{
 			if (!chart) {
-				chart = echarts.init(chartContainer);
+				chart = runtime.init(chartContainer);
 			}
 
 			const colors = getChartPalette();
@@ -80,13 +112,13 @@
 					},
 					formatter: (params: any[]) => {
 						if (!params.length) return '';
-						let html = `<div style="font-weight:600;margin-bottom:4px;font-size:12px">${params[0].name}</div>`;
+						let html = `<div style="font-weight:600;margin-bottom:4px;font-size:12px">${escapeHtml(params[0].name)}</div>`;
 						for (const p of params) {
 							if (p.value == null) continue;
 							html += `<div style="display:flex;align-items:center;gap:6px;margin:2px 0;font-size:12px">`;
-							html += `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${p.color}"></span>`;
-							html += `<span style="color:${textSecondary}">${p.seriesName}</span>`;
-							html += `<span style="margin-left:auto;font-weight:600;font-variant-numeric:tabular-nums">${valueFormatter(p.value)}</span>`;
+							html += `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${safeCssColor(p.color)}"></span>`;
+							html += `<span style="color:${safeCssColor(textSecondary)}">${escapeHtml(p.seriesName)}</span>`;
+							html += `<span style="margin-left:auto;font-weight:600;font-variant-numeric:tabular-nums">${escapeHtml(valueFormatter(p.value))}</span>`;
 							html += `</div>`;
 						}
 						return html;
@@ -177,7 +209,16 @@
 </script>
 
 {#if hasData}
-	<div bind:this={chartContainer} style="width:100%;height:{height}" aria-hidden="true"></div>
+	<div class="relative" style="width:100%;height:{height}">
+		<div bind:this={chartContainer} style="width:100%;height:100%" aria-hidden="true"></div>
+		{#if chartLoadState === 'loading'}
+			<p class="sr-only" role="status">Loading chart</p>
+		{:else if chartLoadState === 'error'}
+			<p class="absolute inset-0 flex items-center justify-center text-[12px] text-[--text-tertiary]" role="alert">
+				Chart unavailable. Reload or use the exact values table.
+			</p>
+		{/if}
+	</div>
 	<p class="sr-only">
 		Grouped bar chart comparing {series.length} banks across {categories.length} metrics.
 		Use the data table for exact values.

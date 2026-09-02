@@ -11,7 +11,7 @@
 		p90,
 		percentile,
 		format = 'percent',
-		higherIsBetter = true
+		direction = 'neutral'
 	}: {
 		metric: string;
 		bankValue: number | null;
@@ -22,7 +22,7 @@
 		p90: number | null;
 		percentile: number | null;
 		format?: 'percent' | 'currency' | 'number';
-		higherIsBetter?: boolean;
+		direction?: 'higher' | 'lower' | 'neutral';
 	} = $props();
 
 	// SVG layout constants
@@ -53,15 +53,16 @@
 	let xMedian = $derived(median !== null ? valToX(median) : padL + barW / 2);
 	let xBank = $derived(bankValue !== null ? valToX(bankValue) : null);
 
-	// Color based on percentile position and higherIsBetter
+	// Use directional color only for metrics with an explicit interpretation.
 	let markerColor = $derived.by(() => {
 		if (percentile === null) return 'var(--neutral)';
-		if (higherIsBetter) {
+		if (direction === 'neutral') return 'var(--accent)';
+		if (direction === 'higher') {
 			if (percentile >= 60) return 'var(--positive)';
 			if (percentile <= 25) return 'var(--negative)';
 			return 'var(--warning)';
 		} else {
-			// For metrics where lower is better (efficiency ratio, NPL)
+			// Explicit lower-is-favorable metrics: efficiency ratio and noncurrent loans.
 			if (percentile <= 40) return 'var(--positive)';
 			if (percentile >= 75) return 'var(--negative)';
 			return 'var(--warning)';

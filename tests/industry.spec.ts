@@ -4,21 +4,21 @@ test.describe('Industry page', () => {
 	test('loads at /industry with heading and title', async ({ page }) => {
 		await page.goto('/industry');
 
-		await expect(page).toHaveTitle(/Industry/);
-		await expect(page.locator('h1')).toContainText('Industry Overview');
+		await expect(page).toHaveTitle(/Banking system/);
+		await expect(page.locator('h1')).toContainText('Banking system');
 
 		// Latest quarter date should be shown below the heading
 		// (conditional on data, so just check the heading is there)
 		await expect(page.locator('h1')).toBeVisible();
 	});
 
-	test('Industry Snapshot metric cards are visible with real numbers', async ({ page }) => {
+	test('reporting-period snapshot metric cards are visible with real numbers', async ({ page }) => {
 		await page.goto('/industry');
 
-		await expect(page.getByText('Industry Snapshot')).toBeVisible({ timeout: 15000 });
+		await expect(page.getByText('Reporting-period snapshot')).toBeVisible({ timeout: 15000 });
 
 		// Snapshot section contains metric cards
-		const snapshot = page.locator('section').filter({ hasText: 'Industry Snapshot' }).first();
+		const snapshot = page.locator('section').filter({ hasText: 'Reporting-period snapshot' }).first();
 		await expect(snapshot).toBeVisible();
 		await expect(snapshot.getByText('Total Banks')).toBeVisible();
 		await expect(snapshot.getByText('Active Banks')).toBeVisible();
@@ -140,7 +140,7 @@ test.describe('Industry page', () => {
 	test('export button is visible on industry page', async ({ page }) => {
 		await page.goto('/industry');
 
-		await expect(page.getByText('Industry Snapshot')).toBeVisible({ timeout: 15000 });
+		await expect(page.getByText('Reporting-period snapshot')).toBeVisible({ timeout: 15000 });
 
 		const exportBtn = page.getByLabel('Export data');
 		await expect(exportBtn).toBeVisible();
@@ -152,7 +152,7 @@ test.describe('Industry page', () => {
 	test('clicking export button on industry page opens CSV/JSON menu', async ({ page }) => {
 		await page.goto('/industry');
 
-		await expect(page.getByText('Industry Snapshot')).toBeVisible({ timeout: 15000 });
+		await expect(page.getByText('Reporting-period snapshot')).toBeVisible({ timeout: 15000 });
 
 		const exportBtn = page.getByLabel('Export data');
 		await expect(exportBtn).toBeVisible();
@@ -181,12 +181,12 @@ test.describe('Industry page', () => {
 			await expect(failuresLink).toBeVisible({ timeout: 5000 });
 			await failuresLink.click();
 			await expect(page).toHaveURL(/\/industry\/failures/, { timeout: 10000 });
-			await expect(page.locator('h1')).toContainText('Bank Failures');
+			await expect(page.locator('h1')).toContainText('Bank failures');
 		} else {
 			// No failure data in this env; navigate directly and check the page loads
 			await page.goto('/industry/failures');
 			await expect(page).toHaveURL(/\/industry\/failures/);
-			await expect(page.locator('h1')).toContainText('Bank Failures');
+			await expect(page.locator('h1')).toContainText('Bank failures');
 		}
 	});
 });
@@ -196,28 +196,27 @@ test.describe('Industry failures sub-page', () => {
 		await page.goto('/industry/failures');
 
 		await expect(page).toHaveTitle(/Failures/i, { timeout: 15000 });
-		await expect(page.locator('h1')).toContainText('Bank Failures');
+		await expect(page.locator('h1')).toContainText('Bank failures');
 
-		// Count text: "X failed institutions since records began"
-		await expect(page.getByText(/failed institutions since records began/)).toBeVisible({ timeout: 15000 });
+		await expect(page.getByText(/bank failures in FDIC records dating to 1934/)).toBeVisible({ timeout: 15000 });
 
 		// Count should be a real number, not zero or placeholder
-		const countText = await page.getByText(/failed institutions since records began/).innerText();
+		const countText = await page.getByText(/bank failures in FDIC records dating to 1934/).innerText();
 		const match = countText.match(/[\d,]+/);
 		expect(match).not.toBeNull();
 		const count = parseInt((match![0] ?? '0').replace(/,/g, ''), 10);
 		expect(count).toBeGreaterThan(0);
 	});
 
-	test('All Failures table has expected columns and data rows', async ({ page }) => {
+	test('Bank failures table has expected columns and data rows', async ({ page }) => {
 		await page.goto('/industry/failures');
 
-		await expect(page.getByText('All Failures')).toBeVisible({ timeout: 15000 });
+		await expect(page.getByText('Bank failures', { exact: true }).last()).toBeVisible({ timeout: 15000 });
 
-		const failureTable = page.locator('section').filter({ hasText: 'All Failures' }).locator('table');
+		const failureTable = page.locator('section').filter({ hasText: 'Bank failures' }).last().locator('table');
 		await expect(failureTable).toBeVisible();
 
-		for (const col of ['Bank Name', 'State', 'Failure Date', 'Assets']) {
+		for (const col of ['Bank name', 'State', 'Effective date', 'Assets', 'Estimated loss']) {
 			await expect(failureTable.locator('th').filter({ hasText: col })).toBeVisible();
 		}
 
@@ -225,46 +224,46 @@ test.describe('Industry failures sub-page', () => {
 		expect(await rows.count()).toBeGreaterThanOrEqual(1);
 	});
 
-	test('Cost to FDIC metrics are visible when data is present', async ({ page }) => {
+	test('FDIC estimated-loss metrics are visible when data is present', async ({ page }) => {
 		await page.goto('/industry/failures');
 
-		await expect(page.locator('h1')).toContainText('Bank Failures', { timeout: 15000 });
+		await expect(page.locator('h1')).toContainText('Bank failures', { timeout: 15000 });
 
 		// Cost section is conditional on failureCount > 0
-		const hasCostSection = await page.getByText('Cost to FDIC').isVisible({ timeout: 5000 }).catch(() => false);
+		const hasCostSection = await page.getByText('FDIC estimated loss').isVisible({ timeout: 5000 }).catch(() => false);
 
 		if (hasCostSection) {
-			const costSection = page.locator('section').filter({ hasText: 'Cost to FDIC' }).first();
-			await expect(costSection.getByText('Total Cost').first()).toBeVisible();
-			await expect(costSection.getByText('Avg Cost per Failure').first()).toBeVisible();
+			const costSection = page.locator('section').filter({ hasText: 'FDIC estimated loss' }).first();
+			await expect(costSection.getByText('Total estimated loss').first()).toBeVisible();
+			await expect(costSection.getByText('Average estimated loss').first()).toBeVisible();
 		}
 	});
 
 	test('Failures by Year chart section renders when data is present', async ({ page }) => {
 		await page.goto('/industry/failures');
 
-		await expect(page.locator('h1')).toContainText('Bank Failures', { timeout: 15000 });
+		await expect(page.locator('h1')).toContainText('Bank failures', { timeout: 15000 });
 
-		const hasByYear = await page.getByText('Failures by Year').isVisible({ timeout: 5000 }).catch(() => false);
+		const hasByYear = await page.getByText('Failures by year').isVisible({ timeout: 5000 }).catch(() => false);
 
 		if (hasByYear) {
-			const section = page.locator('section').filter({ hasText: 'Failures by Year' }).first();
+			const section = page.locator('section').filter({ hasText: 'Failures by year' }).first();
 			await expect(section).toBeVisible();
 		}
 	});
 
-	test('Failures by Decade table is visible when data is present', async ({ page }) => {
+	test('Records by decade table is visible when data is present', async ({ page }) => {
 		await page.goto('/industry/failures');
 
-		await expect(page.locator('h1')).toContainText('Bank Failures', { timeout: 15000 });
+		await expect(page.locator('h1')).toContainText('Bank failures', { timeout: 15000 });
 
-		const hasDecade = await page.getByText('Failures by Decade').isVisible({ timeout: 5000 }).catch(() => false);
+		const hasDecade = await page.getByText('Records by decade').isVisible({ timeout: 5000 }).catch(() => false);
 
 		if (hasDecade) {
-			const decadeTable = page.locator('section').filter({ hasText: 'Failures by Decade' }).locator('table');
+			const decadeTable = page.locator('section').filter({ hasText: 'Records by decade' }).locator('table');
 			await expect(decadeTable).toBeVisible();
 
-			for (const col of ['Decade', 'Failures', 'Total Cost']) {
+			for (const col of ['Decade', 'Records', 'Estimated loss']) {
 				await expect(decadeTable.locator('th').filter({ hasText: col })).toBeVisible();
 			}
 
@@ -273,12 +272,12 @@ test.describe('Industry failures sub-page', () => {
 		}
 	});
 
-	test('back link to Industry Overview is present', async ({ page }) => {
+	test('back link to Banking system is present', async ({ page }) => {
 		await page.goto('/industry/failures');
 
-		await expect(page.locator('h1')).toContainText('Bank Failures', { timeout: 15000 });
+		await expect(page.locator('h1')).toContainText('Bank failures', { timeout: 15000 });
 
-		const backLink = page.getByRole('link', { name: /Industry Overview/i });
+		const backLink = page.getByRole('link', { name: /Banking system/i });
 		await expect(backLink).toBeVisible();
 
 		await backLink.click();
@@ -288,7 +287,7 @@ test.describe('Industry failures sub-page', () => {
 	test('export button is visible on failures page', async ({ page }) => {
 		await page.goto('/industry/failures');
 
-		await expect(page.locator('h1')).toContainText('Bank Failures', { timeout: 15000 });
+		await expect(page.locator('h1')).toContainText('Bank failures', { timeout: 15000 });
 
 		const exportBtn = page.getByLabel('Export data');
 		await expect(exportBtn).toBeVisible();
@@ -299,7 +298,7 @@ test.describe('Industry failures sub-page', () => {
 	test('clicking export button on failures page opens CSV/JSON menu', async ({ page }) => {
 		await page.goto('/industry/failures');
 
-		await expect(page.locator('h1')).toContainText('Bank Failures', { timeout: 15000 });
+		await expect(page.locator('h1')).toContainText('Bank failures', { timeout: 15000 });
 
 		const exportBtn = page.getByLabel('Export data');
 		await expect(exportBtn).toBeVisible();
@@ -317,9 +316,9 @@ test.describe('Industry failures sub-page', () => {
 	test('sort by column updates table order', async ({ page }) => {
 		await page.goto('/industry/failures');
 
-		await expect(page.getByText('All Failures')).toBeVisible({ timeout: 15000 });
+		await expect(page.getByText('Bank failures', { exact: true }).last()).toBeVisible({ timeout: 15000 });
 
-		const failureTable = page.locator('section').filter({ hasText: 'All Failures' }).locator('table');
+		const failureTable = page.locator('section').filter({ hasText: 'Bank failures' }).last().locator('table');
 		const assetHeader = failureTable.locator('th').filter({ hasText: 'Assets' });
 
 		// Clicking a sortable column header should re-sort

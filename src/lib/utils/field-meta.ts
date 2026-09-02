@@ -27,12 +27,31 @@ export type FieldCategory =
   | 'liquidity'
   | 'general';
 
+export type FieldDisplayFormat = 'currency' | 'percent' | 'number';
+export type FieldTimeBasis = 'single_quarter' | 'year_to_date';
+
 export interface FieldDef {
   label: string;
+	/** Short label used when the period basis is shown separately. */
+	shortLabel?: string;
   description: string;
+  /** Exact FDIC BankFind field requested by the ingestion pipeline. */
+  sourceField?: string;
+  /** Source-level meaning, kept separate from Bankgraph's display interpretation. */
+  sourceDefinition?: string;
+  /** How Bankgraph stores or presents the source field. */
+  productInterpretation?: string;
   formula?: string;
   category: FieldCategory;
   mdrm?: string;
+	/** Explicit display format for fields whose category alone is not precise enough. */
+	displayFormat?: FieldDisplayFormat;
+	/** Reporting-period basis for income-statement flow fields. */
+	timeBasis?: FieldTimeBasis;
+	/** Single-quarter companion to a year-to-date source field. */
+	quarterlyField?: string;
+	/** Year-to-date companion to a single-quarter source field. */
+	yearToDateField?: string;
 }
 
 export const fieldDefs: Record<string, FieldDef> = {
@@ -40,11 +59,17 @@ export const fieldDefs: Record<string, FieldDef> = {
   asset: {
     label: 'Total Assets',
     description: 'Total assets reported in thousands of dollars.',
+    sourceField: 'ASSET',
+    sourceDefinition: 'FDIC BankFind defines ASSET as the sum of assets owned by the institution, excluding off-balance-sheet accounts.',
+    productInterpretation: 'Bankgraph preserves the institution-level reported amount in thousands of U.S. dollars.',
     category: 'balance_sheet'
   },
   dep: {
     label: 'Total Deposits',
-    description: 'Total deposits reported in thousands of dollars.',
+    description: 'Institution-level total deposits reported in thousands of dollars.',
+    sourceField: 'DEP',
+    sourceDefinition: 'FDIC BankFind defines DEP as all deposits, including demand, money-market, other savings, time, and foreign-office deposits.',
+    productInterpretation: 'This is the quarterly institution total. It is not the annual Summary of Deposits branch allocation and should not be read as local-market deposits.',
     category: 'balance_sheet'
   },
   eq: {
@@ -83,46 +108,150 @@ export const fieldDefs: Record<string, FieldDef> = {
   },
 
   // ── Income Statement ───────────────────────────────────────────
+  netincq: {
+    label: 'Net Income — Quarter',
+    shortLabel: 'Net Income',
+    description: 'Net income after taxes and extraordinary items for the single reporting quarter, in thousands of dollars.',
+    sourceField: 'NETINCQ',
+    sourceDefinition: 'FDIC BankFind reports NETINCQ for the single reporting quarter.',
+    productInterpretation: 'Bankgraph uses this field for quarter-to-quarter trends and same-quarter cross-bank comparisons. NETINC remains available for cumulative calendar-year analysis.',
+    category: 'income',
+    displayFormat: 'currency',
+    timeBasis: 'single_quarter',
+    yearToDateField: 'netinc'
+  },
   netinc: {
-    label: 'Net Income',
-    description: 'Net income after taxes and extraordinary items, in thousands.',
-    category: 'income'
+    label: 'Net Income — Year to Date',
+    shortLabel: 'Net Income',
+    description: 'Net income after taxes and extraordinary items accumulated since the start of the calendar year, in thousands of dollars.',
+    sourceField: 'NETINC',
+    sourceDefinition: 'FDIC BankFind reports NETINC on a calendar-year-to-date basis.',
+    productInterpretation: 'Use this field for cumulative or same-quarter year-over-year analysis. Use NETINCQ for a single quarter or quarter-to-quarter comparison.',
+    category: 'income',
+    displayFormat: 'currency',
+    timeBasis: 'year_to_date',
+    quarterlyField: 'netincq'
   },
   intinc: {
-    label: 'Interest Income',
+    label: 'Interest Income — Year to Date',
+    shortLabel: 'Interest Income',
     description:
-      'Total interest and fee income earned on loans, leases, securities, and other interest-bearing assets, in thousands.',
-    category: 'income'
+      'Interest and fee income accumulated since the start of the calendar year, in thousands of dollars.',
+    sourceField: 'INTINC',
+    sourceDefinition: 'FDIC BankFind reports INTINC on a calendar-year-to-date basis.',
+    productInterpretation: 'Bankgraph retains the reported cumulative value. A reported single-quarter companion is not ingested for this field.',
+    category: 'income',
+    displayFormat: 'currency',
+    timeBasis: 'year_to_date'
   },
   eintexp: {
-    label: 'Interest Expense',
-    description: 'Total interest paid on deposits and other borrowed funds, in thousands.',
-    category: 'income'
+    label: 'Interest Expense — Year to Date',
+    shortLabel: 'Interest Expense',
+    description: 'Interest expense accumulated since the start of the calendar year, in thousands of dollars.',
+    sourceField: 'EINTEXP',
+    sourceDefinition: 'FDIC BankFind reports EINTEXP on a calendar-year-to-date basis.',
+    productInterpretation: 'Bankgraph retains the reported cumulative value. A reported single-quarter companion is not ingested for this field.',
+    category: 'income',
+    displayFormat: 'currency',
+    timeBasis: 'year_to_date'
+  },
+  nimq: {
+    label: 'Net Interest Income — Quarter',
+    shortLabel: 'Net Interest Income',
+    description: 'Interest income minus interest expense for the single reporting quarter, in thousands of dollars.',
+    sourceField: 'NIMQ',
+    sourceDefinition: 'FDIC BankFind reports NIMQ for the single reporting quarter.',
+    productInterpretation: 'Bankgraph uses this field for quarter-to-quarter trends and same-quarter cross-bank comparisons. NIM remains available for cumulative calendar-year analysis.',
+    formula: 'Interest Income - Interest Expense',
+    category: 'income',
+    displayFormat: 'currency',
+    timeBasis: 'single_quarter',
+    yearToDateField: 'nim'
   },
   nim: {
-    label: 'Net Interest Income',
-    description:
-      'Interest income minus interest expense, representing the core earnings from lending activities, in thousands.',
+    label: 'Net Interest Income — Year to Date',
+    shortLabel: 'Net Interest Income',
+    description: 'Interest income minus interest expense accumulated since the start of the calendar year, in thousands of dollars.',
+    sourceField: 'NIM',
+    sourceDefinition: 'FDIC BankFind reports NIM on a calendar-year-to-date basis.',
+    productInterpretation: 'Use this field for cumulative or same-quarter year-over-year analysis. Use NIMQ for a single quarter or quarter-to-quarter comparison.',
     formula: 'Interest Income - Interest Expense',
-    category: 'income'
+    category: 'income',
+    displayFormat: 'currency',
+    timeBasis: 'year_to_date',
+    quarterlyField: 'nimq'
+  },
+  noniiq: {
+    label: 'Noninterest Income — Quarter',
+    shortLabel: 'Noninterest Income',
+    description: 'Income from noninterest sources for the single reporting quarter, in thousands of dollars.',
+    sourceField: 'NONIIQ',
+    sourceDefinition: 'FDIC BankFind reports NONIIQ for the single reporting quarter.',
+    productInterpretation: 'Bankgraph uses this field for quarter-to-quarter trends and same-quarter cross-bank comparisons. NONII remains available for cumulative calendar-year analysis.',
+    category: 'income',
+    displayFormat: 'currency',
+    timeBasis: 'single_quarter',
+    yearToDateField: 'nonii'
   },
   nonii: {
-    label: 'Noninterest Income',
-    description:
-      'Income from sources other than interest, including service charges, trading revenue, and fee income, in thousands.',
-    category: 'income'
+    label: 'Noninterest Income — Year to Date',
+    shortLabel: 'Noninterest Income',
+    description: 'Income from noninterest sources accumulated since the start of the calendar year, in thousands of dollars.',
+    sourceField: 'NONII',
+    sourceDefinition: 'FDIC BankFind reports NONII on a calendar-year-to-date basis.',
+    productInterpretation: 'Use this field for cumulative or same-quarter year-over-year analysis. Use NONIIQ for a single quarter or quarter-to-quarter comparison.',
+    category: 'income',
+    displayFormat: 'currency',
+    timeBasis: 'year_to_date',
+    quarterlyField: 'noniiq'
+  },
+  nonixq: {
+    label: 'Noninterest Expense — Quarter',
+    shortLabel: 'Noninterest Expense',
+    description: 'Operating expense excluding interest expense for the single reporting quarter, in thousands of dollars.',
+    sourceField: 'NONIXQ',
+    sourceDefinition: 'FDIC BankFind reports NONIXQ for the single reporting quarter.',
+    productInterpretation: 'Bankgraph uses this field for quarter-to-quarter trends and same-quarter cross-bank comparisons. NONIX remains available for cumulative calendar-year analysis.',
+    category: 'income',
+    displayFormat: 'currency',
+    timeBasis: 'single_quarter',
+    yearToDateField: 'nonix'
   },
   nonix: {
-    label: 'Noninterest Expense',
-    description:
-      'Operating expenses excluding interest expense, including salaries, occupancy, and other overhead, in thousands.',
-    category: 'income'
+    label: 'Noninterest Expense — Year to Date',
+    shortLabel: 'Noninterest Expense',
+    description: 'Operating expense excluding interest expense accumulated since the start of the calendar year, in thousands of dollars.',
+    sourceField: 'NONIX',
+    sourceDefinition: 'FDIC BankFind reports NONIX on a calendar-year-to-date basis.',
+    productInterpretation: 'Use this field for cumulative or same-quarter year-over-year analysis. Use NONIXQ for a single quarter or quarter-to-quarter comparison.',
+    category: 'income',
+    displayFormat: 'currency',
+    timeBasis: 'year_to_date',
+    quarterlyField: 'nonixq'
+  },
+  elnatq: {
+    label: 'Provision for Credit Losses — Quarter',
+    shortLabel: 'Provision for Credit Losses',
+    description: 'Provision for credit losses for the single reporting quarter, in thousands of dollars.',
+    sourceField: 'ELNATQ',
+    sourceDefinition: 'FDIC BankFind reports ELNATQ for the single reporting quarter.',
+    productInterpretation: 'Bankgraph uses this field for quarter-to-quarter trends and same-quarter cross-bank comparisons. ELNATR remains available for cumulative calendar-year analysis.',
+    category: 'income',
+    displayFormat: 'currency',
+    timeBasis: 'single_quarter',
+    yearToDateField: 'elnatr'
   },
   elnatr: {
-    label: 'Provision for Loan Losses',
-    description:
-      'Expense set aside to cover estimated losses on loans and leases, in thousands.',
-    category: 'income'
+    label: 'Provision for Credit Losses — Year to Date',
+    shortLabel: 'Provision for Credit Losses',
+    description: 'Provision for credit losses accumulated since the start of the calendar year, in thousands of dollars.',
+    sourceField: 'ELNATR',
+    sourceDefinition: 'FDIC BankFind reports ELNATR on a calendar-year-to-date basis.',
+    productInterpretation: 'Use this field for cumulative or same-quarter year-over-year analysis. Use ELNATQ for a single quarter or quarter-to-quarter comparison.',
+    category: 'income',
+    displayFormat: 'currency',
+    timeBasis: 'year_to_date',
+    quarterlyField: 'elnatq'
   },
 
   // ── Performance Ratios ─────────────────────────────────────────
@@ -163,21 +292,25 @@ export const fieldDefs: Record<string, FieldDef> = {
   rbcrwaj: {
     label: 'Total Risk-Based Capital Ratio',
     description:
-      'Total qualifying capital (Tier 1 + Tier 2) as a percentage of risk-weighted assets. Banks must maintain at least 8% to be adequately capitalized.',
+      'Total qualifying capital as a percentage of risk-weighted assets. Bankgraph uses reported values in a disclosed reference-threshold screen, not as an official supervisory status.',
+    sourceField: 'RBCRWAJ',
     category: 'capital',
     mdrm: 'UBPRD849'
   },
   rbc1rwaj: {
     label: 'Tier 1 Risk-Based Capital Ratio',
     description:
-      'Tier 1 (core) capital as a percentage of risk-weighted assets. Must be at least 6% for adequately capitalized status.',
+      'Tier 1 capital as a percentage of risk-weighted assets. Bankgraph compares available reported values with disclosed reference thresholds; it does not determine PCA status.',
+    sourceField: 'RBC1RWAJ',
+    productInterpretation: 'This field supplies the institution summary Tier 1 ratio. RBCRWAJ, the total risk-based ratio, is kept separate.',
     category: 'capital',
     mdrm: 'UBPRD851'
   },
   rbc1aaj: {
     label: 'Tier 1 Leverage Ratio',
     description:
-      'Tier 1 capital as a percentage of average total consolidated assets (not risk-weighted). Must be at least 4% for adequately capitalized status.',
+      'Tier 1 capital as a percentage of average total consolidated assets (not risk-weighted). It is one input to Bankgraph\'s reference-threshold screen, not an official PCA determination.',
+    sourceField: 'RBC1AAJ',
     category: 'capital',
     mdrm: 'UBPR7204'
   },
@@ -190,10 +323,10 @@ export const fieldDefs: Record<string, FieldDef> = {
   },
 
   // ── Asset Quality ──────────────────────────────────────────────
-  nclnlsr: {
-    label: 'Noncurrent Loan Ratio',
-    description:
-      'Noncurrent loans and leases (90+ days past due or in nonaccrual) as a percentage of total loans and leases. Higher values indicate deteriorating credit quality.',
+	nclnlsr: {
+		label: 'Noncurrent loan ratio',
+		description:
+			'Loans and leases 90 or more days past due or in nonaccrual as a percentage of total loans and leases. Higher values indicate deteriorating credit quality.',
     category: 'asset_quality',
     mdrm: 'UBPR3506'
   },
@@ -231,6 +364,15 @@ export const fieldDefs: Record<string, FieldDef> = {
   numemp: {
     label: 'Number of Employees',
     description: 'Total number of full-time equivalent employees at the institution.',
+    sourceField: 'NUMEMP',
+    category: 'general'
+  },
+  offdom: {
+    label: 'Domestic Offices',
+    description: 'Current reported count of domestic offices, including the headquarters.',
+    sourceField: 'OFFDOM',
+    sourceDefinition: 'FDIC BankFind defines OFFDOM as domestic offices, including headquarters, operated by active institutions in the 50 states.',
+    productInterpretation: 'The database column is named num_branches for compatibility, but Bankgraph displays this as domestic offices. It is not a branch-only count and not a geographic branch inventory.',
     category: 'general'
   }
 };
@@ -267,6 +409,35 @@ export function getFieldLabel(field: string): string {
 
 export function getFieldDescription(field: string): string {
   return fieldDefs[field]?.description ?? '';
+}
+
+export function getFieldShortLabel(field: string): string {
+  const def = fieldDefs[field];
+  return def?.shortLabel ?? def?.label ?? field;
+}
+
+export function getFieldPeriodLabel(field: string): 'Quarter' | 'YTD' | null {
+  const basis = fieldDefs[field]?.timeBasis;
+  if (basis === 'single_quarter') return 'Quarter';
+  if (basis === 'year_to_date') return 'YTD';
+  return null;
+}
+
+export function getFieldDisplayFormat(field: string): FieldDisplayFormat {
+  const def = fieldDefs[field];
+  if (def?.displayFormat) return def.displayFormat;
+  if (def?.category === 'balance_sheet' || def?.category === 'income') return 'currency';
+  if (
+    def?.category === 'ratios' ||
+    def?.category === 'capital' ||
+    def?.category === 'asset_quality'
+  ) return 'percent';
+  return 'number';
+}
+
+/** Resolve the reported single-quarter companion when one exists. */
+export function getQuarterlyComparisonField(field: string): string {
+  return fieldDefs[field]?.quarterlyField ?? field;
 }
 
 export function getRegulatorName(code: string): string {

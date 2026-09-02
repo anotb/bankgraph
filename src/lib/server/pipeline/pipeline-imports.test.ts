@@ -35,15 +35,10 @@ describe('pipeline module imports', () => {
 		expect(typeof mod.syncFailures).toBe('function');
 	});
 
-	it('fred-api exports expected functions', async () => {
-		const mod = await import('./fred-api');
-		expect(typeof mod.fetchSeriesObservations).toBe('function');
-		expect(typeof mod.fetchSeriesInfo).toBe('function');
-		expect(typeof mod.delay).toBe('function');
-	});
-
-	it('fred-sync exports syncFredData', async () => {
-		const mod = await import('./fred-sync');
-		expect(typeof mod.syncFredData).toBe('function');
+	it('direct-agency macro modules export the bounded source and sync functions', async () => {
+		const source = await import('./macro-sources');
+		const sync = await import('./macro-sync');
+		expect(typeof source.fetchMacroYear).toBe('function');
+		expect(typeof sync.syncMacroSeries).toBe('function');
 	});
 });

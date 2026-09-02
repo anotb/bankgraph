@@ -1,19 +1,21 @@
 import { describe, it, expect } from 'vitest';
 import {
 	classifyPCA,
+	screenCapitalRatios,
 	computeCapitalScore,
 	computeAssetQualityScore,
 	computeEarningsScore,
 	computeLiquidityScore,
-	normalCDF,
-	computePercentileFromPeer
+	computeCompositeScore,
+	computeEmpiricalPercentile
 } from './risk-scores';
 
 // --- PCA Classification ---
 
 describe('classifyPCA', () => {
-	it('defaults to well_capitalized when all inputs are null', () => {
-		expect(classifyPCA({ rbcrwaj: null, rbc1rwaj: null, rbc1aaj: null })).toBe('well_capitalized');
+	it('leaves missing capital data unclassified', () => {
+		expect(classifyPCA({ rbcrwaj: null, rbc1rwaj: null, rbc1aaj: null })).toBe('unclassified');
+		expect(classifyPCA({ rbcrwaj: 0, rbc1rwaj: 0, rbc1aaj: 0 })).toBe('unclassified');
 	});
 
 	it('classifies well-capitalized bank', () => {
@@ -34,9 +36,9 @@ describe('classifyPCA', () => {
 		expect(classifyPCA({ rbcrwaj: 5, rbc1rwaj: 3, rbc1aaj: 2.5 })).toBe('significantly_undercapitalized');
 	});
 
-	it('classifies critically undercapitalized (leverage <= 2%)', () => {
-		expect(classifyPCA({ rbcrwaj: 5, rbc1rwaj: 3, rbc1aaj: 2 })).toBe('critically_undercapitalized');
-		expect(classifyPCA({ rbcrwaj: 5, rbc1rwaj: 3, rbc1aaj: 1 })).toBe('critically_undercapitalized');
+	it('does not infer the official critical category from the Tier 1 leverage ratio', () => {
+		expect(screenCapitalRatios({ rbcrwaj: 5, rbc1rwaj: 3, rbc1aaj: 2 })).toBe('significantly_undercapitalized');
+		expect(screenCapitalRatios({ rbcrwaj: 5, rbc1rwaj: 3, rbc1aaj: 1 })).toBe('significantly_undercapitalized');
 	});
 
 	it('handles partial null data (uses available ratios)', () => {
@@ -64,15 +66,15 @@ describe('classifyPCA', () => {
 		// rbcrwaj = 0.5 is a real value < 6, triggers significantly_undercapitalized
 		expect(classifyPCA({ rbcrwaj: 0.5, rbc1rwaj: null, rbc1aaj: 13 })).toBe('significantly_undercapitalized');
 		// Only rbc1aaj is available and it's low
-		expect(classifyPCA({ rbcrwaj: 0, rbc1rwaj: null, rbc1aaj: 1.5 })).toBe('critically_undercapitalized');
+		expect(classifyPCA({ rbcrwaj: 0, rbc1rwaj: null, rbc1aaj: 1.5 })).toBe('significantly_undercapitalized');
 	});
 });
 
 // --- Capital Score ---
 
 describe('computeCapitalScore', () => {
-	it('returns 5 for critically undercapitalized', () => {
-		expect(computeCapitalScore({ rbcrwaj: 3, rbc1rwaj: 2, rbc1aaj: 1 })).toBe(5);
+	it('uses the materially-below-threshold score without inferring official critical status', () => {
+		expect(computeCapitalScore({ rbcrwaj: 3, rbc1rwaj: 2, rbc1aaj: 1 })).toBe(15);
 	});
 
 	it('returns 15 for significantly undercapitalized', () => {
@@ -100,25 +102,55 @@ describe('computeCapitalScore', () => {
 		expect(score).toBeLessThanOrEqual(100);
 	});
 
-	it('handles all-null inputs (defaults to well_capitalized, score 60+)', () => {
-		const score = computeCapitalScore({ rbcrwaj: null, rbc1rwaj: null, rbc1aaj: null });
-		// classifyPCA returns well_capitalized, but all null means avgBuffer=0 (count=0)
-		// So score should be in the well_capitalized range
-		expect(score).toBeGreaterThanOrEqual(60);
+	it('returns no score when capital inputs are missing', () => {
+		expect(computeCapitalScore({ rbcrwaj: null, rbc1rwaj: null, rbc1aaj: null })).toBeNull();
 	});
 
 	it('increases with buffer above thresholds', () => {
 		const lowBuffer = computeCapitalScore({ rbcrwaj: 11, rbc1rwaj: 9, rbc1aaj: 6 });
 		const highBuffer = computeCapitalScore({ rbcrwaj: 15, rbc1rwaj: 13, rbc1aaj: 10 });
-		expect(highBuffer).toBeGreaterThan(lowBuffer);
+		expect(highBuffer).not.toBeNull();
+		expect(lowBuffer).not.toBeNull();
+		expect(highBuffer!).toBeGreaterThan(lowBuffer!);
+	});
+});
+
+describe('computeCompositeScore', () => {
+	it('renormalizes remaining dimensions instead of treating missing capital as zero', () => {
+		const score = computeCompositeScore({
+			capital: null,
+			assetQuality: 80,
+			earnings: 60,
+			liquidity: 40
+		});
+
+		expect(score).toBeCloseTo((80 * 0.25 + 60 * 0.25 + 40 * 0.20) / 0.70);
+	});
+
+	it('returns null when every dimension is unavailable', () => {
+		expect(computeCompositeScore({
+			capital: null,
+			assetQuality: null,
+			earnings: null,
+			liquidity: null
+		})).toBeNull();
+	});
+
+	it('suppresses the composite when fewer than three dimensions are available', () => {
+		expect(computeCompositeScore({
+			capital: 90,
+			assetQuality: 70,
+			earnings: null,
+			liquidity: null
+		})).toBeNull();
 	});
 });
 
 // --- Asset Quality Score ---
 
 describe('computeAssetQualityScore', () => {
-	it('returns 50 for null input', () => {
-		expect(computeAssetQualityScore(null)).toBe(50);
+	it('keeps a missing input unscored', () => {
+		expect(computeAssetQualityScore(null)).toBeNull();
 	});
 
 	it('returns high score (75-100) for low NPL percentile (good)', () => {
@@ -146,7 +178,7 @@ describe('computeAssetQualityScore', () => {
 	});
 
 	it('is monotonically decreasing (higher NPL percentile = lower score)', () => {
-		const scores = [0, 10, 25, 50, 75, 90, 100].map(computeAssetQualityScore);
+		const scores = [0, 10, 25, 50, 75, 90, 100].map((value) => computeAssetQualityScore(value)!);
 		for (let i = 1; i < scores.length; i++) {
 			expect(scores[i]).toBeLessThanOrEqual(scores[i - 1]);
 		}
@@ -156,8 +188,8 @@ describe('computeAssetQualityScore', () => {
 // --- Earnings Score ---
 
 describe('computeEarningsScore', () => {
-	it('returns 50 for null ROA percentile', () => {
-		expect(computeEarningsScore(null, null)).toBe(50);
+	it('keeps a missing ROA percentile unscored', () => {
+		expect(computeEarningsScore(null, null)).toBeNull();
 	});
 
 	it('returns percentile value when no trend penalty', () => {
@@ -168,7 +200,7 @@ describe('computeEarningsScore', () => {
 	it('applies penalty for negative ROA trend slope', () => {
 		const withoutTrend = computeEarningsScore(80, null);
 		const withDecline = computeEarningsScore(80, -0.1);
-		expect(withDecline).toBeLessThan(withoutTrend);
+		expect(withDecline!).toBeLessThan(withoutTrend!);
 	});
 
 	it('caps penalty at 15 points', () => {
@@ -197,8 +229,8 @@ describe('computeEarningsScore', () => {
 // --- Liquidity Score ---
 
 describe('computeLiquidityScore', () => {
-	it('returns 50 for null input', () => {
-		expect(computeLiquidityScore(null)).toBe(50);
+	it('keeps a missing input unscored', () => {
+		expect(computeLiquidityScore(null)).toBeNull();
 	});
 
 	it('returns 100 for 0th percentile LTD (most liquid)', () => {
@@ -222,90 +254,27 @@ describe('computeLiquidityScore', () => {
 	});
 });
 
-// --- Normal CDF ---
+describe('computeEmpiricalPercentile', () => {
+	it('uses observed ranks for a skewed distribution', () => {
+		const distribution = [0, 0, 0, 1, 1000];
 
-describe('normalCDF', () => {
-	it('returns ~0.5 at z=0', () => {
-		expect(normalCDF(0)).toBeCloseTo(0.5, 4);
+		expect(computeEmpiricalPercentile(0, distribution)).toBe(30);
+		expect(computeEmpiricalPercentile(1, distribution)).toBe(70);
+		expect(computeEmpiricalPercentile(1000, distribution)).toBe(90);
 	});
 
-	it('returns ~0.8413 at z=1', () => {
-		expect(normalCDF(1)).toBeCloseTo(0.8413, 3);
+	it('assigns tied values the same midpoint rank', () => {
+		const distribution = [1, 2, 2, 2, 3, 4];
+
+		expect(computeEmpiricalPercentile(2, distribution)).toBeCloseTo(41.6667, 4);
 	});
 
-	it('returns ~0.1587 at z=-1', () => {
-		expect(normalCDF(-1)).toBeCloseTo(0.1587, 3);
+	it('returns the cohort midpoint when every value is tied', () => {
+		expect(computeEmpiricalPercentile(2, [2, 2, 2, 2])).toBe(50);
 	});
 
-	it('returns ~0.9772 at z=2', () => {
-		expect(normalCDF(2)).toBeCloseTo(0.9772, 3);
-	});
-
-	it('returns 0 for very negative z', () => {
-		expect(normalCDF(-7)).toBe(0);
-	});
-
-	it('returns 1 for very positive z', () => {
-		expect(normalCDF(7)).toBe(1);
-	});
-
-	it('is monotonically increasing', () => {
-		const zValues = [-3, -2, -1, 0, 1, 2, 3];
-		const cdfValues = zValues.map(normalCDF);
-		for (let i = 1; i < cdfValues.length; i++) {
-			expect(cdfValues[i]).toBeGreaterThan(cdfValues[i - 1]);
-		}
-	});
-
-	it('is symmetric: CDF(z) + CDF(-z) ~= 1', () => {
-		for (const z of [0.5, 1, 1.5, 2, 2.5, 3]) {
-			expect(normalCDF(z) + normalCDF(-z)).toBeCloseTo(1, 4);
-		}
-	});
-});
-
-// --- computePercentileFromPeer ---
-
-describe('computePercentileFromPeer', () => {
-	const peerMap = new Map([
-		['asset_bucket:3:roa', { mean: 1.0, stddev: 0.5, count: 100 }],
-		['asset_bucket:3:nclnlsr', { mean: 2.0, stddev: 0.0, count: 100 }]
-	]);
-
-	it('returns null when value is null', () => {
-		expect(computePercentileFromPeer(null, 'asset_bucket:3', 'roa', peerMap)).toBeNull();
-	});
-
-	it('returns null when peerGroup is null', () => {
-		expect(computePercentileFromPeer(1.0, null, 'roa', peerMap)).toBeNull();
-	});
-
-	it('returns 50 when stddev is 0 (no variance)', () => {
-		expect(computePercentileFromPeer(2.0, 'asset_bucket:3', 'nclnlsr', peerMap)).toBe(50);
-	});
-
-	it('returns 50 when peer stats not found', () => {
-		expect(computePercentileFromPeer(1.0, 'asset_bucket:99', 'roa', peerMap)).toBe(50);
-	});
-
-	it('returns ~50 when value equals peer mean', () => {
-		const result = computePercentileFromPeer(1.0, 'asset_bucket:3', 'roa', peerMap);
-		expect(result).toBeCloseTo(50, 0);
-	});
-
-	it('returns > 50 when value is above peer mean', () => {
-		const result = computePercentileFromPeer(2.0, 'asset_bucket:3', 'roa', peerMap);
-		expect(result!).toBeGreaterThan(50);
-	});
-
-	it('returns < 50 when value is below peer mean', () => {
-		const result = computePercentileFromPeer(0.0, 'asset_bucket:3', 'roa', peerMap);
-		expect(result!).toBeLessThan(50);
-	});
-
-	it('returns value between 0 and 100', () => {
-		const result = computePercentileFromPeer(5.0, 'asset_bucket:3', 'roa', peerMap);
-		expect(result!).toBeGreaterThanOrEqual(0);
-		expect(result!).toBeLessThanOrEqual(100);
+	it('does not rank missing values or a one-bank cohort', () => {
+		expect(computeEmpiricalPercentile(null, [1, 2])).toBeNull();
+		expect(computeEmpiricalPercentile(1, [1])).toBeNull();
 	});
 });

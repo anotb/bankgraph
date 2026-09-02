@@ -1,20 +1,20 @@
 /// <reference types="@sveltejs/kit" />
-/// <reference types="@cloudflare/workers-types" />
+/// <reference path="../worker-configuration.d.ts" />
 
 declare global {
+	interface Document {
+		/** Experimental imperative WebMCP API; absent in unsupported or non-secure browsers. */
+		readonly modelContext?: import('$lib/webmcp/types.js').ModelContextLike;
+	}
+
 	namespace App {
+		interface Locals {
+			liveDataRelease?: string;
+			liveDataGeneration?: string;
+		}
+
 		interface Platform {
-			env: {
-				DB: D1Database;
-				CACHE: KVNamespace;
-				EXPORTS: R2Bucket;
-				PIPELINE_SECRET: string;
-				FRED_API_KEY?: string;
-			};
-			context: {
-				waitUntil(promise: Promise<unknown>): void;
-			};
-			caches: CacheStorage & { default: Cache };
+			env: Cloudflare.Env;
 		}
 	}
 }

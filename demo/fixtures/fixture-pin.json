@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "fdic-bankfind-six-bank-2023q3-2026q2-v1",
+  "reportingQuarter": "20260630",
+  "quarterCount": 12,
+  "banks": [
+    {
+      "cert": 628,
+      "shortName": "JPMorgan Chase"
+    },
+    {
+      "cert": 3510,
+      "shortName": "Bank of America"
+    },
+    {
+      "cert": 3511,
+      "shortName": "Wells Fargo"
+    },
+    {
+      "cert": 4297,
+      "shortName": "Capital One"
+    },
+    {
+      "cert": 26881,
+      "shortName": "SoFi Bank"
+    },
+    {
+      "cert": 15359,
+      "shortName": "Southern Bank"
+    }
+  ]
+}

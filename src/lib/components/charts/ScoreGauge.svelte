@@ -10,7 +10,7 @@
 	} = $props();
 
 	let clampedScore = $derived(Math.max(0, Math.min(100, score)));
-	let pct = $derived(`${clampedScore}%`);
+	let scale = $derived(clampedScore / 100);
 
 	let color = $derived(
 		clampedScore < 30
@@ -37,10 +37,9 @@
 		<div class="bar-track-lg" style="background-color: {bgColor}" role="meter" aria-valuenow={clampedScore} aria-valuemin={0} aria-valuemax={100} aria-label="{label}: {clampedScore.toFixed(0)} out of 100">
 			<div
 				class="bar-fill-lg"
-				style="width: {pct}; background-color: {color}"
-			>
-				<span class="score-overlay">{clampedScore.toFixed(0)}</span>
-			</div>
+				style="transform: scaleX({scale}); background-color: {color}"
+			></div>
+			<span class="score-overlay">{clampedScore.toFixed(0)}</span>
 		</div>
 	</div>
 {:else}
@@ -50,7 +49,7 @@
 			<div class="bar-track-sm" style="background-color: {bgColor}" role="meter" aria-valuenow={clampedScore} aria-valuemin={0} aria-valuemax={100} aria-label="{label}: {clampedScore.toFixed(0)} out of 100">
 				<div
 					class="bar-fill-sm"
-					style="width: {pct}; background-color: {color}"
+					style="transform: scaleX({scale}); background-color: {color}"
 				></div>
 			</div>
 			<span
@@ -72,16 +71,18 @@
 	}
 
 	.bar-fill-lg {
+		width: 100%;
 		height: 100%;
 		border-radius: 6px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		min-width: 40px;
-		transition: width 0.4s ease;
+		transform-origin: left center;
+		transition: transform 0.4s ease;
 	}
 
 	.score-overlay {
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-items: center;
 		font-size: 14px;
 		font-weight: 700;
 		color: white;
@@ -97,8 +98,10 @@
 	}
 
 	.bar-fill-sm {
+		width: 100%;
 		height: 100%;
 		border-radius: 4px;
-		transition: width 0.4s ease;
+		transform-origin: left center;
+		transition: transform 0.4s ease;
 	}
 </style>

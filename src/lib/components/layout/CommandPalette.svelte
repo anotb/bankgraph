@@ -24,10 +24,10 @@
 	type Item = NavItem | BankItem;
 
 	const NAV: NavItem[] = [
-		{ kind: 'nav', label: 'Browse all banks', href: '/banks', hint: 'Filter by state, asset tier, regulator', shortcut: 'G B' },
+		{ kind: 'nav', label: 'Browse all banks', href: '/banks', hint: 'Filter by state, asset size, or status', shortcut: 'G B' },
 		{ kind: 'nav', label: 'Industry overview', href: '/industry', hint: 'Aggregate medians, distributions, segments', shortcut: 'G I' },
 		{ kind: 'nav', label: 'Compare banks', href: '/compare', hint: 'Multi-bank side-by-side analysis', shortcut: 'G C' },
-		{ kind: 'nav', label: 'Macro context', href: '/macro', hint: 'FRED rates, yields, recessions', shortcut: 'G M' },
+		{ kind: 'nav', label: 'Macro context', href: '/macro', hint: 'Agency rates, labor, prices, H.8 bank conditions', shortcut: 'G M' },
 		{ kind: 'nav', label: 'Bank failures', href: '/industry/failures', hint: 'Full failure history with filters' },
 		{ kind: 'nav', label: 'Glossary', href: '/glossary', hint: 'Metric definitions, MDRM codes' }
 	];
@@ -294,12 +294,12 @@
 		max-width: 640px;
 		background-color: var(--surface-1);
 		border: 1px solid var(--border);
-		border-radius: 10px;
+		border-radius: 0;
 		box-shadow: var(--shadow-lg);
 		overflow: hidden;
 		display: flex;
 		flex-direction: column;
-		animation: cmdkSlide 0.18s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+		animation: cmdkSlide 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 	}
 	@keyframes cmdkSlide {
 		from { transform: translateY(-6px); opacity: 0; }
@@ -324,19 +324,19 @@
 		background: transparent;
 		border: none;
 		outline: none;
-		font-size: 15px;
+		font-size: 14px;
 		color: var(--text-primary);
 		font-family: inherit;
 	}
 	.cmdk__input::placeholder { color: var(--text-tertiary); }
 	.cmdk__input::-webkit-search-cancel-button { display: none; }
 	.cmdk__esc {
-		font-size: 10px;
+		font-size: 11px;
 		color: var(--text-tertiary);
 		background-color: var(--surface-2);
 		border: 1px solid var(--border-muted);
 		padding: 1px 5px;
-		border-radius: 3px;
+		border-radius: 0;
 		font-family: inherit;
 	}
 
@@ -347,7 +347,7 @@
 	}
 	.cmdk__group {
 		padding: 0.625rem 0.625rem 0.25rem;
-		font-size: 10px;
+		font-size: 11px;
 		font-weight: 600;
 		text-transform: uppercase;
 		letter-spacing: 0.08em;
@@ -361,7 +361,7 @@
 		padding: 0.5rem 0.625rem;
 		background: transparent;
 		border: none;
-		border-radius: 6px;
+		border-radius: 0;
 		text-align: left;
 		cursor: pointer;
 		color: var(--text-primary);
@@ -429,11 +429,11 @@
 		padding: 1px 4px;
 		margin: 0 1px;
 		font-family: inherit;
-		font-size: 10px;
+		font-size: 11px;
 		text-align: center;
 		color: var(--text-secondary);
 		background-color: var(--surface-1);
 		border: 1px solid var(--border-muted);
-		border-radius: 3px;
+		border-radius: 0;
 	}
 </style>

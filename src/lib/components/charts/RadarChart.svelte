@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { isDark as getIsDark } from '$lib/stores/theme.svelte.js';
-	import { echarts } from './echarts-setup.js';
+	import {
+		loadRadarECharts,
+		whenChartIsNearViewport,
+		type EChartsRuntime
+	} from './echarts-setup.js';
 	import { getCSSVar } from '$lib/utils/chart-colors.js';
+	import { escapeHtml, safeCssColor } from '$lib/utils/html.js';
 
 	let {
 		indicators,
@@ -15,17 +20,44 @@
 
 	let chartContainer = $state<HTMLDivElement | null>(null);
 	let chart: any;
+	let chartRuntime = $state<EChartsRuntime | null>(null);
+	let chartLoadState = $state<'waiting' | 'loading' | 'ready' | 'error'>('waiting');
 	let dark = $derived(getIsDark());
+
+	$effect(() => {
+		const element = chartContainer;
+		if (!element) return;
+
+		let active = true;
+		const stopObserving = whenChartIsNearViewport(element, () => {
+			chartLoadState = 'loading';
+			void loadRadarECharts()
+				.then((runtime) => {
+					if (!active) return;
+					chartRuntime = runtime;
+					chartLoadState = 'ready';
+				})
+				.catch(() => {
+					if (active) chartLoadState = 'error';
+				});
+		});
+
+		return () => {
+			active = false;
+			stopObserving();
+		};
+	});
 
 	$effect(() => {
 		const currentIndicators = indicators;
 		const currentData = data;
 		const isDark = dark;
+		const runtime = chartRuntime;
 
-		if (!currentIndicators.length || !currentData.length || !chartContainer) return;
+		if (!currentIndicators.length || !currentData.length || !chartContainer || !runtime) return;
 
 		if (!chart) {
-			chart = echarts.init(chartContainer);
+			chart = runtime.init(chartContainer);
 		}
 
 		const chart1 = getCSSVar('--chart-1');
@@ -55,12 +87,12 @@
 					? 'border-radius: 4px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);'
 					: 'border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);',
 				formatter: (params: any) => {
-					let html = `<div style="font-weight:600;margin-bottom:4px;font-size:12px">${params.name}</div>`;
+					let html = `<div style="font-weight:600;margin-bottom:4px;font-size:12px">${escapeHtml(params.name)}</div>`;
 					const values = params.value as number[];
 					for (let i = 0; i < currentIndicators.length; i++) {
 						html += `<div style="display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:1px">`;
-						html += `<span style="color:${textSecondary}">${currentIndicators[i].name}</span>`;
-						html += `<span style="margin-left:auto;font-weight:600;font-variant-numeric:tabular-nums">${values[i]}</span>`;
+						html += `<span style="color:${safeCssColor(textSecondary)}">${escapeHtml(currentIndicators[i].name)}</span>`;
+						html += `<span style="margin-left:auto;font-weight:600;font-variant-numeric:tabular-nums">${escapeHtml(values[i])}</span>`;
 						html += `</div>`;
 					}
 					return html;
@@ -139,7 +171,16 @@
 </script>
 
 {#if indicators.length > 0 && data.length > 0}
-	<div bind:this={chartContainer} style="width:100%;height:{height}" aria-hidden="true"></div>
+	<div class="relative" style="width:100%;height:{height}">
+		<div bind:this={chartContainer} style="width:100%;height:100%" aria-hidden="true"></div>
+		{#if chartLoadState === 'loading'}
+			<p class="sr-only" role="status">Loading chart</p>
+		{:else if chartLoadState === 'error'}
+			<p class="absolute inset-0 flex items-center justify-center text-[12px] text-[--text-tertiary]" role="alert">
+				Chart unavailable. Reload or use the exact values table.
+			</p>
+		{/if}
+	</div>
 	<p class="sr-only">Radar chart showing {indicators.map((i) => i.name).join(', ')} dimensions.</p>
 {:else}
 	<div

@@ -32,7 +32,7 @@ describe('jsonResponse', () => {
 
 	it('sets Cache-Control header', () => {
 		const res = jsonResponse({});
-		expect(res.headers.get('Cache-Control')).toBe('public, max-age=300');
+		expect(res.headers.get('Cache-Control')).toBe('no-store');
 	});
 
 	it('serialises arrays', async () => {
@@ -63,10 +63,10 @@ describe('errorResponse', () => {
 		expect(errorResponse('Server error', 500).status).toBe(500);
 	});
 
-	it('has the same headers as jsonResponse', () => {
+	it('keeps JSON and CORS headers but prevents caching errors', () => {
 		const res = errorResponse('error', 500);
 		expect(res.headers.get('Content-Type')).toBe('application/json');
 		expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*');
-		expect(res.headers.get('Cache-Control')).toBe('public, max-age=300');
+		expect(res.headers.get('Cache-Control')).toBe('no-store');
 	});
 });

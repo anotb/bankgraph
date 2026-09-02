@@ -54,7 +54,7 @@
 {#if visible}
 	<div
 		class="nav-progress"
-		style:width="{width}%"
+		style:transform={`scaleX(${width / 100})`}
 		style:opacity={width === 100 ? 0 : 1}
 		role="progressbar"
 		aria-valuenow={Math.round(width)}
@@ -68,10 +68,12 @@
 		position: fixed;
 		top: 0;
 		left: 0;
+		width: 100%;
 		height: 2px;
 		background: var(--accent);
 		z-index: 9999;
-		transition: width 0.3s ease, opacity 0.2s ease;
+		transform-origin: left center;
+		transition: transform 0.3s ease, opacity 0.2s ease;
 		box-shadow: 0 0 6px var(--accent);
 	}
 </style>

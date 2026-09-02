@@ -8,14 +8,21 @@ on:
     - cron: '0 9 * * *'
   workflow_dispatch: # allow manual triggers from the Actions tab
 
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-data-sync
+  cancel-in-progress: false
+
 jobs:
   sync:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Sync FDIC institutions, latest financials, failures, analytics, FRED
+      - name: Sync FDIC data and direct-agency economic series
         env:
-          BASE_URL: ${{ vars.SYNC_BASE_URL }} # e.g. https://bank-data.your-domain.workers.dev
+          BASE_URL: ${{ vars.SYNC_BASE_URL }} # e.g. https://bankgraph.your-subdomain.workers.dev
           PIPELINE_SECRET: ${{ secrets.PIPELINE_SECRET }}
         run: |
           set -euo pipefail
@@ -24,31 +31,195 @@ jobs:
             exit 1
           fi
 
+          PIPELINE_RUN_ID="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          PIPELINE_BODY=""
+
+          pipeline_request () {
+            local path="$1"
+            local attempt resp body status wait_seconds
+            for attempt in 1 2 3 4 5; do
+              if resp=$(curl -sS --connect-timeout 15 --max-time 300 -w "\n%{http_code}" -X POST \
+                -H "Authorization: Bearer $PIPELINE_SECRET" \
+                -H "X-Pipeline-Run-Id: $PIPELINE_RUN_ID" \
+                "$BASE_URL$path"); then
+                body=$(echo "$resp" | sed '$d')
+                status=$(echo "$resp" | tail -n1)
+              else
+                body=""
+                status="000"
+              fi
+              if [ "$status" = "200" ]; then
+                PIPELINE_BODY="$body"
+                return 0
+              fi
+              if [ "$status" != "000" ] && [ "$status" != "409" ] && [ "$status" != "429" ] && [ "$status" -lt 500 ]; then
+                echo "$body" >&2
+                echo "Non-retryable pipeline response HTTP $status" >&2
+                return 1
+              fi
+              if [ "$attempt" -eq 5 ]; then
+                echo "$body" >&2
+                echo "Pipeline request exhausted 5 attempts (last HTTP $status)" >&2
+                return 1
+              fi
+              wait_seconds=$((2 ** (attempt - 1)))
+              echo "Retryable pipeline response HTTP $status; attempt $((attempt + 1))/5 in ${wait_seconds}s" >&2
+              sleep "$wait_seconds"
+            done
+          }
+
           run_stage () {
             local stage="$1"
             echo "::group::stage=$stage"
-            local resp
-            resp=$(curl -sS -w "\n%{http_code}" -X POST \
-              -H "Authorization: Bearer $PIPELINE_SECRET" \
-              "$BASE_URL/api/v1/pipeline/sync?stage=$stage")
-            local body status
-            body=$(echo "$resp" | sed '$d')
-            status=$(echo "$resp" | tail -n1)
-            echo "$body"
-            echo "::endgroup::"
-            if [ "$status" != "200" ]; then
-              echo "Stage $stage failed with status $status" >&2
+            if ! pipeline_request "/api/v1/pipeline/sync?stage=$stage"; then
+              echo "::endgroup::"
+              echo "Stage $stage failed" >&2
               exit 1
             fi
+            echo "$PIPELINE_BODY"
+            echo "::endgroup::"
+          }
+
+          run_macro_series () {
+            local series="$1"
+            local done="false"
+            local slice=0
+            local previous_cursor=""
+            while [ "$done" != "true" ]; do
+              slice=$((slice + 1))
+              echo "::group::stage=macro series=$series slice=$slice"
+              local body cursor
+              if ! pipeline_request "/api/v1/pipeline/sync?stage=macro&series=$series"; then
+                echo "::endgroup::"
+                echo "Macro series $series failed" >&2
+                exit 1
+              fi
+              body="$PIPELINE_BODY"
+              echo "$body"
+              echo "::endgroup::"
+              done=$(echo "$body" | jq -r '.macro.done // false')
+              cursor=$(echo "$body" | jq -r '.macro.cursor_year // empty')
+              if ! [[ "$cursor" =~ ^[0-9]{4}$ ]]; then
+                echo "Macro series $series returned no valid yearly cursor" >&2
+                exit 1
+              fi
+              if [ "$done" != "true" ] && [ "$cursor" = "$previous_cursor" ]; then
+                echo "Macro series $series made no progress at $cursor" >&2
+                exit 1
+              fi
+              previous_cursor="$cursor"
+            done
+          }
+
+          run_trends () {
+            local done="false"
+            local slice=0
+            local previous_cursor=""
+            while [ "$done" != "true" ]; do
+              slice=$((slice + 1))
+              if [ "$slice" -gt 100 ]; then
+                echo "Trends exceeded 100 bounded requests" >&2
+                exit 1
+              fi
+              echo "::group::stage=trends slice=$slice"
+              local body cursor
+              if ! pipeline_request "/api/v1/pipeline/sync?stage=trends"; then
+                echo "::endgroup::"
+                echo "Trends failed" >&2
+                exit 1
+              fi
+              body="$PIPELINE_BODY"
+              echo "$body"
+              echo "::endgroup::"
+              done=$(echo "$body" | jq -r '.trends.done // false')
+              cursor=$(echo "$body" | jq -r '.trends.cursor // empty')
+              if ! [[ "$cursor" =~ ^[0-9]+$ ]]; then
+                echo "Trends returned no valid bank cursor" >&2
+                exit 1
+              fi
+              if [ "$done" != "true" ] && [ "$cursor" = "$previous_cursor" ]; then
+                echo "Trends made no progress after bank certificate $cursor" >&2
+                exit 1
+              fi
+              previous_cursor="$cursor"
+            done
+          }
+
+          run_industry_history () {
+            local done="false"
+            local slice=0
+            local previous_complete=""
+            while [ "$done" != "true" ]; do
+              slice=$((slice + 1))
+              if [ "$slice" -gt 40 ]; then
+                echo "Industry history exceeded 40 bounded requests" >&2
+                exit 1
+              fi
+              echo "::group::stage=industry-history slice=$slice"
+              local body complete target
+              if ! pipeline_request "/api/v1/pipeline/sync?stage=industry-history"; then
+                echo "::endgroup::"
+                echo "Industry history failed" >&2
+                exit 1
+              fi
+              body="$PIPELINE_BODY"
+              echo "$body"
+              echo "::endgroup::"
+              done=$(echo "$body" | jq -r '."industry-history".done // false')
+              complete=$(echo "$body" | jq -r '."industry-history".complete_quarters // empty')
+              target=$(echo "$body" | jq -r '."industry-history".target_quarters // empty')
+              if ! [[ "$complete" =~ ^[0-9]+$ ]] || ! [[ "$target" =~ ^[0-9]+$ ]]; then
+                echo "Industry history returned an invalid checkpoint" >&2
+                exit 1
+              fi
+              if [ "$done" != "true" ] && [ "$complete" = "$previous_complete" ]; then
+                echo "Industry history made no progress at $complete/$target quarters" >&2
+                exit 1
+              fi
+              previous_complete="$complete"
+            done
+          }
+
+          wait_for_readiness () {
+            local attempt resp body status
+            for attempt in $(seq 1 12); do
+              if resp=$(curl -sS --connect-timeout 10 --max-time 20 -w "\n%{http_code}" \
+                -H "Cache-Control: no-cache" "$BASE_URL/api/v1/ready"); then
+                body=$(echo "$resp" | sed '$d')
+                status=$(echo "$resp" | tail -n1)
+              else
+                body=""
+                status="000"
+              fi
+              if [ "$status" = "200" ] \
+                && [ "$(echo "$body" | jq -r '.ready // false')" = "true" ] \
+                && [ "$(echo "$body" | jq -r '.status // empty')" = "ready" ]; then
+                echo "$body"
+                return 0
+              fi
+              if [ "$status" != "000" ] && [ "$status" != "503" ] && [ "$status" -lt 500 ]; then
+                echo "Readiness failed with non-retryable HTTP $status" >&2
+                return 1
+              fi
+              if [ "$attempt" -lt 12 ]; then sleep 5; fi
+            done
+            echo "Readiness did not become healthy after 12 checks" >&2
+            return 1
           }
 
           run_stage institutions
-          run_stage financials-latest  # upsert the newest quarter into the time series
+          run_stage financials-latest  # build a newer quarter behind the elected-release views
           run_stage snapshot           # refresh institutions summary columns
           run_stage failures
           run_stage analytics          # recompute peer stats + industry aggregates
-          run_stage trends
+          run_industry_history         # fill the bounded ten-year aggregate window
+          run_trends
           run_stage anomalies
           run_stage risk
-          run_stage fred               # macro series (no-op without FRED_API_KEY)
+          for series in UST10Y UST2Y UST10Y2Y BLS_UNRATE BLS_CPI_U BLS_CPI_YOY FRB_FEDFUNDS FRB_H8_BANK_CREDIT FRB_H8_LOANS_LEASES FRB_H8_CI_LOANS FRB_H8_REAL_ESTATE FRB_H8_CRE FRB_H8_CONSUMER FRB_H8_DEPOSITS; do
+            run_macro_series "$series"
+          done
           run_stage correlations
+          run_stage coverage-audit     # pin complete extended D1/R2 coverage for this run
+          run_stage publish            # switch the complete quarter and cache generation atomically
+          wait_for_readiness            # require the elected generation to be publicly ready

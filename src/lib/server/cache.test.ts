@@ -1,11 +1,17 @@
 import { describe, it, expect, vi } from 'vitest';
-import { cacheGet, cacheSet, cacheWrap } from './cache';
+import {
+	bumpCacheDataVersion,
+	cacheGet,
+	cacheSet,
+	cacheWrap,
+	readCacheDataVersion
+} from './cache';
 
 /** Create a mock KVNamespace */
 function createMockKV(stored: Record<string, string> = {}) {
 	const kv: any = {
 		get: vi.fn(async (key: string) => stored[key] ?? null),
-		put: vi.fn(async () => {})
+		put: vi.fn(async (key: string, value: string) => { stored[key] = value; })
 	};
 	return kv;
 }
@@ -79,7 +85,10 @@ describe('cacheWrap', () => {
 	});
 
 	it('returns cached value on hit without calling fn', async () => {
-		const kv = createMockKV({ 'key': JSON.stringify({ result: 'cached' }) });
+		const kv = createMockKV({
+			'cache:data-version': 'release-1',
+			'v:release-1:key': JSON.stringify({ result: 'cached' })
+		});
 		const fn = vi.fn().mockResolvedValue({ result: 'fresh' });
 
 		const result = await cacheWrap(kv, 'key', 300, fn);
@@ -88,8 +97,54 @@ describe('cacheWrap', () => {
 		expect(result).toEqual({ result: 'cached' });
 	});
 
+	it('can read an existing cached null without rewriting it', async () => {
+		const kv = createMockKV({
+			'cache:data-version': 'release-1',
+			'v:release-1:key': 'null'
+		});
+		const fn = vi.fn().mockResolvedValue({ result: 'fresh' });
+
+		const result = await cacheWrap(kv, 'key', 300, fn);
+
+		expect(result).toBeNull();
+		expect(fn).not.toHaveBeenCalled();
+		expect(kv.put).not.toHaveBeenCalled();
+	});
+
+	it('does not create negative entries for null or empty-array results', async () => {
+		const kv = createMockKV({ 'cache:data-version': 'release-1' });
+
+		await expect(cacheWrap(kv, 'missing', 300, async () => null)).resolves.toBeNull();
+		await expect(cacheWrap(kv, 'empty', 300, async () => [])).resolves.toEqual([]);
+		expect(kv.put).not.toHaveBeenCalled();
+	});
+
+	it('uses the active data version in cache-aside keys', async () => {
+		const kv = createMockKV({
+			'cache:data-version': 'release-2',
+			'v:release-2:key': JSON.stringify({ result: 'current' })
+		});
+		const fn = vi.fn();
+
+		expect(await cacheWrap(kv, 'key', 300, fn)).toEqual({ result: 'current' });
+		expect(fn).not.toHaveBeenCalled();
+	});
+
+	it('uses the authoritative D1 generation instead of a stale KV pointer', async () => {
+		const kv = createMockKV({
+			'cache:data-version': 'old-generation',
+			'v:new-generation:key': JSON.stringify({ result: 'published' })
+		});
+		const fn = vi.fn();
+
+		expect(await cacheWrap(kv, 'key', 300, fn, 'new-generation'))
+			.toEqual({ result: 'published' });
+		expect(kv.get).not.toHaveBeenCalledWith('cache:data-version', 'text');
+		expect(fn).not.toHaveBeenCalled();
+	});
+
 	it('calls fn on cache miss and writes result to KV', async () => {
-		const kv = createMockKV(); // empty cache
+		const kv = createMockKV({ 'cache:data-version': 'release-1' });
 		const fn = vi.fn().mockResolvedValue({ result: 'computed' });
 
 		const result = await cacheWrap(kv, 'key', 600, fn);
@@ -97,18 +152,54 @@ describe('cacheWrap', () => {
 		expect(fn).toHaveBeenCalledOnce();
 		expect(result).toEqual({ result: 'computed' });
 		expect(kv.put).toHaveBeenCalledWith(
-			'key',
+			'v:release-1:key',
 			JSON.stringify({ result: 'computed' }),
 			{ expirationTtl: 600 }
 		);
 	});
 
 	it('still returns fn result even if cache write fails', async () => {
-		const kv = createMockKV();
+		const kv = createMockKV({ 'cache:data-version': 'release-1' });
 		kv.put.mockRejectedValue(new Error('write failed'));
 		const fn = vi.fn().mockResolvedValue(42);
 
 		const result = await cacheWrap(kv, 'key', 300, fn);
 		expect(result).toBe(42);
+	});
+
+	it('bypasses KV until a published data version exists', async () => {
+		const kv = createMockKV({ key: JSON.stringify({ result: 'unversioned' }) });
+		const fn = vi.fn().mockResolvedValue({ result: 'live' });
+
+		expect(await cacheWrap(kv, 'key', 300, fn)).toEqual({ result: 'live' });
+		expect(fn).toHaveBeenCalledOnce();
+		expect(kv.put).not.toHaveBeenCalled();
+	});
+
+	it('bypasses KV when the versioned key exceeds the platform byte limit', async () => {
+		const kv = createMockKV({ 'cache:data-version': 'release-1' });
+		const fn = vi.fn().mockResolvedValue('live');
+
+		expect(await cacheWrap(kv, `query:${'é'.repeat(260)}`, 300, fn)).toBe('live');
+		expect(kv.put).not.toHaveBeenCalled();
+	});
+});
+
+describe('bumpCacheDataVersion', () => {
+	it('writes a new opaque generation without exposing application data', async () => {
+		const kv = createMockKV();
+		const revision = await bumpCacheDataVersion(kv, 1_700_000_000_000);
+
+		expect(revision).toMatch(/^[a-z0-9]+-[0-9a-f-]{36}$/);
+		expect(kv.put).toHaveBeenCalledWith('cache:data-version', revision);
+	});
+});
+
+describe('readCacheDataVersion', () => {
+	it('returns only safe published generations', async () => {
+		await expect(readCacheDataVersion(createMockKV({ 'cache:data-version': '20260331' })))
+			.resolves.toBe('20260331');
+		await expect(readCacheDataVersion(createMockKV({ 'cache:data-version': '../bad' })))
+			.resolves.toBeNull();
 	});
 });

@@ -1,6 +1,53 @@
-import { describe, it, expect, vi } from 'vitest';
-import { delay } from './fdic-api';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { delay, fetchFinancialsForQuarter, fetchInstitutions } from './fdic-api';
 import type { FDICResponse, FinancialSnapshot } from './fdic-api';
+
+afterEach(() => {
+	vi.unstubAllGlobals();
+	vi.restoreAllMocks();
+	vi.useRealTimers();
+});
+
+describe('fetchInstitutions', () => {
+	it('requests official bank-class and holding-company-name fields', async () => {
+		const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+			data: [],
+			totals: { count: 0 }
+		}), { status: 200 }));
+		vi.stubGlobal('fetch', fetchMock);
+
+		await fetchInstitutions(25, 50);
+
+		const requestUrl = new URL(String(fetchMock.mock.calls[0][0]));
+		const fields = requestUrl.searchParams.get('fields')?.split(',') ?? [];
+		expect(fields).toContain('BKCLASS');
+		expect(fields).toContain('NAMEHCR');
+		expect(fields).not.toContain('CHRTAGNT');
+		expect(fields).not.toContain('HCTMULT');
+	});
+});
+
+describe('fetchFinancialsForQuarter', () => {
+	it('requests the balance identities and reported single-quarter fields used by attribution', async () => {
+		const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+			data: [],
+			totals: { count: 0 }
+		}), { status: 200 }));
+		vi.stubGlobal('fetch', fetchMock);
+
+		await fetchFinancialsForQuarter('20260630', 0, 100);
+
+		const requestUrl = new URL(String(fetchMock.mock.calls[0][0]));
+		const fields = requestUrl.searchParams.get('fields')?.split(',') ?? [];
+		for (const field of [
+			'CHBAL', 'FREPO', 'TRADE', 'ORE', 'BKPREM', 'INTAN', 'OA',
+			'FREPP', 'OTHBOR', 'SUBND', 'TRADEL', 'ALLOTHL',
+			'NETINCQ', 'NIMQ', 'NONIIQ', 'NONIXQ', 'ELNATQ', 'IGLSECQ', 'ITAXQ', 'EXTRAQ'
+		]) {
+			expect(fields).toContain(field);
+		}
+	});
+});
 
 describe('delay', () => {
 	it('returns a promise that resolves after the given ms', async () => {
@@ -66,6 +113,18 @@ describe('FinancialSnapshot type shape', () => {
 			lnci: 150000,
 			lncon: 50000,
 			sec: 100000,
+			chbal: 100000,
+			frepo: 0,
+			trade: 0,
+			ore: 0,
+			bkprem: 0,
+			intan: 0,
+			oa: 150000,
+			frepp: 0,
+			othbor: 0,
+			subnd: 0,
+			tradel: 0,
+			allothl: 80000,
 			netinc: 5000,
 			intinc: 20000,
 			eintexp: 8000,
@@ -73,6 +132,14 @@ describe('FinancialSnapshot type shape', () => {
 			nonii: 2000,
 			nonix: 15000,
 			elnatr: 500,
+			netincq: 5000,
+			nimq: 12000,
+			noniiq: 2000,
+			nonixq: 8000,
+			elnatq: 500,
+			iglsecq: 0,
+			itaxq: 500,
+			extraq: 0,
 			roa: 1.2,
 			roe: 12.5,
 			nimy: 3.8,
@@ -105,6 +172,8 @@ describe('FinancialSnapshot type shape', () => {
 			lnci: null,
 			lncon: null,
 			sec: null,
+			chbal: null, frepo: null, trade: null, ore: null, bkprem: null, intan: null, oa: null,
+			frepp: null, othbor: null, subnd: null, tradel: null, allothl: null,
 			netinc: null,
 			intinc: null,
 			eintexp: null,
@@ -112,6 +181,8 @@ describe('FinancialSnapshot type shape', () => {
 			nonii: null,
 			nonix: null,
 			elnatr: null,
+			netincq: null, nimq: null, noniiq: null, nonixq: null,
+			elnatq: null, iglsecq: null, itaxq: null, extraq: null,
 			roa: null,
 			roe: null,
 			nimy: null,
@@ -135,7 +206,10 @@ describe('FinancialSnapshot type shape', () => {
 	it('has all expected field keys', () => {
 		const expectedFields = [
 			'repdte', 'asset', 'dep', 'eq', 'lnlsnet', 'lnre', 'lnci', 'lncon', 'sec',
+			'chbal', 'frepo', 'trade', 'ore', 'bkprem', 'intan', 'oa',
+			'frepp', 'othbor', 'subnd', 'tradel', 'allothl',
 			'netinc', 'intinc', 'eintexp', 'nim', 'nonii', 'nonix', 'elnatr',
+			'netincq', 'nimq', 'noniiq', 'nonixq', 'elnatq', 'iglsecq', 'itaxq', 'extraq',
 			'roa', 'roe', 'nimy', 'eeffr',
 			'rbcrwaj', 'rbc1rwaj', 'rbc1aaj', 'eqv',
 			'nclnlsr', 'lnatresr', 'nco_ratio',
@@ -147,8 +221,12 @@ describe('FinancialSnapshot type shape', () => {
 		const snapshot: FinancialSnapshot = {
 			repdte: '', asset: null, dep: null, eq: null, lnlsnet: null,
 			lnre: null, lnci: null, lncon: null, sec: null,
+			chbal: null, frepo: null, trade: null, ore: null, bkprem: null, intan: null, oa: null,
+			frepp: null, othbor: null, subnd: null, tradel: null, allothl: null,
 			netinc: null, intinc: null, eintexp: null, nim: null,
 			nonii: null, nonix: null, elnatr: null,
+			netincq: null, nimq: null, noniiq: null, nonixq: null,
+			elnatq: null, iglsecq: null, itaxq: null, extraq: null,
 			roa: null, roe: null, nimy: null, eeffr: null,
 			rbcrwaj: null, rbc1rwaj: null, rbc1aaj: null, eqv: null,
 			nclnlsr: null, lnatresr: null, nco_ratio: null,

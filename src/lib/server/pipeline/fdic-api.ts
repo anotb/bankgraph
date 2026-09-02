@@ -5,6 +5,8 @@
  * No auth required; may rate limit.
  */
 
+import { parseFdicReportingDate } from './fdic-reporting-date';
+
 const BASE_URL = 'https://api.fdic.gov/banks';
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 500;
@@ -27,6 +29,18 @@ export interface FinancialSnapshot {
   lnci: number | null;
   lncon: number | null;
   sec: number | null;
+  chbal: number | null;
+  frepo: number | null;
+  trade: number | null;
+  ore: number | null;
+  bkprem: number | null;
+  intan: number | null;
+  oa: number | null;
+  frepp: number | null;
+  othbor: number | null;
+  subnd: number | null;
+  tradel: number | null;
+  allothl: number | null;
   // Income
   netinc: number | null;
   intinc: number | null;
@@ -35,6 +49,14 @@ export interface FinancialSnapshot {
   nonii: number | null;
   nonix: number | null;
   elnatr: number | null;
+  netincq: number | null;
+  nimq: number | null;
+  noniiq: number | null;
+  nonixq: number | null;
+  elnatq: number | null;
+  iglsecq: number | null;
+  itaxq: number | null;
+  extraq: number | null;
   // Ratios
   roa: number | null;
   roe: number | null;
@@ -86,8 +108,8 @@ async function fetchWithRetry(url: string): Promise<Response> {
 
 const INSTITUTION_FIELDS = [
   'CERT', 'NAME', 'CITY', 'STALP', 'ZIP', 'COUNTY',
-  'CHRTAGNT', 'REGAGNT', 'ACTIVE', 'ESTYMD', 'INSDATE',
-  'HCTMULT', 'RSSDHCR', 'RSSDID', 'ASSET', 'DEP', 'OFFDOM', 'NUMEMP'
+  'BKCLASS', 'REGAGNT', 'ACTIVE', 'ESTYMD', 'INSDATE',
+  'NAMEHCR', 'RSSDHCR', 'RSSDID', 'ASSET', 'DEP', 'OFFDOM', 'NUMEMP'
 ].join(',');
 
 const FINANCIAL_FIELDS = [
@@ -95,8 +117,11 @@ const FINANCIAL_FIELDS = [
   'CERT', 'REPDTE',
   // Balance sheet
   'ASSET', 'DEP', 'EQ', 'LNLSNET', 'LNRE', 'LNCI', 'LNCON', 'SC',
+  'CHBAL', 'FREPO', 'TRADE', 'ORE', 'BKPREM', 'INTAN', 'OA',
+  'FREPP', 'OTHBOR', 'SUBND', 'TRADEL', 'ALLOTHL',
   // Income
   'NETINC', 'INTINC', 'EINTEXP', 'NIM', 'NONII', 'NONIX', 'ELNATR',
+  'NETINCQ', 'NIMQ', 'NONIIQ', 'NONIXQ', 'ELNATQ', 'IGLSECQ', 'ITAXQ', 'EXTRAQ',
   // Ratios
   'ROA', 'ROE', 'NIMY', 'EEFFR',
   // Capital
@@ -128,7 +153,8 @@ export async function fetchFinancialsForQuarter(
   offset: number,
   limit: number
 ): Promise<FDICResponse> {
-  const url = `${BASE_URL}/financials?filters=REPDTE:${repdte}&sort_by=CERT&sort_order=ASC&limit=${limit}&offset=${offset}&fields=${FINANCIAL_FIELDS}`;
+  const reportingDate = parseFdicReportingDate(repdte, 'reporting quarter');
+  const url = `${BASE_URL}/financials?filters=REPDTE:${reportingDate}&sort_by=CERT&sort_order=ASC&limit=${limit}&offset=${offset}&fields=${FINANCIAL_FIELDS}`;
   const response = await fetchWithRetry(url);
   return response.json() as Promise<FDICResponse>;
 }
@@ -143,7 +169,7 @@ export async function fetchLatestQuarter(): Promise<string | null> {
   const json = (await response.json()) as FDICResponse;
 
   if (json.data.length === 0) return null;
-  return String(json.data[0].data.REPDTE);
+  return parseFdicReportingDate(json.data[0].data.REPDTE);
 }
 
 /**
@@ -165,7 +191,7 @@ export async function fetchLatestFinancials(
         const d = json.data[0].data;
         const toNum = (v: unknown): number | null => (v != null ? Number(v) : null);
         results.set(cert, {
-          repdte: String(d.REPDTE ?? ''),
+          repdte: parseFdicReportingDate(d.REPDTE),
           asset: toNum(d.ASSET),
           dep: toNum(d.DEP),
           eq: toNum(d.EQ),
@@ -174,6 +200,18 @@ export async function fetchLatestFinancials(
           lnci: toNum(d.LNCI),
           lncon: toNum(d.LNCON),
           sec: toNum(d.SC),
+          chbal: toNum(d.CHBAL),
+          frepo: toNum(d.FREPO),
+          trade: toNum(d.TRADE),
+          ore: toNum(d.ORE),
+          bkprem: toNum(d.BKPREM),
+          intan: toNum(d.INTAN),
+          oa: toNum(d.OA),
+          frepp: toNum(d.FREPP),
+          othbor: toNum(d.OTHBOR),
+          subnd: toNum(d.SUBND),
+          tradel: toNum(d.TRADEL),
+          allothl: toNum(d.ALLOTHL),
           netinc: toNum(d.NETINC),
           intinc: toNum(d.INTINC),
           eintexp: toNum(d.EINTEXP),
@@ -181,6 +219,14 @@ export async function fetchLatestFinancials(
           nonii: toNum(d.NONII),
           nonix: toNum(d.NONIX),
           elnatr: toNum(d.ELNATR),
+          netincq: toNum(d.NETINCQ),
+          nimq: toNum(d.NIMQ),
+          noniiq: toNum(d.NONIIQ),
+          nonixq: toNum(d.NONIXQ),
+          elnatq: toNum(d.ELNATQ),
+          iglsecq: toNum(d.IGLSECQ),
+          itaxq: toNum(d.ITAXQ),
+          extraq: toNum(d.EXTRAQ),
           roa: toNum(d.ROA),
           roe: toNum(d.ROE),
           nimy: toNum(d.NIMY),

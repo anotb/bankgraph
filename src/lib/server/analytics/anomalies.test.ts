@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { detectAnomalies } from './anomalies';
+import {
+	buildPeerReferenceStats,
+	classifyCapitalReferenceSeverity,
+	classifySignalDirection,
+	detectAnomalies,
+	isUsableMetricValue,
+	severityForStatisticalSignal
+} from './anomalies';
 
 // ─── Mock DB Helpers ─────────────────────────────────────────────────────────
 
@@ -85,14 +92,70 @@ describe('detectAnomalies', () => {
 	});
 });
 
+describe('honest signal classification', () => {
+	it('separates favorable/adverse direction from statistical severity', () => {
+		expect(classifySignalDirection('roa', 1)).toBe('favorable');
+		expect(classifySignalDirection('roa', -1)).toBe('adverse');
+		expect(classifySignalDirection('nclnlsr', 1)).toBe('adverse');
+		expect(severityForStatisticalSignal('favorable')).toBe('info');
+		expect(severityForStatisticalSignal('adverse')).toBe('warning');
+		expect(severityForStatisticalSignal('indeterminate')).toBe('info');
+	});
+
+	it('reserves critical for a positive reported ratio below a minimum capital reference', () => {
+		expect(classifyCapitalReferenceSeverity(7, 8, 10)).toBe('critical');
+		expect(classifyCapitalReferenceSeverity(9, 8, 10)).toBe('warning');
+		expect(classifyCapitalReferenceSeverity(10.5, 8, 10)).toBe('info');
+		expect(classifyCapitalReferenceSeverity(12, 8, 10)).toBeNull();
+	});
+
+	it('treats zero capital ratios as unavailable without applicability evidence', () => {
+		expect(isUsableMetricValue('rbcrwaj', 0)).toBe(false);
+		expect(isUsableMetricValue('rbc1rwaj', 0)).toBe(false);
+		expect(isUsableMetricValue('rbc1aaj', 0)).toBe(false);
+		expect(classifyCapitalReferenceSeverity(0, 8, 10)).toBeNull();
+		expect(isUsableMetricValue('roa', 0)).toBe(true);
+	});
+
+	it('uses median/MAD only for a sufficiently covered deterministic peer sample', () => {
+		const observations = Array.from({ length: 20 }, (_, index) => ({
+			asset_bucket: 3,
+			roa: 0.5 + index * 0.05
+		}));
+		const stats = buildPeerReferenceStats(
+			[{ peer_group: 'asset_bucket:3', metric: 'roa', mean: 99, stddev: 50 }],
+			observations
+		).get('asset_bucket:3:roa');
+
+		expect(stats?.method).toBe('median_mad');
+		expect(stats?.count).toBe(20);
+		expect(stats?.center).toBeCloseTo(0.975);
+		expect(stats?.scale).toBeGreaterThan(0);
+	});
+
+	it('falls back to recorded mean/stddev when robust peer coverage is too small', () => {
+		const stats = buildPeerReferenceStats(
+			[{ peer_group: 'asset_bucket:3', metric: 'roa', mean: 1, stddev: 0.5 }],
+			[{ asset_bucket: 3, roa: 4 }]
+		).get('asset_bucket:3:roa');
+
+		expect(stats).toMatchObject({
+			center: 1,
+			scale: 0.5,
+			count: 1,
+			method: 'mean_stdev'
+		});
+	});
+});
+
 // ─── QoQ Spike Detection ─────────────────────────────────────────────────────
 
 describe('QoQ Spike Detection', () => {
-	it('detects critical spike when change exceeds critical threshold', async () => {
+	it('detects a large favorable movement without implying a critical condition', async () => {
 		const db = createRoutingMockDB({
 			// Previous quarter lookup
 			'DISTINCT repdte FROM financials': [{ repdte: '20231231' }],
-			// Bank with massive ROA change: 0.5 -> 1.5 = 1.0 change, critical = 0.60
+			// Bank with a large favorable ROA change: 0.5 -> 1.5 = 1.0
 			'FROM financials c': [
 				{ cert: 1, curr_roa: 1.5, prev_roa: 0.5, curr_roe: 10, prev_roe: 10, curr_nimy: 3, prev_nimy: 3, curr_nclnlsr: 1, prev_nclnlsr: 1, curr_rbcrwaj: 12, prev_rbcrwaj: 12 }
 			],
@@ -115,10 +178,10 @@ describe('QoQ Spike Detection', () => {
 		expect(insertCalls.length).toBeGreaterThan(0);
 	});
 
-	it('detects warning spike when change is between warning and critical thresholds', async () => {
+	it('detects an unusual movement between warning and large-movement thresholds', async () => {
 		const db = createRoutingMockDB({
 			'DISTINCT repdte FROM financials': [{ repdte: '20231231' }],
-			// ROA change: 1.0 -> 1.4 = 0.4, warning=0.30, critical=0.60
+			// ROA change: 1.0 -> 1.4 = 0.4, warning=0.30, large=0.60
 			'FROM financials c': [
 				{ cert: 1, curr_roa: 1.4, prev_roa: 1.0, curr_roe: 10, prev_roe: 10, curr_nimy: 3, prev_nimy: 3, curr_nclnlsr: 1, prev_nclnlsr: 1, curr_rbcrwaj: 12, prev_rbcrwaj: 12 }
 			],
@@ -180,7 +243,7 @@ describe('QoQ Spike Detection', () => {
 		const db = createRoutingMockDB({
 			'DISTINCT repdte FROM financials': [{ repdte: '20231231' }],
 			'FROM financials c': [
-				// ROA decreased by 1.0 (critical), ROE increased by 7.0 (critical)
+				// ROA decreased by 1.0 (adverse warning), ROE increased by 7.0 (favorable info)
 				{ cert: 1, curr_roa: -0.5, prev_roa: 0.5, curr_roe: 17, prev_roe: 10, curr_nimy: 3, prev_nimy: 3, curr_nclnlsr: 1, prev_nclnlsr: 1, curr_rbcrwaj: 12, prev_rbcrwaj: 12 }
 			],
 			'peer_stats': [],
@@ -189,7 +252,7 @@ describe('QoQ Spike Detection', () => {
 		});
 
 		const count = await detectAnomalies(db, '20240331');
-		// Should detect at least ROA critical + ROE critical
+		// Both directions remain visible, with direction-specific non-critical severities.
 		expect(count).toBeGreaterThanOrEqual(2);
 	});
 
@@ -199,11 +262,11 @@ describe('QoQ Spike Detection', () => {
 			'FROM financials c': [
 				{
 					cert: 1,
-					curr_roa: 2.0, prev_roa: 0.5,   // change=1.5, critical=0.60 -> critical
-					curr_roe: 20, prev_roe: 10,       // change=10.0, critical=6.0 -> critical
-					curr_nimy: 4.0, prev_nimy: 3.0,   // change=1.0, critical=0.50 -> critical
-					curr_nclnlsr: 5.0, prev_nclnlsr: 1.0, // change=4.0, critical=3.0 -> critical
-					curr_rbcrwaj: 20, prev_rbcrwaj: 12 // change=8.0, critical=5.0 -> critical
+					curr_roa: 2.0, prev_roa: 0.5,   // large favorable movement -> info
+					curr_roe: 20, prev_roe: 10,       // large favorable movement -> info
+					curr_nimy: 4.0, prev_nimy: 3.0,   // large favorable movement -> info
+					curr_nclnlsr: 5.0, prev_nclnlsr: 1.0, // large adverse movement -> warning
+					curr_rbcrwaj: 20, prev_rbcrwaj: 12 // large favorable movement -> info
 				}
 			],
 			'peer_stats': [],
@@ -219,7 +282,7 @@ describe('QoQ Spike Detection', () => {
 // ─── Peer Outlier Detection ──────────────────────────────────────────────────
 
 describe('Peer Outlier Detection', () => {
-	it('flags critical peer outlier when z-score >= 3.0', async () => {
+	it('flags a statistically rare favorable peer value as informational', async () => {
 		const db = createRoutingMockDB({
 			'DISTINCT repdte FROM financials': [],
 			'peer_stats': [
@@ -337,7 +400,7 @@ describe('Adverse direction logic', () => {
 
 	it('flags adverse LOW_IS_ADVERSE metric (roa below mean) at z >= 2.0', async () => {
 		// roa is LOW_IS_ADVERSE: low values are bad
-		// z = (value - mean) / stddev = (-0.5 - 1.0) / 0.5 = -3.0 (adverse, critical)
+		// z = (value - mean) / stddev = (-0.5 - 1.0) / 0.5 = -3.0 (adverse, warning)
 		const db = createRoutingMockDB({
 			'DISTINCT repdte FROM financials': [],
 			'peer_stats': [
@@ -412,7 +475,7 @@ describe('Adverse direction logic', () => {
 
 	it('flags HIGH_IS_ADVERSE metric (nclnlsr above mean) at z >= 2.0', async () => {
 		// nclnlsr is HIGH_IS_ADVERSE: high values are bad
-		// z = (6.0 - 2.0) / 1.0 = 4.0 (adverse, critical)
+		// z = (6.0 - 2.0) / 1.0 = 4.0 (adverse, warning)
 		const db = createRoutingMockDB({
 			'DISTINCT repdte FROM financials': [],
 			'peer_stats': [
@@ -504,9 +567,9 @@ describe('Adverse direction logic', () => {
 	});
 });
 
-// ─── PCA Breach Detection ────────────────────────────────────────────────────
+// ─── Capital Reference Threshold Detection ──────────────────────────────────
 
-describe('PCA Breach Detection', () => {
+describe('Capital reference threshold detection', () => {
 	it('flags critical when capital ratio is below adequately-capitalized threshold', async () => {
 		// rbcrwaj < 8 (adequately_cap)
 		const db = createRoutingMockDB({
@@ -523,7 +586,7 @@ describe('PCA Breach Detection', () => {
 		expect(count).toBeGreaterThanOrEqual(3);
 	});
 
-	it('flags critical when below well-capitalized but above adequately-capitalized', async () => {
+	it('flags warning when below the upper reference but above the minimum reference', async () => {
 		// rbcrwaj between 8 and 10 (below well_cap=10 but above adequately_cap=8)
 		const db = createRoutingMockDB({
 			'DISTINCT repdte FROM financials': [],
@@ -538,7 +601,7 @@ describe('PCA Breach Detection', () => {
 		expect(count).toBeGreaterThanOrEqual(3);
 	});
 
-	it('flags warning when within 100bps above well-capitalized threshold', async () => {
+	it('flags info when within 100bps above the upper capital reference', async () => {
 		// rbcrwaj = 10.5: well_cap=10, buffer=0.5 < 1.0 -> warning
 		// rbc1rwaj = 8.5: well_cap=8, buffer=0.5 < 1.0 -> warning
 		// rbc1aaj = 5.5: well_cap=5, buffer=0.5 < 1.0 -> warning
@@ -555,7 +618,7 @@ describe('PCA Breach Detection', () => {
 		expect(count).toBe(3);
 	});
 
-	it('does not flag when comfortably above well-capitalized threshold', async () => {
+	it('does not flag when comfortably above the upper capital reference', async () => {
 		// rbcrwaj = 14 (buffer = 4.0 >= 1.0), rbc1rwaj = 12 (buffer = 4.0 >= 1.0), rbc1aaj = 8 (buffer = 3.0 >= 1.0)
 		const db = createRoutingMockDB({
 			'DISTINCT repdte FROM financials': [],
@@ -584,6 +647,24 @@ describe('PCA Breach Detection', () => {
 		expect(count).toBe(0);
 	});
 
+	it('skips zero capital ratios across threshold and peer signal paths', async () => {
+		const db = createRoutingMockDB({
+			'DISTINCT repdte FROM financials': [{ repdte: '20231231' }],
+			'FROM financials c': [
+				{ cert: 100, curr_roa: 1, prev_roa: 1, curr_roe: 10, prev_roe: 10, curr_nimy: 3, prev_nimy: 3, curr_nclnlsr: 1, prev_nclnlsr: 1, curr_rbcrwaj: 0, prev_rbcrwaj: 12 }
+			],
+			'peer_stats': [
+				{ peer_group: 'asset_bucket:3', metric: 'rbcrwaj', mean: 12, stddev: 2 }
+			],
+			'FROM financials WHERE repdte': [
+				{ cert: 100, asset_bucket: 3, roa: null, roe: null, nimy: null, eeffr: null, nclnlsr: null, rbcrwaj: 0, lnlsdepr: null, eqv: null, rbc1rwaj: 0, rbc1aaj: 0 }
+			],
+			'bank_trends': []
+		});
+
+		expect(await detectAnomalies(db, '20240331')).toBe(0);
+	});
+
 	it('detects exactly-at-threshold values correctly', async () => {
 		// Exactly at well_cap thresholds: buffer = 0.0 < 1.0 -> warning
 		const db = createRoutingMockDB({
@@ -600,9 +681,9 @@ describe('PCA Breach Detection', () => {
 		expect(count).toBe(3);
 	});
 
-	it('detects exactly-at-adequately-capitalized threshold as critical (below well-cap)', async () => {
+	it('treats the exact minimum reference as a warning below the upper reference', async () => {
 		// Exactly at adequately_cap: rbcrwaj=8, rbc1rwaj=6, rbc1aaj=4
-		// These are >= adequately_cap but < well_cap -> falls to "below well-capitalized" critical
+		// These are >= the minimum reference but < the upper reference -> warning
 		const db = createRoutingMockDB({
 			'DISTINCT repdte FROM financials': [],
 			'peer_stats': [],
@@ -613,12 +694,12 @@ describe('PCA Breach Detection', () => {
 		});
 
 		const count = await detectAnomalies(db, '20240331');
-		// All three: >= adequately_cap but < well_cap -> critical
+		// All three: >= minimum reference but < upper reference -> warning
 		expect(count).toBe(3);
 	});
 
 	it('handles mixed severity across different ratios', async () => {
-		// rbcrwaj = 14 (safe), rbc1rwaj = 7 (below well-cap=8 but above adequately_cap=6, critical), rbc1aaj = 5.3 (warning)
+		// rbcrwaj = 14 (safe), rbc1rwaj = 7 (below upper but above minimum, warning), rbc1aaj = 5.3 (info)
 		const db = createRoutingMockDB({
 			'DISTINCT repdte FROM financials': [],
 			'peer_stats': [],
@@ -629,7 +710,7 @@ describe('PCA Breach Detection', () => {
 		});
 
 		const count = await detectAnomalies(db, '20240331');
-		// rbc1rwaj -> critical, rbc1aaj -> warning (buffer=0.3 < 1.0)
+		// rbc1rwaj -> warning, rbc1aaj -> info (buffer=0.3 < 1.0)
 		expect(count).toBe(2);
 	});
 });
@@ -734,7 +815,7 @@ describe('Severity classification by z-score', () => {
 		expect(count).toBe(1);
 	});
 
-	it('z=3.0 exactly yields critical severity', async () => {
+	it('z=3.0 exactly remains a non-critical statistical signal', async () => {
 		// z = (2.5 - 1.0) / 0.5 = 3.0
 		const db = createRoutingMockDB({
 			'DISTINCT repdte FROM financials': [],
@@ -748,7 +829,7 @@ describe('Severity classification by z-score', () => {
 		});
 
 		const count = await detectAnomalies(db, '20240331');
-		// z=3.0 -> absZ >= 3.0 -> critical
+		// z=3.0 is rare, but favorable ROA remains informational.
 		expect(count).toBe(1);
 	});
 
@@ -840,7 +921,7 @@ describe('Edge cases', () => {
 		expect(db.prepare.mock.calls.length).toBeGreaterThanOrEqual(1);
 	});
 
-	it('handles multiple banks in PCA detection', async () => {
+	it('handles multiple banks in capital reference detection', async () => {
 		const db = createRoutingMockDB({
 			'DISTINCT repdte FROM financials': [],
 			'peer_stats': [],
@@ -855,7 +936,7 @@ describe('Edge cases', () => {
 		const count = await detectAnomalies(db, '20240331');
 		// cert 1: all three below adequately_cap -> 3 critical
 		// cert 2: all safe -> 0
-		// cert 3: only rbc1aaj=4.2 -> below well_cap=5 but above adequately_cap=4 -> critical
+		// cert 3: only rbc1aaj=4.2 -> below upper reference but above minimum -> warning
 		expect(count).toBe(4);
 	});
 
@@ -876,10 +957,10 @@ describe('Edge cases', () => {
 		expect(count).toBe(1);
 	});
 
-	it('handles QoQ spike at exact critical threshold boundary', async () => {
+	it('handles QoQ movement at the exact large-movement boundary', async () => {
 		const db = createRoutingMockDB({
 			'DISTINCT repdte FROM financials': [{ repdte: '20231231' }],
-			// ROA change = exactly 0.60 (critical threshold)
+			// ROA change = exactly 0.60 (large-movement threshold)
 			'FROM financials c': [
 				{ cert: 1, curr_roa: 1.6, prev_roa: 1.0, curr_roe: 10, prev_roe: 10, curr_nimy: 3, prev_nimy: 3, curr_nclnlsr: 1, prev_nclnlsr: 1, curr_rbcrwaj: 12, prev_rbcrwaj: 12 }
 			],
@@ -889,7 +970,7 @@ describe('Edge cases', () => {
 		});
 
 		const count = await detectAnomalies(db, '20240331');
-		// change = 0.60 >= critical threshold 0.60 -> critical
+		// The movement is large, but favorable ROA remains informational.
 		expect(count).toBe(1);
 	});
 
@@ -945,7 +1026,7 @@ describe('Integration: combined detection', () => {
 			'FROM financials c': [
 				{
 					cert: 1,
-					curr_roa: 2.0, prev_roa: 0.5,   // change=1.5, critical
+					curr_roa: 2.0, prev_roa: 0.5,   // large favorable movement -> info
 					curr_roe: 10, prev_roe: 10,
 					curr_nimy: 3, prev_nimy: 3,
 					curr_nclnlsr: 1, prev_nclnlsr: 1,
@@ -956,13 +1037,13 @@ describe('Integration: combined detection', () => {
 			'peer_stats': [
 				{ peer_group: 'asset_bucket:3', metric: 'eeffr', mean: 60, stddev: 5 }
 			],
-			// PCA breach + peer outlier banks
+			// Capital reference breach + peer outlier banks
 			'FROM financials WHERE repdte': [
 				{
 					cert: 2,
 					asset_bucket: 3,
 					roa: null, roe: null, nimy: null,
-					eeffr: 80, // z = (80-60)/5 = 4.0 -> critical
+					eeffr: 80, // z = (80-60)/5 = 4.0 adverse -> warning
 					nclnlsr: null, rbcrwaj: 7.0, lnlsdepr: null, eqv: null,
 					rbc1rwaj: 5.0, rbc1aaj: 3.0
 				}
@@ -975,9 +1056,9 @@ describe('Integration: combined detection', () => {
 		});
 
 		const count = await detectAnomalies(db, '20240331');
-		// QoQ spike: 1 (roa critical)
-		// Peer outlier: 1 (eeffr critical)
-		// PCA breach: 3 (rbcrwaj, rbc1rwaj, rbc1aaj all below adequately_cap)
+		// QoQ movement: 1 (roa favorable info)
+		// Peer outlier: 1 (eeffr adverse warning)
+		// Capital reference breaches: 3 (all below minimum references)
 		// Trend reversal: 1 (roa warning)
 		expect(count).toBeGreaterThanOrEqual(4);
 	});

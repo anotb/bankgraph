@@ -1,24 +1,35 @@
 import type { LayoutServerLoad } from './$types';
-import { getDB, queryOne } from '$lib/server/db';
+import type { DatasetContext } from '$lib/types';
 
-export const load: LayoutServerLoad = async ({ platform }) => {
-  try {
-    const db = getDB(platform);
-    const [countRow, quarterRow] = await Promise.all([
-      queryOne<{ cnt: number }>(
-        db,
-        'SELECT COUNT(*) as cnt FROM institutions WHERE active = 1'
-      ),
-      queryOne<{ latest_quarter: string | null }>(
-        db,
-        'SELECT MAX(latest_repdte) as latest_quarter FROM institutions'
-      )
-    ]);
-    return {
-      activeBankCount: countRow?.cnt ?? 0,
-      latestQuarter: quarterRow?.latest_quarter ?? null
-    };
-  } catch {
-    return { activeBankCount: 0, latestQuarter: null };
-  }
+interface MetaResponse {
+	active_count?: number;
+	latest_quarter?: string | null;
+	dataset?: unknown;
+}
+
+/**
+ * Site-wide context comes from the Worker's own public API so the same code runs
+ * in production (D1 behind the API) and in remote-data development.
+ */
+export const load: LayoutServerLoad = async ({ fetch, locals }) => {
+	try {
+		const response = await fetch('/api/v1/meta');
+		if (!response.ok) throw new Error(`meta ${response.status}`);
+		const meta = (await response.json()) as MetaResponse;
+		return {
+			activeBankCount: meta.active_count ?? 0,
+			latestQuarter: meta.latest_quarter ?? null,
+			dataset: (meta.dataset ?? null) as DatasetContext | null,
+			liveData: locals?.liveDataRelease
+				? { state: 'live' as const, reason: null, release: locals.liveDataRelease }
+				: { state: 'live' as const, reason: null, release: meta.latest_quarter ?? null }
+		};
+	} catch {
+		return {
+			activeBankCount: 0,
+			latestQuarter: null,
+			dataset: null as DatasetContext | null,
+			liveData: { state: 'unavailable' as const, reason: 'database_unavailable', release: null }
+		};
+	}
 };

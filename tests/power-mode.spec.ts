@@ -46,7 +46,7 @@ test.describe('Power mode toggle', () => {
 		// In accessible mode, powerOnly columns should NOT be visible
 		await expect(table.locator('th').filter({ hasText: 'ROE' })).not.toBeVisible();
 		await expect(table.locator('th').filter({ hasText: 'NIM' })).not.toBeVisible();
-		await expect(table.locator('th').filter({ hasText: 'NPL' })).not.toBeVisible();
+		await expect(table.locator('th').filter({ hasText: 'Noncurrent loans' })).not.toBeVisible();
 
 		// Switch to power mode
 		await enablePowerMode(page);
@@ -54,7 +54,7 @@ test.describe('Power mode toggle', () => {
 		// Power-only columns should now be visible
 		await expect(table.locator('th').filter({ hasText: 'ROE' })).toBeVisible({ timeout: 10000 });
 		await expect(table.locator('th').filter({ hasText: 'NIM' })).toBeVisible();
-		await expect(table.locator('th').filter({ hasText: 'NPL' })).toBeVisible();
+		await expect(table.locator('th').filter({ hasText: 'Noncurrent loans' })).toBeVisible();
 	});
 
 	test('power mode enables column visibility picker', async ({ page }) => {
@@ -94,15 +94,15 @@ test.describe('Power mode toggle', () => {
 		await enablePowerMode(page);
 
 		// Navigate to /industry
-		await page.getByRole('link', { name: 'Industry' }).click();
+		await page.getByRole('link', { name: 'Banking system' }).click();
 		await expect(page).toHaveURL(/\/industry/, { timeout: 10000 });
-		await expect(page.locator('h1')).toContainText('Industry Overview', { timeout: 15000 });
+		await expect(page.locator('h1')).toContainText('Banking system', { timeout: 15000 });
 
 		// Toggle should still show "Accessible" (power mode persisted)
 		await expect(modeToggleBtn(page)).toContainText('Accessible', { timeout: 10000 });
 
 		// Navigate back to /banks and verify power-only columns are still visible
-		await page.getByRole('link', { name: 'Banks' }).click();
+		await page.getByRole('link', { name: /Discover/ }).click();
 		await expect(page).toHaveURL(/\/banks/, { timeout: 10000 });
 
 		const table = page.locator('table');

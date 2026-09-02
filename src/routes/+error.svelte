@@ -27,7 +27,7 @@
 </script>
 
 <svelte:head>
-	<title>Error {status} | Bank Data Explorer</title>
+	<title>Error {status} | Bankgraph</title>
 </svelte:head>
 
 <div class="flex flex-col items-center justify-center py-20 text-center">
@@ -64,9 +64,9 @@
 		</p>
 
 		<!-- Title -->
-		<p class="text-[15px] font-medium text-[--text-primary] mt-2">
+		<h1 class="text-[15px] font-medium text-[--text-primary] mt-2">
 			{title}
-		</p>
+		</h1>
 
 		<!-- Description -->
 		<p class="text-[13px] text-[--text-tertiary] mt-1.5 max-w-xs mx-auto leading-relaxed">

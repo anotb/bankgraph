@@ -4,7 +4,7 @@ test.describe('Search functionality', () => {
 	test('search bar is visible on landing page', async ({ page }) => {
 		await page.goto('/');
 
-		const searchInput = page.getByPlaceholder('Search by name, city, or state...');
+		const searchInput = page.getByPlaceholder('Name, city, state, or FDIC certificate');
 		await expect(searchInput).toBeVisible();
 		await expect(searchInput).toHaveAttribute('role', 'combobox');
 	});
@@ -12,7 +12,7 @@ test.describe('Search functionality', () => {
 	test('typing triggers autocomplete dropdown', async ({ page }) => {
 		await page.goto('/');
 
-		const searchInput = page.getByPlaceholder('Search by name, city, or state...');
+		const searchInput = page.getByPlaceholder('Name, city, state, or FDIC certificate');
 		await expect(searchInput).toBeVisible();
 
 		// Type character by character to trigger input events properly
@@ -31,7 +31,7 @@ test.describe('Search functionality', () => {
 	test('autocomplete shows results with bank name, state, and CERT', async ({ page }) => {
 		await page.goto('/');
 
-		const searchInput = page.getByPlaceholder('Search by name, city, or state...');
+		const searchInput = page.getByPlaceholder('Name, city, state, or FDIC certificate');
 		await searchInput.click();
 		await searchInput.pressSequentially('jpmorgan', { delay: 50 });
 
@@ -54,7 +54,7 @@ test.describe('Search functionality', () => {
 	test('selecting an autocomplete result navigates to /banks/{cert}', async ({ page }) => {
 		await page.goto('/');
 
-		const searchInput = page.getByPlaceholder('Search by name, city, or state...');
+		const searchInput = page.getByPlaceholder('Name, city, state, or FDIC certificate');
 		await searchInput.click();
 		await searchInput.pressSequentially('Chase', { delay: 50 });
 
@@ -71,7 +71,7 @@ test.describe('Search functionality', () => {
 	});
 
 	test('search API returns results for query', async ({ request }) => {
-		const res = await request.get('/api/v1/banks?q=chase&limit=8');
+		const res = await request.get('/api/v1/banks?q=chase&active=all&limit=8');
 		expect(res.status()).toBe(200);
 
 		const json = await res.json();
@@ -86,10 +86,17 @@ test.describe('Search functionality', () => {
 		expect(typeof first.cert).toBe('number');
 	});
 
+	test('search API resolves an exact FDIC certificate', async ({ request }) => {
+		const res = await request.get('/api/v1/banks?q=628&active=all&limit=8');
+		expect(res.status()).toBe(200);
+		const json = await res.json();
+		expect(json.data[0]?.cert).toBe(628);
+	});
+
 	test('clear button closes dropdown and resets input', async ({ page }) => {
 		await page.goto('/');
 
-		const searchInput = page.getByPlaceholder('Search by name, city, or state...');
+		const searchInput = page.getByPlaceholder('Name, city, state, or FDIC certificate');
 		await searchInput.click();
 		await searchInput.pressSequentially('Wells', { delay: 50 });
 

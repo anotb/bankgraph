@@ -1,0 +1,75 @@
+name: Pull request checks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - showcase
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Use Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install the locked dependencies
+        run: npm ci
+
+      - name: Check generated Worker bindings
+        run: npm run types:worker:check
+
+      - name: Build the Cloudflare Worker
+        run: npm run build
+
+      - name: Check types
+        run: npm run typecheck
+
+      - name: Run unit and integration tests
+        run: npm run test
+
+      - name: Test Summary of Deposits lake operations
+        run: npm run test:lake
+
+      - name: Reject high-severity production advisories
+        run: npm run audit:production
+
+      - name: Verify licenses and shipped assets
+        run: npm run check:release-assets
+
+      - name: Verify the recorded demo and WebMCP contract
+        run: npm run demo:verify
+
+      - name: Install the critical-test browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Test critical browser and WebMCP journeys
+        run: npm run test:e2e
+
+      - name: Validate the deploy bundle
+        run: npm run deploy:dry-run
+
+      - name: Smoke-test a seeded local Worker
+        run: npm run smoke:seeded

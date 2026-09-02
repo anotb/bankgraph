@@ -170,7 +170,7 @@
 		aria-controls={autocomplete ? 'search-listbox' : undefined}
 		aria-activedescendant={autocomplete && highlightedIndex >= 0 ? `search-option-${highlightedIndex}` : undefined}
 		aria-autocomplete={autocomplete ? 'list' : undefined}
-		class="block w-full rounded-[5px] border border-[--border-muted] bg-[--surface-1] {compact ? 'py-1 pr-7 pl-7 text-[12px]' : 'py-2 pr-9 pl-9 text-[14px]'}
+		class="block w-full rounded-[5px] border border-[--border-muted] bg-[--surface-1] {compact ? 'py-1 pr-7 pl-7 text-[12px]' : 'min-h-[44px] sm:min-h-0 py-2 pr-11 sm:pr-9 pl-9 text-[14px]'}
 			text-[--text-primary] placeholder:text-[--text-disabled]
 			focus:border-[--accent] focus:ring-2 focus:ring-[--accent]/20 focus:outline-none
 			transition-all duration-150 disabled:opacity-50"
@@ -181,7 +181,7 @@
 			type="button"
 			onclick={handleClear}
 			aria-label="Clear search"
-			class="absolute inset-y-0 right-0 flex items-center {compact ? 'pr-2' : 'pr-3'} text-[--text-disabled] hover:text-[--text-secondary]"
+			class="absolute inset-y-0 right-0 flex items-center justify-center {compact ? 'min-w-8 px-2' : 'min-w-[44px] sm:min-w-9 px-2'} text-[--text-disabled] hover:text-[--text-secondary]"
 		>
 			<svg class="{compact ? 'h-3.5 w-3.5' : 'h-4 w-4'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path

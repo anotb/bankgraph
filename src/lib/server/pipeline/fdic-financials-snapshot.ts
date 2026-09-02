@@ -6,10 +6,38 @@
 
 import { execute } from '$lib/server/db';
 import { fetchLatestQuarter, fetchFinancialsForQuarter, delay } from './fdic-api';
+import { parseFdicReportingDate } from './fdic-reporting-date';
 
 const PAGE_SIZE = 10_000;
 const BATCH_UPDATE_SIZE = 50;
 const DELAY_BETWEEN_PAGES_MS = 100;
+
+export interface InstitutionFinancialSnapshot {
+  cert: number;
+  repdte: string;
+  roa: number | null;
+  roe: number | null;
+  nim: number | null;
+  npl_ratio: number | null;
+  tier1_ratio: number | null;
+}
+
+/** Map the exact BankFind fields used by the institutions summary snapshot. */
+export function mapInstitutionFinancialSnapshot(
+  data: Record<string, unknown>,
+  fallbackRepdte: string
+): InstitutionFinancialSnapshot {
+  return {
+    cert: Number(data.CERT),
+    repdte: parseFdicReportingDate(data.REPDTE ?? fallbackRepdte),
+    roa: data.ROA != null ? Number(data.ROA) : null,
+    roe: data.ROE != null ? Number(data.ROE) : null,
+    nim: data.NIMY != null ? Number(data.NIMY) : null,
+    npl_ratio: data.NCLNLSR != null ? Number(data.NCLNLSR) : null,
+    // RBC1RWAJ is Tier 1 risk-based capital. RBCRWAJ is total risk-based capital.
+    tier1_ratio: data.RBC1RWAJ != null ? Number(data.RBC1RWAJ) : null
+  };
+}
 
 /**
  * Batch-update institutions with financial snapshot data.
@@ -17,15 +45,7 @@ const DELAY_BETWEEN_PAGES_MS = 100;
  */
 async function batchUpdateFinancials(
   db: D1Database,
-  rows: Array<{
-    cert: number;
-    repdte: string;
-    roa: number | null;
-    roe: number | null;
-    nim: number | null;
-    npl_ratio: number | null;
-    tier1_ratio: number | null;
-  }>
+  rows: InstitutionFinancialSnapshot[]
 ): Promise<void> {
   if (rows.length === 0) return;
 
@@ -66,18 +86,9 @@ export async function syncLatestFinancials(db: D1Database): Promise<number> {
 
     if (response.data.length === 0) break;
 
-    const rows = response.data.map((item) => {
-      const d = item.data;
-      return {
-        cert: Number(d.CERT),
-        repdte: String(d.REPDTE ?? latestQuarter),
-        roa: d.ROA != null ? Number(d.ROA) : null,
-        roe: d.ROE != null ? Number(d.ROE) : null,
-        nim: d.NIMY != null ? Number(d.NIMY) : null,
-        npl_ratio: d.NCLNLSR != null ? Number(d.NCLNLSR) : null,
-        tier1_ratio: d.RBCRWAJ != null ? Number(d.RBCRWAJ) : null
-      };
-    });
+    const rows = response.data.map((item) =>
+      mapInstitutionFinancialSnapshot(item.data, latestQuarter)
+    );
 
     await batchUpdateFinancials(db, rows);
     totalUpdated += rows.length;
@@ -101,6 +112,16 @@ export async function syncLatestFinancials(db: D1Database): Promise<number> {
     db,
     `INSERT OR REPLACE INTO pipeline_state (key, value, updated_at) VALUES (?, ?, ?)`,
     ['financials_count', String(totalUpdated), now]
+  );
+  await execute(
+    db,
+    `INSERT OR REPLACE INTO pipeline_state (key, value, updated_at) VALUES (?, ?, ?)`,
+    ['financials_source_as_of', latestQuarter, now]
+  );
+  await execute(
+    db,
+    `INSERT OR REPLACE INTO pipeline_state (key, value, updated_at) VALUES (?, ?, ?)`,
+    ['financials_retrieved_at', now, now]
   );
 
   console.log(`Financial snapshot sync complete: ${totalUpdated} rows for quarter ${latestQuarter}`);

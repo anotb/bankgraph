@@ -1,0 +1,312 @@
+{
+  "fixtureId": "fdic-bankfind-six-bank-2023q3-2026q2-v1",
+  "schemaVersion": 1,
+  "fixturePin": {
+    "path": "demo/fixtures/fixture-pin.json",
+    "sha256": "f9dd5d7ea37e545d007c17acaefce374c5ada2bf26a558bfdbf506c5d2aa16fb",
+    "reportingQuarter": "20260630",
+    "quarterCount": 12
+  },
+  "snapshot": {
+    "status": "recorded",
+    "recordedAt": "2026-08-30T15:11:21.509Z",
+    "asOf": "2026-06-30",
+    "scope": "6 selected institutions across 12 quarters; not the complete FDIC universe"
+  },
+  "asOf": "2026-06-30",
+  "period": {
+    "start": "2023-09-30",
+    "end": "2026-06-30",
+    "quarters": [
+      "20230930",
+      "20231231",
+      "20240331",
+      "20240630",
+      "20240930",
+      "20241231",
+      "20250331",
+      "20250630",
+      "20250930",
+      "20251231",
+      "20260331",
+      "20260630"
+    ]
+  },
+  "populations": {
+    "institutions": {
+      "kind": "recorded_selection",
+      "asOf": "2026-06-30",
+      "count": 6,
+      "description": "Named institutions selected for the recorded demonstration fixture; not a national population"
+    },
+    "industryAggregates": {
+      "kind": "full_reporting_population_derived",
+      "asOf": "2026-06-30",
+      "count": 4313,
+      "description": "All institutions returned by FDIC BankFind Financials for the reporting period; aggregates derived separately from the recorded institution selection"
+    }
+  },
+  "banks": [
+    {
+      "cert": 628,
+      "shortName": "JPMorgan Chase"
+    },
+    {
+      "cert": 3510,
+      "shortName": "Bank of America"
+    },
+    {
+      "cert": 3511,
+      "shortName": "Wells Fargo"
+    },
+    {
+      "cert": 4297,
+      "shortName": "Capital One"
+    },
+    {
+      "cert": 26881,
+      "shortName": "SoFi Bank"
+    },
+    {
+      "cert": 15359,
+      "shortName": "Southern Bank"
+    }
+  ],
+  "recordCounts": {
+    "institutions": 6,
+    "financials": 72,
+    "industryAggregates": 336
+  },
+  "datasets": [
+    {
+      "name": "institutions",
+      "status": "recorded",
+      "source": "FDIC BankFind Suite institutions dataset",
+      "transform": "Direct field mapping; current totals and ratios come from the same-quarter FDIC financials record, and unavailable fields remain null. No synthetic values."
+    },
+    {
+      "name": "financials",
+      "status": "recorded",
+      "source": "FDIC BankFind Suite financials dataset",
+      "transform": "Lossless projection into the application schema; no interpolation or synthetic values."
+    },
+    {
+      "name": "industryAggregates",
+      "status": "derived",
+      "source": "Application aggregates computed from every institution returned by the official FDIC financials endpoint for each fixture quarter",
+      "transform": "Deterministic sums, counts, and medians using the application asset-tier definitions; not an FDIC-reported table and not illustrative."
+    }
+  ],
+  "provenance": {
+    "publisher": "Federal Deposit Insurance Corporation",
+    "product": "BankFind Suite",
+    "api": "https://api.fdic.gov/banks",
+    "documentation": "https://api.fdic.gov/banks/docs",
+    "websitePolicies": "https://www.fdic.gov/policies",
+    "extraction": "Exact records retrieved from the official FDIC API using stable FDIC certificate numbers and the 12 reporting dates ending at the checked-in 20260630 pin. Industry benchmarks were deterministically computed from every institution returned for those dates.",
+    "recordedAt": "2026-08-30T15:11:21.509Z",
+    "apiIndexes": {
+      "financials": {
+        "name": "risview_20260819185831",
+        "createTimestamp": "2026-08-19T18:58:33Z"
+      },
+      "institutions": {
+        "name": "institutions_20260828090007",
+        "createTimestamp": "2026-08-28T11:57:32Z"
+      },
+      "quarters": {
+        "20230930": {
+          "name": "risview_20260819185831",
+          "createTimestamp": "2026-08-19T18:58:33Z"
+        },
+        "20231231": {
+          "name": "risview_20260819185831",
+          "createTimestamp": "2026-08-19T18:58:33Z"
+        },
+        "20240331": {
+          "name": "risview_20260819185831",
+          "createTimestamp": "2026-08-19T18:58:33Z"
+        },
+        "20240630": {
+          "name": "risview_20260819185831",
+          "createTimestamp": "2026-08-19T18:58:33Z"
+        },
+        "20240930": {
+          "name": "risview_20260819185831",
+          "createTimestamp": "2026-08-19T18:58:33Z"
+        },
+        "20241231": {
+          "name": "risview_20260819185831",
+          "createTimestamp": "2026-08-19T18:58:33Z"
+        },
+        "20250331": {
+          "name": "risview_20260819185831",
+          "createTimestamp": "2026-08-19T18:58:33Z"
+        },
+        "20250630": {
+          "name": "risview_20260819185831",
+          "createTimestamp": "2026-08-19T18:58:33Z"
+        },
+        "20250930": {
+          "name": "risview_20260819185831",
+          "createTimestamp": "2026-08-19T18:58:33Z"
+        },
+        "20251231": {
+          "name": "risview_20260819185831",
+          "createTimestamp": "2026-08-19T18:58:33Z"
+        },
+        "20260331": {
+          "name": "risview_20260819185831",
+          "createTimestamp": "2026-08-19T18:58:33Z"
+        },
+        "20260630": {
+          "name": "risview_20260819185831",
+          "createTimestamp": "2026-08-19T18:58:33Z"
+        }
+      }
+    },
+    "quarterResponseCounts": {
+      "20230930": 4686,
+      "20231231": 4658,
+      "20240331": 4640,
+      "20240630": 4610,
+      "20240930": 4589,
+      "20241231": 4560,
+      "20250331": 4536,
+      "20250630": 4494,
+      "20250930": 4452,
+      "20251231": 4411,
+      "20260331": 4353,
+      "20260630": 4313
+    },
+    "requestUrls": {
+      "banks": [
+        {
+          "cert": 628,
+          "dataset": "financials",
+          "url": "https://api.fdic.gov/banks/financials?filters=CERT%3A628&sort_by=REPDTE&sort_order=DESC&limit=12&fields=CERT%2CREPDTE%2CASSET%2CDEP%2CEQ%2CLNLSNET%2CLNRE%2CLNCI%2CLNCON%2CSC%2CNETINC%2CINTINC%2CEINTEXP%2CNIM%2CNONII%2CNONIX%2CELNATR%2CROA%2CROE%2CNIMY%2CEEFFR%2CRBCRWAJ%2CRBC1RWAJ%2CRBC1AAJ%2CEQV%2CNCLNLSR%2CLNATRESR%2CNTLNLSR%2CLNLSDEPR%2COTHBFHLB%2CNUMEMP"
+        },
+        {
+          "cert": 628,
+          "dataset": "institutions",
+          "url": "https://api.fdic.gov/banks/institutions?filters=CERT%3A628&limit=1&fields=CERT%2CRSSDID%2CNAME%2CCITY%2CSTALP%2CZIP%2CCOUNTY%2CBKCLASS%2CREGAGNT%2CACTIVE%2CESTYMD%2CINSDATE%2CNAMEHCR%2CRSSDHCR%2CASSET%2CDEP%2COFFDOM%2CNUMEMP%2CREPDTE%2CROA%2CROE%2CNIMY%2CNCLNLSR%2CRBC1RWAJ"
+        },
+        {
+          "cert": 3510,
+          "dataset": "financials",
+          "url": "https://api.fdic.gov/banks/financials?filters=CERT%3A3510&sort_by=REPDTE&sort_order=DESC&limit=12&fields=CERT%2CREPDTE%2CASSET%2CDEP%2CEQ%2CLNLSNET%2CLNRE%2CLNCI%2CLNCON%2CSC%2CNETINC%2CINTINC%2CEINTEXP%2CNIM%2CNONII%2CNONIX%2CELNATR%2CROA%2CROE%2CNIMY%2CEEFFR%2CRBCRWAJ%2CRBC1RWAJ%2CRBC1AAJ%2CEQV%2CNCLNLSR%2CLNATRESR%2CNTLNLSR%2CLNLSDEPR%2COTHBFHLB%2CNUMEMP"
+        },
+        {
+          "cert": 3510,
+          "dataset": "institutions",
+          "url": "https://api.fdic.gov/banks/institutions?filters=CERT%3A3510&limit=1&fields=CERT%2CRSSDID%2CNAME%2CCITY%2CSTALP%2CZIP%2CCOUNTY%2CBKCLASS%2CREGAGNT%2CACTIVE%2CESTYMD%2CINSDATE%2CNAMEHCR%2CRSSDHCR%2CASSET%2CDEP%2COFFDOM%2CNUMEMP%2CREPDTE%2CROA%2CROE%2CNIMY%2CNCLNLSR%2CRBC1RWAJ"
+        },
+        {
+          "cert": 3511,
+          "dataset": "financials",
+          "url": "https://api.fdic.gov/banks/financials?filters=CERT%3A3511&sort_by=REPDTE&sort_order=DESC&limit=12&fields=CERT%2CREPDTE%2CASSET%2CDEP%2CEQ%2CLNLSNET%2CLNRE%2CLNCI%2CLNCON%2CSC%2CNETINC%2CINTINC%2CEINTEXP%2CNIM%2CNONII%2CNONIX%2CELNATR%2CROA%2CROE%2CNIMY%2CEEFFR%2CRBCRWAJ%2CRBC1RWAJ%2CRBC1AAJ%2CEQV%2CNCLNLSR%2CLNATRESR%2CNTLNLSR%2CLNLSDEPR%2COTHBFHLB%2CNUMEMP"
+        },
+        {
+          "cert": 3511,
+          "dataset": "institutions",
+          "url": "https://api.fdic.gov/banks/institutions?filters=CERT%3A3511&limit=1&fields=CERT%2CRSSDID%2CNAME%2CCITY%2CSTALP%2CZIP%2CCOUNTY%2CBKCLASS%2CREGAGNT%2CACTIVE%2CESTYMD%2CINSDATE%2CNAMEHCR%2CRSSDHCR%2CASSET%2CDEP%2COFFDOM%2CNUMEMP%2CREPDTE%2CROA%2CROE%2CNIMY%2CNCLNLSR%2CRBC1RWAJ"
+        },
+        {
+          "cert": 4297,
+          "dataset": "financials",
+          "url": "https://api.fdic.gov/banks/financials?filters=CERT%3A4297&sort_by=REPDTE&sort_order=DESC&limit=12&fields=CERT%2CREPDTE%2CASSET%2CDEP%2CEQ%2CLNLSNET%2CLNRE%2CLNCI%2CLNCON%2CSC%2CNETINC%2CINTINC%2CEINTEXP%2CNIM%2CNONII%2CNONIX%2CELNATR%2CROA%2CROE%2CNIMY%2CEEFFR%2CRBCRWAJ%2CRBC1RWAJ%2CRBC1AAJ%2CEQV%2CNCLNLSR%2CLNATRESR%2CNTLNLSR%2CLNLSDEPR%2COTHBFHLB%2CNUMEMP"
+        },
+        {
+          "cert": 4297,
+          "dataset": "institutions",
+          "url": "https://api.fdic.gov/banks/institutions?filters=CERT%3A4297&limit=1&fields=CERT%2CRSSDID%2CNAME%2CCITY%2CSTALP%2CZIP%2CCOUNTY%2CBKCLASS%2CREGAGNT%2CACTIVE%2CESTYMD%2CINSDATE%2CNAMEHCR%2CRSSDHCR%2CASSET%2CDEP%2COFFDOM%2CNUMEMP%2CREPDTE%2CROA%2CROE%2CNIMY%2CNCLNLSR%2CRBC1RWAJ"
+        },
+        {
+          "cert": 26881,
+          "dataset": "financials",
+          "url": "https://api.fdic.gov/banks/financials?filters=CERT%3A26881&sort_by=REPDTE&sort_order=DESC&limit=12&fields=CERT%2CREPDTE%2CASSET%2CDEP%2CEQ%2CLNLSNET%2CLNRE%2CLNCI%2CLNCON%2CSC%2CNETINC%2CINTINC%2CEINTEXP%2CNIM%2CNONII%2CNONIX%2CELNATR%2CROA%2CROE%2CNIMY%2CEEFFR%2CRBCRWAJ%2CRBC1RWAJ%2CRBC1AAJ%2CEQV%2CNCLNLSR%2CLNATRESR%2CNTLNLSR%2CLNLSDEPR%2COTHBFHLB%2CNUMEMP"
+        },
+        {
+          "cert": 26881,
+          "dataset": "institutions",
+          "url": "https://api.fdic.gov/banks/institutions?filters=CERT%3A26881&limit=1&fields=CERT%2CRSSDID%2CNAME%2CCITY%2CSTALP%2CZIP%2CCOUNTY%2CBKCLASS%2CREGAGNT%2CACTIVE%2CESTYMD%2CINSDATE%2CNAMEHCR%2CRSSDHCR%2CASSET%2CDEP%2COFFDOM%2CNUMEMP%2CREPDTE%2CROA%2CROE%2CNIMY%2CNCLNLSR%2CRBC1RWAJ"
+        },
+        {
+          "cert": 15359,
+          "dataset": "financials",
+          "url": "https://api.fdic.gov/banks/financials?filters=CERT%3A15359&sort_by=REPDTE&sort_order=DESC&limit=12&fields=CERT%2CREPDTE%2CASSET%2CDEP%2CEQ%2CLNLSNET%2CLNRE%2CLNCI%2CLNCON%2CSC%2CNETINC%2CINTINC%2CEINTEXP%2CNIM%2CNONII%2CNONIX%2CELNATR%2CROA%2CROE%2CNIMY%2CEEFFR%2CRBCRWAJ%2CRBC1RWAJ%2CRBC1AAJ%2CEQV%2CNCLNLSR%2CLNATRESR%2CNTLNLSR%2CLNLSDEPR%2COTHBFHLB%2CNUMEMP"
+        },
+        {
+          "cert": 15359,
+          "dataset": "institutions",
+          "url": "https://api.fdic.gov/banks/institutions?filters=CERT%3A15359&limit=1&fields=CERT%2CRSSDID%2CNAME%2CCITY%2CSTALP%2CZIP%2CCOUNTY%2CBKCLASS%2CREGAGNT%2CACTIVE%2CESTYMD%2CINSDATE%2CNAMEHCR%2CRSSDHCR%2CASSET%2CDEP%2COFFDOM%2CNUMEMP%2CREPDTE%2CROA%2CROE%2CNIMY%2CNCLNLSR%2CRBC1RWAJ"
+        }
+      ],
+      "industryQuarters": [
+        {
+          "repdte": "20230930",
+          "url": "https://api.fdic.gov/banks/financials?filters=REPDTE%3A20230930&sort_by=CERT&sort_order=ASC&limit=10000&fields=CERT%2CREPDTE%2CASSET%2CDEP%2CROA%2CROE%2CNIMY%2CNCLNLSR"
+        },
+        {
+          "repdte": "20231231",
+          "url": "https://api.fdic.gov/banks/financials?filters=REPDTE%3A20231231&sort_by=CERT&sort_order=ASC&limit=10000&fields=CERT%2CREPDTE%2CASSET%2CDEP%2CROA%2CROE%2CNIMY%2CNCLNLSR"
+        },
+        {
+          "repdte": "20240331",
+          "url": "https://api.fdic.gov/banks/financials?filters=REPDTE%3A20240331&sort_by=CERT&sort_order=ASC&limit=10000&fields=CERT%2CREPDTE%2CASSET%2CDEP%2CROA%2CROE%2CNIMY%2CNCLNLSR"
+        },
+        {
+          "repdte": "20240630",
+          "url": "https://api.fdic.gov/banks/financials?filters=REPDTE%3A20240630&sort_by=CERT&sort_order=ASC&limit=10000&fields=CERT%2CREPDTE%2CASSET%2CDEP%2CROA%2CROE%2CNIMY%2CNCLNLSR"
+        },
+        {
+          "repdte": "20240930",
+          "url": "https://api.fdic.gov/banks/financials?filters=REPDTE%3A20240930&sort_by=CERT&sort_order=ASC&limit=10000&fields=CERT%2CREPDTE%2CASSET%2CDEP%2CROA%2CROE%2CNIMY%2CNCLNLSR"
+        },
+        {
+          "repdte": "20241231",
+          "url": "https://api.fdic.gov/banks/financials?filters=REPDTE%3A20241231&sort_by=CERT&sort_order=ASC&limit=10000&fields=CERT%2CREPDTE%2CASSET%2CDEP%2CROA%2CROE%2CNIMY%2CNCLNLSR"
+        },
+        {
+          "repdte": "20250331",
+          "url": "https://api.fdic.gov/banks/financials?filters=REPDTE%3A20250331&sort_by=CERT&sort_order=ASC&limit=10000&fields=CERT%2CREPDTE%2CASSET%2CDEP%2CROA%2CROE%2CNIMY%2CNCLNLSR"
+        },
+        {
+          "repdte": "20250630",
+          "url": "https://api.fdic.gov/banks/financials?filters=REPDTE%3A20250630&sort_by=CERT&sort_order=ASC&limit=10000&fields=CERT%2CREPDTE%2CASSET%2CDEP%2CROA%2CROE%2CNIMY%2CNCLNLSR"
+        },
+        {
+          "repdte": "20250930",
+          "url": "https://api.fdic.gov/banks/financials?filters=REPDTE%3A20250930&sort_by=CERT&sort_order=ASC&limit=10000&fields=CERT%2CREPDTE%2CASSET%2CDEP%2CROA%2CROE%2CNIMY%2CNCLNLSR"
+        },
+        {
+          "repdte": "20251231",
+          "url": "https://api.fdic.gov/banks/financials?filters=REPDTE%3A20251231&sort_by=CERT&sort_order=ASC&limit=10000&fields=CERT%2CREPDTE%2CASSET%2CDEP%2CROA%2CROE%2CNIMY%2CNCLNLSR"
+        },
+        {
+          "repdte": "20260331",
+          "url": "https://api.fdic.gov/banks/financials?filters=REPDTE%3A20260331&sort_by=CERT&sort_order=ASC&limit=10000&fields=CERT%2CREPDTE%2CASSET%2CDEP%2CROA%2CROE%2CNIMY%2CNCLNLSR"
+        },
+        {
+          "repdte": "20260630",
+          "url": "https://api.fdic.gov/banks/financials?filters=REPDTE%3A20260630&sort_by=CERT&sort_order=ASC&limit=10000&fields=CERT%2CREPDTE%2CASSET%2CDEP%2CROA%2CROE%2CNIMY%2CNCLNLSR"
+        }
+      ]
+    }
+  },
+  "reuse": {
+    "status": "public-government-data",
+    "note": "The FDIC API describes these datasets as publicly available. Its API documentation does not state a separate open-data license. FDIC website policies apply, and third-party material may carry separate rights. The repository license does not change the status of source data."
+  },
+  "checksums": {
+    "algorithm": "sha256",
+    "data": "e5738fef63255daa3d967e7610d3746605cee46dd11cc9fb0f8e1217f3f63ce8",
+    "seedSql": "ad90cea511a24c872a52f8a155704dd0319089fa113880967de37f17a4c4c15c"
+  },
+  "limitations": [
+    "This compact slice is for an immediate no-secret demo, not a substitute for the full FDIC universe.",
+    "Financial statement amounts are reported in thousands of dollars and income fields may be year-to-date, following the FDIC source definition.",
+    "Industry aggregates are derived from the full source snapshot; they cannot be recomputed from the six-bank slice alone.",
+    "The fixture does not invent a macro series. Live or backfilled originating-agency macro data must be labeled separately."
+  ]
+}

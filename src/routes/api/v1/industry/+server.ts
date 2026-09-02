@@ -3,7 +3,9 @@
  * Returns industry aggregate metrics over time.
  *
  * Query params:
- *   segment  - 'all' | 'community' | 'regional' | 'large' (default: 'all')
+ *   segment  - 'all' | 'community' | 'regional' | 'large' (default: 'all').
+ *              `community` is the legacy key for Bankgraph's under-$1B asset
+ *              band, not the FDIC community-bank definition.
  *   repdte   - specific quarter YYYYMMDD (optional, returns all quarters if omitted)
  *   limit    - max quarters to return (default: 20, max: 100)
  *   format   - 'json' (default) | 'csv'
@@ -14,13 +16,20 @@ import type { RequestHandler } from './$types';
 import { getDB, queryAll } from '$lib/server/db';
 import { cacheWrap } from '$lib/server/cache';
 import { jsonResponse, errorResponse } from '$lib/server/response';
+import { encodeCsvRow } from '$lib/server/csv';
 import type { IndustryAggregate } from '$lib/types';
 
 const TWELVE_HOURS = 43200;
 const VALID_SEGMENTS = new Set(['all', 'community', 'regional', 'large']);
 const DATE_RE = /^\d{8}$/;
+const SEGMENT_DEFINITIONS: Record<string, { label: string; basis: string }> = {
+  all: { label: 'All reporting institutions', basis: 'No asset-band filter.' },
+  community: { label: 'Under $1B', basis: 'Bankgraph asset band: reported total assets under $1 billion; not the FDIC community-bank definition.' },
+  regional: { label: '$1B-$50B', basis: 'Bankgraph asset band: reported total assets from $1 billion through $50 billion.' },
+  large: { label: 'Over $50B', basis: 'Bankgraph asset band: reported total assets over $50 billion.' }
+};
 
-export const GET: RequestHandler = async ({ platform, url }) => {
+export const GET: RequestHandler = async ({ platform, url, locals }) => {
   const segment = url.searchParams.get('segment') || 'all';
   if (!VALID_SEGMENTS.has(segment)) {
     return errorResponse(`segment must be one of: ${[...VALID_SEGMENTS].join(', ')}`, 400);
@@ -43,25 +52,25 @@ export const GET: RequestHandler = async ({ platform, url }) => {
   const cacheKey = `industry:${segment}:${repdteParam || 'all'}:${limit}`;
 
   try {
-    const result = await cacheWrap(kv, cacheKey, TWELVE_HOURS, async () => {
+    const loadIndustry = async () => {
       let rows: IndustryAggregate[];
 
       if (repdteParam) {
         rows = await queryAll<IndustryAggregate>(
           db,
-          'SELECT * FROM agg_industry WHERE segment = ? AND repdte = ?',
+          'SELECT * FROM published_agg_industry WHERE segment = ? AND repdte = ?',
           [segment, repdteParam]
         );
       } else {
         // Get distinct quarters (latest first), limited
         const quarters = await queryAll<{ repdte: string }>(
           db,
-          'SELECT DISTINCT repdte FROM agg_industry WHERE segment = ? ORDER BY repdte DESC LIMIT ?',
+          'SELECT DISTINCT repdte FROM published_agg_industry WHERE segment = ? ORDER BY repdte DESC LIMIT ?',
           [segment, limit]
         );
 
         if (quarters.length === 0) {
-          return { segment, data: [] };
+          return { segment, segmentDefinition: SEGMENT_DEFINITIONS[segment], data: [] };
         }
 
         const placeholders = quarters.map(() => '?').join(',');
@@ -69,7 +78,7 @@ export const GET: RequestHandler = async ({ platform, url }) => {
 
         rows = await queryAll<IndustryAggregate>(
           db,
-          `SELECT * FROM agg_industry WHERE segment = ? AND repdte IN (${placeholders}) ORDER BY repdte DESC`,
+          `SELECT * FROM published_agg_industry WHERE segment = ? AND repdte IN (${placeholders}) ORDER BY repdte DESC`,
           [segment, ...repdtes]
         );
       }
@@ -89,8 +98,11 @@ export const GET: RequestHandler = async ({ platform, url }) => {
       // Sort by repdte descending
       const data = [...byQuarter.values()].sort((a, b) => b.repdte.localeCompare(a.repdte));
 
-      return { segment, data };
-    });
+      return { segment, segmentDefinition: SEGMENT_DEFINITIONS[segment], data };
+    };
+    const result = repdteParam === null
+      ? await cacheWrap(kv, cacheKey, TWELVE_HOURS, loadIndustry, locals?.liveDataGeneration)
+      : await loadIndustry();
 
     const format = url.searchParams.get('format') || 'json';
 
@@ -103,9 +115,9 @@ export const GET: RequestHandler = async ({ platform, url }) => {
       const metrics = [...metricKeys].sort();
       const headers = ['quarter', ...metrics];
       const rows = [
-        headers.join(','),
+        encodeCsvRow(headers),
         ...result.data.map((q: { repdte: string; metrics: Record<string, number> }) =>
-          [q.repdte, ...metrics.map((m) => q.metrics[m] ?? '')].join(',')
+          encodeCsvRow([q.repdte, ...metrics.map((m) => q.metrics[m] ?? '')])
         )
       ];
       return new Response(rows.join('\n'), {

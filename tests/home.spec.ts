@@ -3,8 +3,8 @@ import { test, expect } from '@playwright/test';
 test.describe('Home / landing page', () => {
 	test('landing page loads with title', async ({ page }) => {
 		await page.goto('/');
-		await expect(page).toHaveTitle('Bank Data Explorer');
-		await expect(page.locator('h1')).toContainText('Bank Data Explorer');
+		await expect(page).toHaveTitle(/Bankgraph/);
+		await expect(page.locator('[aria-label="Bankgraph"]')).toBeVisible();
 	});
 
 	test('search bar is visible and accessible', async ({ page }) => {

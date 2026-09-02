@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { percentile, mean, stddev, median } from './peer-stats';
+import { percentile, mean, stddev, median, PEER_STAT_METRICS } from './peer-stats';
+
+describe('peer metric coverage', () => {
+	it('computes Tier 1 and total risk-based capital as separate metrics', () => {
+		expect(PEER_STAT_METRICS).toContain('rbc1rwaj');
+		expect(PEER_STAT_METRICS).toContain('rbcrwaj');
+	});
+});
 
 describe('mean', () => {
 	it('returns 0 for empty array', () => {

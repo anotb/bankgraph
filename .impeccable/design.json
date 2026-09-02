@@ -1,0 +1,372 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-02T12:08:48.124Z",
+  "title": "Design System: Bankgraph",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Accent",
+        "canonical": "#2456e6",
+        "tonalRamp": [
+          "oklch(15% 0.16 264)",
+          "oklch(26% 0.16 264)",
+          "oklch(37% 0.16 264)",
+          "oklch(48% 0.16 264)",
+          "oklch(59% 0.16 264)",
+          "oklch(70% 0.16 264)",
+          "oklch(82% 0.16 264)",
+          "oklch(95% 0.16 264)"
+        ]
+      },
+      "favorable": {
+        "role": "secondary",
+        "displayName": "Favorable",
+        "canonical": "#157a4a",
+        "tonalRamp": [
+          "oklch(15% 0.11 156)",
+          "oklch(26% 0.11 156)",
+          "oklch(37% 0.11 156)",
+          "oklch(48% 0.11 156)",
+          "oklch(59% 0.11 156)",
+          "oklch(70% 0.11 156)",
+          "oklch(82% 0.11 156)",
+          "oklch(95% 0.11 156)"
+        ]
+      },
+      "adverse": {
+        "role": "tertiary",
+        "displayName": "Adverse",
+        "canonical": "#c7381f",
+        "tonalRamp": [
+          "oklch(15% 0.16 32)",
+          "oklch(26% 0.16 32)",
+          "oklch(37% 0.16 32)",
+          "oklch(48% 0.16 32)",
+          "oklch(59% 0.16 32)",
+          "oklch(70% 0.16 32)",
+          "oklch(82% 0.16 32)",
+          "oklch(95% 0.16 32)"
+        ]
+      },
+      "caution": {
+        "role": "tertiary",
+        "displayName": "Caution",
+        "canonical": "#b7791f",
+        "tonalRamp": [
+          "oklch(15% 0.12 75)",
+          "oklch(26% 0.12 75)",
+          "oklch(37% 0.12 75)",
+          "oklch(48% 0.12 75)",
+          "oklch(59% 0.12 75)",
+          "oklch(70% 0.12 75)",
+          "oklch(82% 0.12 75)",
+          "oklch(95% 0.12 75)"
+        ]
+      },
+      "bench-bg": {
+        "role": "neutral",
+        "displayName": "Bench background",
+        "canonical": "#eef1f5",
+        "tonalRamp": [
+          "oklch(15% 0.01 240)",
+          "oklch(26% 0.01 240)",
+          "oklch(37% 0.01 240)",
+          "oklch(48% 0.01 240)",
+          "oklch(59% 0.01 240)",
+          "oklch(70% 0.01 240)",
+          "oklch(82% 0.01 240)",
+          "oklch(95% 0.01 240)"
+        ]
+      },
+      "plate": {
+        "role": "neutral",
+        "displayName": "Plate",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "oklch(15% 0 240)",
+          "oklch(26% 0 240)",
+          "oklch(37% 0 240)",
+          "oklch(48% 0 240)",
+          "oklch(59% 0 240)",
+          "oklch(70% 0 240)",
+          "oklch(82% 0 240)",
+          "oklch(95% 0 240)"
+        ]
+      },
+      "plate-recessed": {
+        "role": "neutral",
+        "displayName": "Recessed plate",
+        "canonical": "#f5f7fa",
+        "tonalRamp": [
+          "oklch(15% 0.01 240)",
+          "oklch(26% 0.01 240)",
+          "oklch(37% 0.01 240)",
+          "oklch(48% 0.01 240)",
+          "oklch(59% 0.01 240)",
+          "oklch(70% 0.01 240)",
+          "oklch(82% 0.01 240)",
+          "oklch(95% 0.01 240)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#111827",
+        "tonalRamp": [
+          "oklch(15% 0.03 255)",
+          "oklch(26% 0.03 255)",
+          "oklch(37% 0.03 255)",
+          "oklch(48% 0.03 255)",
+          "oklch(59% 0.03 255)",
+          "oklch(70% 0.03 255)",
+          "oklch(82% 0.03 255)",
+          "oklch(95% 0.03 255)"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Ink 2",
+        "canonical": "#4b5565",
+        "tonalRamp": [
+          "oklch(15% 0.02 255)",
+          "oklch(26% 0.02 255)",
+          "oklch(37% 0.02 255)",
+          "oklch(48% 0.02 255)",
+          "oklch(59% 0.02 255)",
+          "oklch(70% 0.02 255)",
+          "oklch(82% 0.02 255)",
+          "oklch(95% 0.02 255)"
+        ]
+      },
+      "ink-3": {
+        "role": "neutral",
+        "displayName": "Ink 3",
+        "canonical": "#6c7787",
+        "tonalRamp": [
+          "oklch(15% 0.02 255)",
+          "oklch(26% 0.02 255)",
+          "oklch(37% 0.02 255)",
+          "oklch(48% 0.02 255)",
+          "oklch(59% 0.02 255)",
+          "oklch(70% 0.02 255)",
+          "oklch(82% 0.02 255)",
+          "oklch(95% 0.02 255)"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "canonical": "#dce1e8",
+        "tonalRamp": [
+          "oklch(15% 0.01 240)",
+          "oklch(26% 0.01 240)",
+          "oklch(37% 0.01 240)",
+          "oklch(48% 0.01 240)",
+          "oklch(59% 0.01 240)",
+          "oklch(70% 0.01 240)",
+          "oklch(82% 0.01 240)",
+          "oklch(95% 0.01 240)"
+        ]
+      },
+      "night-bg": {
+        "role": "neutral",
+        "displayName": "Night background",
+        "canonical": "#0e1218",
+        "tonalRamp": [
+          "oklch(15% 0.02 250)",
+          "oklch(26% 0.02 250)",
+          "oklch(37% 0.02 250)",
+          "oklch(48% 0.02 250)",
+          "oklch(59% 0.02 250)",
+          "oklch(70% 0.02 250)",
+          "oklch(82% 0.02 250)",
+          "oklch(95% 0.02 250)"
+        ]
+      },
+      "night-plate": {
+        "role": "neutral",
+        "displayName": "Night plate",
+        "canonical": "#161b23",
+        "tonalRamp": [
+          "oklch(15% 0.02 250)",
+          "oklch(26% 0.02 250)",
+          "oklch(37% 0.02 250)",
+          "oklch(48% 0.02 250)",
+          "oklch(59% 0.02 250)",
+          "oklch(70% 0.02 250)",
+          "oklch(82% 0.02 250)",
+          "oklch(95% 0.02 250)"
+        ]
+      },
+      "night-accent": {
+        "role": "primary",
+        "displayName": "Night accent",
+        "canonical": "#6c8cff",
+        "tonalRamp": [
+          "oklch(15% 0.16 264)",
+          "oklch(26% 0.16 264)",
+          "oklch(37% 0.16 264)",
+          "oklch(48% 0.16 264)",
+          "oklch(59% 0.16 264)",
+          "oklch(70% 0.16 264)",
+          "oklch(82% 0.16 264)",
+          "oklch(95% 0.16 264)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "question": {
+        "displayName": "Board Question",
+        "purpose": "The editable board title; the only large text."
+      },
+      "title": {
+        "displayName": "Plate Title",
+        "purpose": "Plate, page, and section titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Ordinary interface text."
+      },
+      "control": {
+        "displayName": "Control Label",
+        "purpose": "Buttons, chips, segmented controls."
+      },
+      "label": {
+        "displayName": "Group Label",
+        "purpose": "Uppercase deck and group labels in secondary ink."
+      },
+      "figure": {
+        "displayName": "Figure",
+        "purpose": "Table cells, axis ticks, readouts."
+      },
+      "statement": {
+        "displayName": "Statement",
+        "purpose": "One value with its change in a recessed statement."
+      }
+    },
+    "shadows": [
+      {
+        "name": "overlay",
+        "value": "0 10px 28px rgb(17 24 39 / 0.14), 0 1px 2px rgb(17 24 39 / 0.08)",
+        "purpose": "Popovers and the focus view only."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "deck-two-by-two",
+        "value": "1100px"
+      },
+      {
+        "name": "rows-collapse",
+        "value": "1024px"
+      },
+      {
+        "name": "single-column",
+        "value": "640px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Plate",
+      "kind": "container",
+      "refersTo": "plate",
+      "description": "One chart or table with its title and hover controls.",
+      "html": "<article class=\"ds-plate\"><h3>Return on assets</h3></article>",
+      "css": ".ds-plate { background: #ffffff; border-radius: 4px; padding: 12px 14px; } .ds-plate h3 { margin: 0; font: 600 13px/1.4 \"Inter Variable\", Inter, sans-serif; color: #111827; } .ds-plate.selected { outline: 2px solid #2456e6; }"
+    },
+    {
+      "name": "Chip",
+      "kind": "button",
+      "refersTo": "chip",
+      "description": "A bank, measure, or rule in the control deck.",
+      "html": "<button class=\"ds-chip\" type=\"button\" aria-pressed=\"true\">Assets</button>",
+      "css": ".ds-chip { height: 26px; padding: 0 9px; border: 1px solid #dce1e8; border-radius: 4px; background: #f5f7fa; color: #111827; font: 500 12px/1 \"Inter Variable\", Inter, sans-serif; cursor: pointer; } .ds-chip[aria-pressed=\"true\"] { background: rgb(36 86 230 / 0.10); border-color: #2456e6; color: #2456e6; } .ds-chip:focus-visible { outline: 2px solid #2456e6; outline-offset: 2px; }"
+    },
+    {
+      "name": "Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Secondary action.",
+      "html": "<button class=\"ds-btn\" type=\"button\">Add view</button>",
+      "css": ".ds-btn { height: 28px; padding: 0 10px; border: 1px solid #dce1e8; border-radius: 4px; background: #f5f7fa; color: #111827; font: 500 12px/1 \"Inter Variable\", Inter, sans-serif; cursor: pointer; } .ds-btn:hover { background: #e9edf2; }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one primary action on a surface.",
+      "html": "<button class=\"ds-btn-pri\" type=\"button\">Share</button>",
+      "css": ".ds-btn-pri { height: 28px; padding: 0 10px; border: 1px solid #2456e6; border-radius: 4px; background: #2456e6; color: #ffffff; font: 500 12px/1 \"Inter Variable\", Inter, sans-serif; cursor: pointer; } .ds-btn-pri:hover { background: #1d47c4; }"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "control",
+      "refersTo": "button",
+      "description": "Exclusive modes; wraps when narrow.",
+      "html": "<div class=\"ds-seg\"><button aria-pressed=\"true\">Calendar</button><button>Event time</button></div>",
+      "css": ".ds-seg { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 2px; background: #f5f7fa; border: 1px solid #dce1e8; border-radius: 4px; } .ds-seg button { height: 22px; padding: 0 9px; border: 0; border-radius: 3px; background: transparent; color: #4b5565; font: 500 12px/1 \"Inter Variable\", Inter, sans-serif; } .ds-seg button[aria-pressed=\"true\"] { background: #ffffff; color: #111827; box-shadow: 0 0 0 1px #dce1e8; }"
+    },
+    {
+      "name": "Statement",
+      "kind": "data",
+      "refersTo": "statement",
+      "description": "One value, its change, and a sparkline.",
+      "html": "<div class=\"ds-stmt\"><div class=\"l\">Total assets</div><div class=\"v\">$4.09T <small>+1.9%</small></div></div>",
+      "css": ".ds-stmt { background: #f5f7fa; border-radius: 4px; padding: 8px 10px 6px; } .ds-stmt .l { font: 500 12px/1.4 \"Inter Variable\", Inter, sans-serif; color: #4b5565; } .ds-stmt .v { font: 500 20px/1.2 \"Geist Mono Variable\", ui-monospace, monospace; letter-spacing: -0.02em; color: #111827; } .ds-stmt small { font-size: 11.5px; color: #157a4a; }"
+    },
+    {
+      "name": "Table",
+      "kind": "data",
+      "refersTo": "table-cell",
+      "description": "Exact values with a sticky header and accent-selected row.",
+      "html": "<table class=\"ds-table\"><thead><tr><th>Institution</th><th>Assets</th></tr></thead><tbody><tr class=\"focus\"><td>JPMorgan Chase Bank</td><td>$4.09T</td></tr></tbody></table>",
+      "css": ".ds-table { border-collapse: separate; border-spacing: 0; font-size: 12.5px; } .ds-table th { text-align: right; font: 500 11.5px/1.4 \"Inter Variable\", Inter, sans-serif; color: #4b5565; padding: 6px 8px; border-bottom: 2px solid #dce1e8; } .ds-table td { height: 32px; padding: 0 8px; text-align: right; border-bottom: 1px solid #ebeef3; font: 12px/1.4 \"Geist Mono Variable\", ui-monospace, monospace; } .ds-table tr.focus td { background: rgb(36 86 230 / 0.10); } .ds-table tr.focus td:first-child { box-shadow: inset 2px 0 0 #2456e6; }"
+    },
+    {
+      "name": "Time Ruler",
+      "kind": "control",
+      "refersTo": "plate",
+      "description": "The board time axis with an as-of caret and a comparison caret.",
+      "html": "<div class=\"ds-ruler\"><div class=\"ax\"></div><div class=\"caret\" data-l=\"Q2 ʼ26\"></div></div>",
+      "css": ".ds-ruler { position: relative; height: 52px; background: #ffffff; border-top: 1px solid #dce1e8; } .ds-ruler .ax { position: absolute; left: 0; right: 0; top: 26px; border-top: 2px solid #dce1e8; } .ds-ruler .caret { position: absolute; top: 12px; width: 2px; height: 30px; background: #2456e6; }"
+    },
+    {
+      "name": "Agent Tile",
+      "kind": "status",
+      "refersTo": "button",
+      "description": "The single agent affordance: unsupported, ready, working, done.",
+      "html": "<button class=\"ds-agent\" type=\"button\"><i></i>Agent ready</button>",
+      "css": ".ds-agent { display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 10px 0 9px; border: 1px solid #dce1e8; border-radius: 4px; background: #ffffff; color: #4b5565; font: 500 12px/1 \"Inter Variable\", Inter, sans-serif; } .ds-agent i { width: 7px; height: 7px; border-radius: 50%; background: #157a4a; } .ds-agent.working { border-color: #2456e6; } .ds-agent.working i { background: #2456e6; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Bench",
+    "overview": "Bankgraph is an instrument, not a publication. A cool neutral work surface carries analytical plates, each holding one chart or table with the controls that appear when you work on it. Plates sit in rows on a twelve-column field; rows differ in shape by analytical job. One accent marks selection, focus, the as-of caret, and the primary action. Color carries data and state; containers stay neutral. Day and night are two versions of the same instrument.",
+    "keyCharacteristics": [
+      "Plates on a work surface, not cards on a page and not hairlines on paper",
+      "One type family with hierarchy from weight and size; mono for numerals only",
+      "Controls that look like controls, with visible active states",
+      "Charts and tables own their plates; method and source live behind Focus",
+      "Day and night as designed variants"
+    ],
+    "rules": [
+      "The One Accent Rule: #2456E6 is the only interaction color.",
+      "The Signed Color Rule: favorable and adverse appear only beside a sign.",
+      "The Neutral Container Rule: no plate, row, or control is colored by category.",
+      "The Row Rule: a row is the unit of composition and its shape follows the analytical job.",
+      "The Natural Control Rule: research language on controls; internal role names never at rest."
+    ],
+    "dos": [
+      "Let the chart or table dominate its plate.",
+      "Say each fact once; method and source belong in Focus.",
+      "Keep day and night as designed variants, not inversions."
+    ],
+    "donts": [
+      "Border or color containers by category.",
+      "Use type below 11 px or gray text to solve layout problems.",
+      "Introduce gradients, glows, glass, decorative icons, or KPI tiles."
+    ]
+  }
+}

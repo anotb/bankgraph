@@ -3,6 +3,8 @@
 		fieldDefs,
 		categoryLabels,
 		categoryOrder,
+		getFieldPeriodLabel,
+		getFieldShortLabel,
 		type FieldCategory
 	} from '$lib/utils/field-meta.js';
 	import { getMode } from '$lib/stores/mode.svelte.js';
@@ -30,17 +32,27 @@
 	// Group fields by category, applying search filter
 	let grouped = $derived.by(() => {
 		const query = search.toLowerCase().trim();
-		const groups = {} as Record<FieldCategory, Array<{ key: string; label: string; mdrm?: string }>>;
+		const groups = {} as Record<FieldCategory, Array<{
+			key: string;
+			shortLabel: string;
+			periodLabel: 'Quarter' | 'YTD' | null;
+			sourceCode?: string;
+		}>>;
 		for (const cat of categoryOrder) {
 			groups[cat] = [];
 		}
 		for (const [key, def] of Object.entries(fieldDefs)) {
 			if (query) {
-				const haystack = `${def.label} ${key} ${def.mdrm ?? ''}`.toLowerCase();
+				const haystack = `${def.label} ${key} ${def.sourceField ?? ''} ${def.mdrm ?? ''}`.toLowerCase();
 				if (!haystack.includes(query)) continue;
 			}
 			if (groups[def.category]) {
-				groups[def.category].push({ key, label: def.label, mdrm: def.mdrm });
+				groups[def.category].push({
+					key,
+					shortLabel: getFieldShortLabel(key),
+					periodLabel: getFieldPeriodLabel(key),
+					sourceCode: def.sourceField ?? def.mdrm
+				});
 			}
 		}
 		return groups;
@@ -291,14 +303,22 @@
 											onchange={() => toggle(field.key)}
 											class="rounded border-[--border] text-[--accent] focus:ring-[--accent]/30 w-3.5 h-3.5"
 										/>
-										<span class="text-[--text-primary] leading-tight">
-											{field.label}
+										<span class="min-w-0 text-[--text-primary] leading-tight">
+											{field.shortLabel}
 										</span>
-										{#if mode === 'power' && field.mdrm}
+										{#if field.periodLabel}
 											<span
-												class="ml-auto text-[10px] text-[--text-disabled] data-mono shrink-0"
+												class="shrink-0 border border-[--border-muted] px-1 py-px text-[11px] font-semibold uppercase tracking-wide text-[--text-tertiary] data-mono"
+												title={field.periodLabel === 'Quarter' ? 'Single reporting quarter' : 'Calendar year to date'}
 											>
-												{field.mdrm}
+												{field.periodLabel}
+											</span>
+										{/if}
+										{#if mode === 'power' && field.sourceCode}
+											<span
+												class="ml-auto text-[11px] text-[--text-disabled] data-mono shrink-0"
+											>
+												{field.sourceCode}
 											</span>
 										{/if}
 									</label>

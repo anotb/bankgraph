@@ -13,6 +13,12 @@ import type { RequestHandler } from './$types';
 import { getDB, queryOne, queryAll } from '$lib/server/db';
 import { cacheWrap } from '$lib/server/cache';
 import { jsonResponse, errorResponse } from '$lib/server/response';
+import { encodeCsvRow } from '$lib/server/csv';
+import {
+  parsePeerMetrics,
+  PeerMetricsQueryError,
+  shouldCachePeerRequest
+} from '$lib/server/peer-query';
 import type { PeerComparison, PeerMetricComparison, PeerStats } from '$lib/types';
 
 const PEER_CSV_HEADERS = [
@@ -24,22 +30,13 @@ const PEER_CSV_HEADERS = [
   'p25',
   'p75',
   'p90',
+  'peer_count',
   'percentile'
 ];
 
-function csvEscape(val: unknown): string {
-  if (val === null || val === undefined) return '';
-  const s = String(val);
-  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
-    return '"' + s.replace(/"/g, '""') + '"';
-  }
-  return s;
-}
-
 const SIX_HOURS = 21600;
-const DEFAULT_METRICS = ['roa', 'roe', 'nimy', 'eeffr', 'nclnlsr', 'rbcrwaj'];
-const VALID_METRICS = new Set(['roa', 'roe', 'nimy', 'eeffr', 'nclnlsr', 'rbcrwaj', 'lnlsdepr', 'eqv']);
 const DATE_RE = /^\d{8}$/;
+const MAX_CERT = 9_999_999;
 
 /**
  * Calculate a bank's percentile within the peer group for a given metric value.
@@ -51,43 +48,53 @@ async function calcPercentile(
   repdte: string,
   metric: string,
   bankValue: number
-): Promise<number> {
+): Promise<number | null> {
   if (!/^[a-z_][a-z0-9_]*$/i.test(metric)) throw new Error(`Invalid metric: ${metric}`);
   const bucket = parseInt(peerGroup.split(':')[1], 10);
-  const rows = await queryAll<Record<string, number>>(
+  const counts = await queryOne<{ total: number; below: number | null; equal: number | null }>(
     db,
-    `SELECT ${metric} FROM financials WHERE asset_bucket = ? AND repdte = ? AND ${metric} IS NOT NULL ORDER BY ${metric}`,
-    [bucket, repdte]
+    `SELECT COUNT(${metric}) AS total,
+            SUM(CASE WHEN ${metric} < ? THEN 1 ELSE 0 END) AS below,
+            SUM(CASE WHEN ${metric} = ? THEN 1 ELSE 0 END) AS equal
+       FROM published_financials
+      WHERE asset_bucket = ? AND repdte = ? AND ${metric} IS NOT NULL`,
+    [bankValue, bankValue, bucket, repdte]
   );
 
-  if (rows.length === 0) return 50; // default if no peers
+  if (!counts || counts.total === 0) return null;
 
-  const values = rows.map((r) => r[metric]);
-  const below = values.filter((v) => v < bankValue).length;
-  const equal = values.filter((v) => v === bankValue).length;
-
-  // Percentile = (count below + 0.5 * count equal) / total * 100
-  return Math.round(((below + 0.5 * equal) / values.length) * 100 * 10) / 10;
+  // Percentile = (count below + 0.5 * count equal) / total * 100. Aggregate
+  // inside D1 so a request never materializes an unbounded peer value array.
+  return Math.round((((counts.below ?? 0) + 0.5 * (counts.equal ?? 0)) / counts.total) * 100 * 10) / 10;
 }
 
-export const GET: RequestHandler = async ({ params, platform, url }) => {
-  const cert = parseInt(params.cert, 10);
-  if (isNaN(cert) || cert < 1) {
+function assetBucketLabel(bucket: number): string {
+  return ({
+    1: 'Under $100M',
+    2: '$100M–$300M',
+    3: '$300M–$1B',
+    4: '$1B–$10B',
+    5: '$10B–$50B',
+    6: '$50B–$250B',
+    7: 'Over $250B'
+  } as Record<number, string>)[bucket] ?? `Asset bucket ${bucket}`;
+}
+
+export const GET: RequestHandler = async ({ params, platform, url, locals }) => {
+  if (!/^[1-9]\d*$/.test(params.cert)) {
     return errorResponse('cert must be a positive integer', 400);
   }
+  const cert = Number(params.cert);
+  if (!Number.isSafeInteger(cert) || cert > MAX_CERT) {
+    return errorResponse(`cert must not exceed ${MAX_CERT}`, 400);
+  }
 
-  // Parse metrics
-  const metricsRaw = url.searchParams.get('metrics');
-  let metrics = DEFAULT_METRICS;
-  if (metricsRaw) {
-    metrics = metricsRaw.split(',').map((m) => m.trim()).filter(Boolean);
-    const invalid = metrics.filter((m) => !VALID_METRICS.has(m));
-    if (invalid.length > 0) {
-      return errorResponse(`Invalid metrics: ${invalid.join(', ')}`, 400);
-    }
-    if (metrics.length === 0) {
-      return errorResponse('metrics parameter must not be empty', 400);
-    }
+  let metrics: string[];
+  try {
+    metrics = parsePeerMetrics(url.searchParams);
+  } catch (err) {
+    if (err instanceof PeerMetricsQueryError) return errorResponse(err.message, 400);
+    throw err;
   }
 
   // Parse repdte
@@ -98,45 +105,43 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 
   const db = getDB(platform);
   const kv = platform?.env?.CACHE;
-  const cacheKey = `peers:${cert}:${metrics.join(',')}:${repdteParam || 'latest'}`;
+  const cacheKey = `peers:v2:${cert}:${metrics.join(',')}:${repdteParam || 'latest'}`;
 
   try {
-  const result = await cacheWrap<PeerComparison | null>(kv, cacheKey, SIX_HOURS, async () => {
-    // Get the bank's asset_bucket
-    const institution = await queryOne<{ asset_tier: number | null }>(
-      db,
-      'SELECT asset_tier FROM institutions WHERE cert = ?',
-      [cert]
-    );
-
-    if (!institution || institution.asset_tier === null) return null;
-
-    const peerGroup = `asset_bucket:${institution.asset_tier}`;
-
+  const loadPeerComparison = async (): Promise<PeerComparison | null> => {
     // Resolve repdte (use latest if not specified)
     let repdte = repdteParam;
     if (!repdte) {
       const latest = await queryOne<{ repdte: string }>(
         db,
-        'SELECT repdte FROM financials WHERE cert = ? ORDER BY repdte DESC LIMIT 1',
+        'SELECT repdte FROM published_financials WHERE cert = ? ORDER BY repdte DESC LIMIT 1',
         [cert]
       );
       if (!latest) return null;
       repdte = latest.repdte;
     }
 
-    // Get the bank's own metric values
+    // Get the bank's own period values and its size cohort for that same period.
     const selectCols = metrics.join(', ');
-    const bankRow = await queryOne<Record<string, number | null>>(
+    const bankRow = await queryOne<Record<string, number | null> & { asset_bucket: number | null }>(
       db,
-      `SELECT ${selectCols} FROM financials WHERE cert = ? AND repdte = ?`,
+      `SELECT asset_bucket, ${selectCols} FROM published_financials WHERE cert = ? AND repdte = ?`,
       [cert, repdte]
+    );
+    if (!bankRow || bankRow.asset_bucket === null) return null;
+
+    const assetBucket = bankRow.asset_bucket;
+    const peerGroup = `asset_bucket:${assetBucket}`;
+    const cohortCount = await queryOne<{ count: number }>(
+      db,
+      'SELECT COUNT(*) AS count FROM published_financials WHERE repdte = ? AND asset_bucket = ?',
+      [repdte, assetBucket]
     );
 
     // Get peer_stats for matching peer_group and quarter
     const peerRows = await queryAll<PeerStats>(
       db,
-      `SELECT * FROM peer_stats WHERE peer_group = ? AND repdte = ? AND metric IN (${metrics.map(() => '?').join(',')})`,
+      `SELECT * FROM published_peer_stats WHERE peer_group = ? AND repdte = ? AND metric IN (${metrics.map(() => '?').join(',')})`,
       [peerGroup, repdte, ...metrics]
     );
 
@@ -165,7 +170,8 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
         p10: peer?.p10 ?? null,
         p25: peer?.p25 ?? null,
         p75: peer?.p75 ?? null,
-        p90: peer?.p90 ?? null
+        p90: peer?.p90 ?? null,
+        peer_count: peer?.count ?? null
       });
     }
 
@@ -173,9 +179,20 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
       cert,
       repdte,
       peer_group: peerGroup,
+      cohort: {
+        basis: 'same_period_asset_bucket',
+        asset_bucket: assetBucket,
+        label: assetBucketLabel(assetBucket),
+        population: 'Institutions reporting in the same FDIC-derived total-asset bucket for this reporting period',
+        institution_count: cohortCount?.count ?? 0,
+        percentile_method: 'exact_rank'
+      },
       metrics: comparisons
     };
-  });
+  };
+  const result = shouldCachePeerRequest(url.searchParams)
+    ? await cacheWrap<PeerComparison | null>(kv, cacheKey, SIX_HOURS, loadPeerComparison, locals?.liveDataGeneration)
+    : await loadPeerComparison();
 
   if (!result) {
     return errorResponse('Bank not found or no financial data available', 404);
@@ -185,19 +202,20 @@ export const GET: RequestHandler = async ({ params, platform, url }) => {
 
   if (format === 'csv') {
     const rows = [
-      PEER_CSV_HEADERS.join(','),
+      encodeCsvRow(PEER_CSV_HEADERS),
       ...result.metrics.map((m) =>
-        [
-          csvEscape(m.metric),
-          csvEscape(m.bank_value),
-          csvEscape(m.peer_median),
-          csvEscape(m.peer_mean),
-          csvEscape(m.p10),
-          csvEscape(m.p25),
-          csvEscape(m.p75),
-          csvEscape(m.p90),
-          csvEscape(m.percentile)
-        ].join(',')
+        encodeCsvRow([
+          m.metric,
+          m.bank_value,
+          m.peer_median,
+          m.peer_mean,
+          m.p10,
+          m.p25,
+          m.p75,
+          m.p90,
+          m.peer_count,
+          m.percentile
+        ])
       )
     ];
     return new Response(rows.join('\n'), {

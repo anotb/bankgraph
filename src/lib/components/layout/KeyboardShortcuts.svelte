@@ -127,14 +127,6 @@
 			]
 		},
 		{
-			category: 'Tables',
-			items: [
-				{ keys: ['j'], description: 'Next row' },
-				{ keys: ['k'], description: 'Previous row' },
-				{ keys: ['Enter'], description: 'Open selected row' }
-			]
-		},
-		{
 			category: 'Actions',
 			items: [
 				{ keys: ['/'], description: 'Focus search' },
@@ -205,10 +197,10 @@
 			aria-labelledby="keyboard-shortcuts-title"
 		>
 			<div class="px-5 py-4 border-b border-[--border-muted] flex items-center justify-between">
-				<h2 id="keyboard-shortcuts-title" class="text-[15px] font-semibold text-[--text-primary]">Keyboard Shortcuts</h2>
+				<h2 id="keyboard-shortcuts-title" class="text-[14px] font-semibold text-[--text-primary]">Keyboard Shortcuts</h2>
 				<button
 					onclick={() => (showHelp = false)}
-					class="text-[--text-tertiary] hover:text-[--text-primary] transition-colors"
+					class="min-h-11 min-w-11 grid place-items-center text-[--text-tertiary] hover:text-[--text-primary] transition-colors"
 					aria-label="Close"
 				>
 					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -250,7 +242,7 @@
 
 			<div class="px-5 py-3 border-t border-[--border-muted] bg-[--surface-2]">
 				<p class="text-[11px] text-[--text-tertiary] text-center">
-					Shortcuts are only active in Power Mode
+					Shortcuts are active in compact density
 				</p>
 			</div>
 		</div>

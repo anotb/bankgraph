@@ -3,8 +3,8 @@ import { test, expect } from '@playwright/test';
 test.describe('Navigation smoke tests', () => {
 	test('landing page loads with expected title', async ({ page }) => {
 		await page.goto('/');
-		await expect(page).toHaveTitle('Bank Data Explorer');
-		await expect(page.locator('h1')).toContainText('Bank Data Explorer');
+		await expect(page).toHaveTitle(/Bankgraph/);
+		await expect(page.locator('[aria-label="Bankgraph"]')).toBeVisible();
 	});
 
 	test('nav bar has all main links', async ({ page }) => {
@@ -12,15 +12,15 @@ test.describe('Navigation smoke tests', () => {
 		const nav = page.locator('nav[aria-label="Main"]');
 		await expect(nav).toBeVisible();
 
-		for (const label of ['Banks', 'Industry', 'Macro', 'Compare', 'Glossary']) {
+		for (const label of ['Research', 'Discover', 'Banking system', 'Economy', 'Data & methods']) {
 			await expect(nav.getByRole('link', { name: label })).toBeVisible();
 		}
 	});
 
 	test('/banks page loads with a table', async ({ page }) => {
 		await page.goto('/banks');
-		await expect(page).toHaveTitle(/Banks/);
-		await expect(page.locator('h1')).toContainText('Banks');
+		await expect(page).toHaveTitle(/Find banks/);
+		await expect(page.locator('h1')).toContainText('Find banks');
 
 		// Table should be visible with header columns
 		const table = page.locator('table');
@@ -31,14 +31,14 @@ test.describe('Navigation smoke tests', () => {
 
 	test('/industry page loads', async ({ page }) => {
 		await page.goto('/industry');
-		await expect(page).toHaveTitle(/Industry/);
-		await expect(page.locator('h1')).toContainText('Industry Overview');
+		await expect(page).toHaveTitle(/Banking system/);
+		await expect(page.locator('h1')).toContainText('Banking system');
 	});
 
 	test('/macro page loads', async ({ page }) => {
 		await page.goto('/macro');
-		await expect(page).toHaveTitle(/Macro/);
-		await expect(page.locator('h1')).toContainText('Macro Environment');
+		await expect(page).toHaveTitle(/Economy/);
+		await expect(page.locator('h1')).toContainText('Economy');
 	});
 
 	test('/compare page loads with empty state', async ({ page }) => {
@@ -54,8 +54,8 @@ test.describe('Navigation smoke tests', () => {
 
 	test('/glossary page loads with field definitions', async ({ page }) => {
 		await page.goto('/glossary');
-		await expect(page).toHaveTitle(/Glossary/);
-		await expect(page.locator('h1')).toContainText('Field Glossary');
+		await expect(page).toHaveTitle(/Data definitions/);
+		await expect(page.locator('h1')).toContainText('Data & methods');
 
 		// Should have search input
 		await expect(page.getByPlaceholder('Search fields...')).toBeVisible();

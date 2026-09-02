@@ -46,7 +46,7 @@ test.describe('Basic accessibility', () => {
 
 		// Tab past skip link to reach nav
 		await page.keyboard.press('Tab'); // skip-to-content
-		await page.keyboard.press('Tab'); // BDE logo link
+		await page.keyboard.press('Tab'); // Bankgraph logo link
 		await page.keyboard.press('Tab'); // Banks link
 
 		const banksLink = page.locator('nav a[href="/banks"]');

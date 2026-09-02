@@ -5,14 +5,20 @@
 		correlation,
 		metric,
 		lagQuarters,
-		periodStart
+		windowStart,
+		windowEnd,
+		observations,
+		alignmentDirection
 	}: {
 		title: string;
 		description: string;
 		correlation?: number | null;
 		metric?: string;
 		lagQuarters?: number | null;
-		periodStart?: string | null;
+		windowStart?: string | null;
+		windowEnd?: string | null;
+		observations?: number | null;
+		alignmentDirection?: string | null;
 	} = $props();
 
 	let corrColor = $derived.by(() => {
@@ -41,12 +47,14 @@
 
 	let metaLine = $derived.by(() => {
 		const parts: string[] = [];
-		if (lagQuarters != null && lagQuarters > 0) {
-			parts.push(`${lagQuarters}Q lag`);
+		if (lagQuarters != null) {
+			parts.push(lagQuarters === 0 ? 'same-quarter alignment' : `macro t vs bank t+${lagQuarters}Q`);
 		}
-		if (periodStart) {
-			parts.push(`from ${periodStart}`);
+		if (observations != null) parts.push(`n=${observations}`);
+		if (windowStart && windowEnd) {
+			parts.push(`${windowStart} to ${windowEnd}`);
 		}
+		if (alignmentDirection) parts.push(alignmentDirection.replaceAll('_', ' '));
 		return parts.length > 0 ? parts.join(' · ') : null;
 	});
 </script>

@@ -35,16 +35,19 @@ export function mapInstitution(raw: Record<string, unknown>): Record<string, unk
     state: raw.STALP != null ? String(raw.STALP) : null,
     zip: raw.ZIP != null ? String(raw.ZIP) : null,
     county: raw.COUNTY != null ? String(raw.COUNTY) : null,
-    charter_class: raw.CHRTAGNT != null ? String(raw.CHRTAGNT) : null,
+    charter_class: raw.BKCLASS != null ? String(raw.BKCLASS) : null,
     regulator: raw.REGAGNT != null ? String(raw.REGAGNT) : null,
     active: activeValue,
     established_date: raw.ESTYMD != null ? String(raw.ESTYMD) : null,
     insured_date: raw.INSDATE != null ? String(raw.INSDATE) : null,
-    holding_company: raw.HCTMULT != null ? String(raw.HCTMULT) : null,
+    holding_company: raw.NAMEHCR != null ? String(raw.NAMEHCR) : null,
     hc_rssd_id: raw.RSSDHCR != null ? Number(raw.RSSDHCR) : null,
     asset_tier: computeAssetTier(totalAssets),
     total_assets: totalAssets,
+    // DEP is the BankFind institution total and includes foreign-office deposits.
     total_deposits: raw.DEP != null ? Number(raw.DEP) : null,
+    // OFFDOM includes headquarters. Keep the legacy column name, but do not
+    // interpret it as a branch-only count in product copy.
     num_branches: raw.OFFDOM != null ? Number(raw.OFFDOM) : null,
     num_employees: raw.NUMEMP != null ? Number(raw.NUMEMP) : null
   };

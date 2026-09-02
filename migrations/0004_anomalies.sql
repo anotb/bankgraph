@@ -1,5 +1,5 @@
 -- Migration: 0004_anomalies
--- Description: Trend analysis, anomaly detection, and CAMELS-proxy risk scoring tables
+-- Description: Trend analysis, anomaly detection, and analytical risk-proxy tables
 
 CREATE TABLE bank_trends (
   cert INTEGER NOT NULL,

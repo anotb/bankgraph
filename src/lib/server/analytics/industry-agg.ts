@@ -13,10 +13,15 @@ interface SegmentDef {
 
 const SEGMENTS: SegmentDef[] = [
   { name: 'all', where: '1=1', params: [] },
+  // `community` is a legacy API key. Public copy names this custom band
+  // “Under $1B” and does not imply the FDIC community-bank definition.
   { name: 'community', where: 'asset_bucket IN (1,2,3)', params: [] },
   { name: 'regional', where: 'asset_bucket IN (4,5)', params: [] },
   { name: 'large', where: 'asset_bucket IN (6,7)', params: [] }
 ];
+
+const METRICS_PER_SEGMENT = 7;
+export const INDUSTRY_AGGREGATE_ROWS_PER_QUARTER = SEGMENTS.length * METRICS_PER_SEGMENT;
 
 export function medianOf(sorted: number[]): number {
   if (sorted.length === 0) return 0;

@@ -1,70 +1,136 @@
 /**
- * Compute Pearson correlations between FRED macro series
- * and bank industry aggregates.
+ * Descriptive, noncausal co-movement between direct-agency macro series and
+ * FDIC industry aggregates. The model is deliberately fixed before it sees
+ * the data: same-quarter year-over-year changes, one result per named pair,
+ * and no search across lags or windows.
  */
 
-import { queryAll, execute } from '$lib/server/db';
+import { queryAll } from '$lib/server/db';
+import { MIN_CALCULABLE_CORRELATION_OBSERVATIONS } from '$lib/analytics/correlation-policy';
 
-/** Correlation pairs: [FRED series, industry metric name, agg_industry metric key] */
-const CORRELATION_PAIRS: Array<[string, string, string]> = [
-  ['FEDFUNDS', 'median_nim', 'median_nim'],
-  ['UNRATE', 'median_npl', 'median_npl'],
-  ['T10Y2Y', 'median_roa', 'median_roa'],
-  ['DGS10', 'median_nim', 'median_nim']
-];
-
-/** Max lag in quarters to test */
-const MAX_LAG_QUARTERS = 4;
+export const CORRELATION_METHOD = 'pearson_yoy_change_contemporaneous' as const;
+// Interpretation is tiered at the public surface; the deterministic calculation
+// remains available from Pearson's mathematical minimum.
+export const MIN_CORRELATION_OBSERVATIONS = MIN_CALCULABLE_CORRELATION_OBSERVATIONS;
 
 /**
- * Compute Pearson correlation coefficient between two arrays.
- * Returns NaN if arrays are too short or have zero variance.
+ * These relationships are selected for their economic interpretation rather
+ * than their observed correlation. Keeping the plan explicit prevents the
+ * pipeline from testing every combination and publishing only the winners.
  */
+export const CORRELATION_PLAN = [
+  { macroSeries: 'FRB_FEDFUNDS', bankMetric: 'median_nim' },
+  { macroSeries: 'BLS_UNRATE', bankMetric: 'median_npl' },
+  { macroSeries: 'UST10Y2Y', bankMetric: 'median_roa' },
+  { macroSeries: 'UST10Y', bankMetric: 'median_nim' }
+] as const;
+
 export function pearsonCorrelation(x: number[], y: number[]): number {
-  const n = Math.min(x.length, y.length);
-  if (n < 3) return NaN;
-
-  const xs = x.slice(0, n);
-  const ys = y.slice(0, n);
-
-  const meanX = xs.reduce((a, b) => a + b, 0) / n;
-  const meanY = ys.reduce((a, b) => a + b, 0) / n;
-
+  if (x.length !== y.length || x.length < 2) return NaN;
+  const n = x.length;
+  const meanX = x.reduce((sum, value) => sum + value, 0) / n;
+  const meanY = y.reduce((sum, value) => sum + value, 0) / n;
   let sumXY = 0;
   let sumX2 = 0;
   let sumY2 = 0;
-
-  for (let i = 0; i < n; i++) {
-    const dx = xs[i] - meanX;
-    const dy = ys[i] - meanY;
+  for (let index = 0; index < n; index++) {
+    const dx = x[index] - meanX;
+    const dy = y[index] - meanY;
     sumXY += dx * dy;
     sumX2 += dx * dx;
     sumY2 += dy * dy;
   }
-
   if (sumX2 === 0 || sumY2 === 0) return NaN;
   return sumXY / Math.sqrt(sumX2 * sumY2);
 }
 
-/**
- * Convert a YYYYMMDD reporting date to the start of its quarter as YYYY-MM-DD.
- */
 export function repdteToQuarterStart(repdte: string): string {
-  const year = repdte.slice(0, 4);
-  const month = parseInt(repdte.slice(4, 6), 10);
-  const q = Math.ceil(month / 3);
-  const qMonth = String((q - 1) * 3 + 1).padStart(2, '0');
-  return `${year}-${qMonth}-01`;
+  const year = Number(repdte.slice(0, 4));
+  const month = Number(repdte.slice(4, 6));
+  const quarterMonth = Math.floor((month - 1) / 3) * 3 + 1;
+  return `${year}-${String(quarterMonth).padStart(2, '0')}-01`;
+}
+
+export function addQuarters(quarterStart: string, count: number): string {
+  const date = new Date(`${quarterStart}T00:00:00Z`);
+  date.setUTCMonth(date.getUTCMonth() + count * 3);
+  return date.toISOString().slice(0, 10);
+}
+
+export function alignQuarterlySeries(
+  macro: Map<string, number>,
+  bank: Map<string, number>,
+  lagQuarters: number
+): { x: number[]; y: number[]; macroQuarters: string[]; bankQuarters: string[] } {
+  const x: number[] = [];
+  const y: number[] = [];
+  const macroQuarters: string[] = [];
+  const bankQuarters: string[] = [];
+  for (const macroQuarter of [...macro.keys()].sort()) {
+    const bankQuarter = addQuarters(macroQuarter, lagQuarters);
+    const macroValue = macro.get(macroQuarter);
+    const bankValue = bank.get(bankQuarter);
+    if (macroValue === undefined || bankValue === undefined) continue;
+    x.push(macroValue);
+    y.push(bankValue);
+    macroQuarters.push(macroQuarter);
+    bankQuarters.push(bankQuarter);
+  }
+  return { x, y, macroQuarters, bankQuarters };
 }
 
 /**
- * Get quarterly average of a FRED series, keyed by quarter start date (YYYY-MM-DD).
+ * Difference each quarterly value from the same quarter one year earlier.
+ * A missing comparison quarter produces no change, so a gap is never treated
+ * as if it were a one-year interval. Year-over-year changes also avoid the
+ * recurring Q1 reset in year-to-date FDIC performance ratios.
  */
-async function getQuarterlyFredValues(
+export function yearOverYearChanges(values: Map<string, number>): Map<string, number> {
+  const changes = new Map<string, number>();
+  for (const quarter of [...values.keys()].sort()) {
+    const current = values.get(quarter);
+    const prior = values.get(addQuarters(quarter, -4));
+    if (current === undefined || prior === undefined) continue;
+    const change = current - prior;
+    if (Number.isFinite(change)) changes.set(quarter, change);
+  }
+  return changes;
+}
+
+export interface CorrelationAnalysis {
+  correlation: number;
+  observations: number;
+  windowStart: string;
+  windowEnd: string;
+}
+
+/** Analyze one predeclared relationship without trying alternate lags. */
+export function analyzeContemporaneousYearOverYearChanges(
+  macroLevels: Map<string, number>,
+  bankLevels: Map<string, number>,
+  minimumObservations = MIN_CORRELATION_OBSERVATIONS
+): CorrelationAnalysis | null {
+  const macroChanges = yearOverYearChanges(macroLevels);
+  const bankChanges = yearOverYearChanges(bankLevels);
+  const aligned = alignQuarterlySeries(macroChanges, bankChanges, 0);
+  if (aligned.x.length < minimumObservations) return null;
+
+  const correlation = pearsonCorrelation(aligned.x, aligned.y);
+  if (!Number.isFinite(correlation)) return null;
+
+  return {
+    correlation,
+    observations: aligned.x.length,
+    windowStart: aligned.macroQuarters[0],
+    windowEnd: aligned.macroQuarters[aligned.macroQuarters.length - 1]
+  };
+}
+
+async function getQuarterlyMacroValues(
   db: D1Database,
   seriesId: string
 ): Promise<Map<string, number>> {
-  const rows = await queryAll<{ q: string; avg_val: number }>(
+  const rows = await queryAll<{ quarter_start: string; average_value: number }>(
     db,
     `SELECT
        substr(date, 1, 4) || '-' ||
@@ -73,26 +139,17 @@ async function getQuarterlyFredValues(
          WHEN CAST(substr(date, 6, 2) AS INTEGER) <= 6 THEN '04-01'
          WHEN CAST(substr(date, 6, 2) AS INTEGER) <= 9 THEN '07-01'
          ELSE '10-01'
-       END AS q,
-       AVG(value) AS avg_val
-     FROM macro_data
-     WHERE series_id = ? AND value IS NOT NULL
-     GROUP BY q
-     ORDER BY q`,
+       END AS quarter_start,
+       AVG(value) AS average_value
+     FROM macro_observations
+     WHERE series_id = ?
+     GROUP BY quarter_start
+     ORDER BY quarter_start`,
     [seriesId]
   );
-
-  const map = new Map<string, number>();
-  for (const row of rows) {
-    map.set(row.q, row.avg_val);
-  }
-  return map;
+  return new Map(rows.map((row) => [row.quarter_start, row.average_value]));
 }
 
-/**
- * Get quarterly industry aggregate values, keyed by quarter start date (YYYY-MM-DD).
- * Uses the 'all' segment from agg_industry.
- */
 async function getQuarterlyIndustryValues(
   db: D1Database,
   metric: string
@@ -104,95 +161,42 @@ async function getQuarterlyIndustryValues(
      ORDER BY repdte`,
     [metric]
   );
-
-  const map = new Map<string, number>();
-  for (const row of rows) {
-    const qStart = repdteToQuarterStart(row.repdte);
-    map.set(qStart, row.value);
-  }
-  return map;
+  return new Map(rows.map((row) => [repdteToQuarterStart(row.repdte), row.value]));
 }
 
-/**
- * Compute correlations between FRED series and bank industry metrics.
- * Tests lag 0 through MAX_LAG_QUARTERS.
- * Returns total number of correlation rows inserted.
- *
- * Prerequisites:
- *   - macro_data table must be populated (run `fred` pipeline stage)
- *   - agg_industry table must have rows for segment='all' with metrics:
- *     median_nim, median_npl, median_roa (run `analytics` pipeline stage)
- *   If agg_industry is empty, all correlation pairs will be skipped and
- *   the macro page will fall back to hardcoded representative values.
- */
 export async function computeCorrelations(db: D1Database): Promise<number> {
-  let totalInserted = 0;
-  const insights: string[] = [];
+  const computedAt = new Date().toISOString();
+  const statements: D1PreparedStatement[] = [db.prepare('DELETE FROM macro_correlations')];
+  let rowsInserted = 0;
 
-  for (const [fredSeries, metricLabel, aggMetric] of CORRELATION_PAIRS) {
-    const fredValues = await getQuarterlyFredValues(db, fredSeries);
-    const industryValues = await getQuarterlyIndustryValues(db, aggMetric);
+  for (const { macroSeries, bankMetric } of CORRELATION_PLAN) {
+    const [macroValues, industryValues] = await Promise.all([
+      getQuarterlyMacroValues(db, macroSeries),
+      getQuarterlyIndustryValues(db, bankMetric)
+    ]);
+    const analysis = analyzeContemporaneousYearOverYearChanges(macroValues, industryValues);
+    if (!analysis) continue;
 
-    if (fredValues.size === 0 || industryValues.size === 0) {
-      console.log(`Skipping ${fredSeries} vs ${metricLabel}: no data`);
-      continue;
-    }
-
-    // Get sorted quarter keys that appear in both datasets
-    const allQuarters = [...new Set([...fredValues.keys(), ...industryValues.keys()])].sort();
-
-    for (let lag = 0; lag <= MAX_LAG_QUARTERS; lag++) {
-      // Build aligned arrays: fred[t] vs industry[t + lag quarters]
-      const x: number[] = [];
-      const y: number[] = [];
-
-      for (let i = 0; i < allQuarters.length - lag; i++) {
-        const fredQ = allQuarters[i];
-        const industryQ = allQuarters[i + lag];
-        const fredVal = fredValues.get(fredQ);
-        const industryVal = industryValues.get(industryQ);
-
-        if (fredVal !== undefined && industryVal !== undefined) {
-          x.push(fredVal);
-          y.push(industryVal);
-        }
-      }
-
-      const corr = pearsonCorrelation(x, y);
-      if (isNaN(corr)) continue;
-
-      // Use earliest common quarter as period_start
-      const periodStart = allQuarters[0];
-
-      await execute(
-        db,
-        `INSERT OR REPLACE INTO correlations (metric_a, metric_b, period_start, correlation, lag_quarters)
-         VALUES (?, ?, ?, ?, ?)`,
-        [fredSeries, metricLabel, periodStart, Math.round(corr * 10000) / 10000, lag]
-      );
-      totalInserted++;
-
-      // Track strongest correlation for insights
-      if (lag === 0 && Math.abs(corr) > 0.5) {
-        const direction = corr > 0 ? 'positive' : 'negative';
-        insights.push(
-          `${fredSeries} shows ${direction} correlation (${corr.toFixed(2)}) with ${metricLabel}`
-        );
-      }
-    }
-  }
-
-  // Store insights in pipeline_state
-  if (insights.length > 0) {
-    const now = new Date().toISOString();
-    await execute(
-      db,
-      `INSERT OR REPLACE INTO pipeline_state (key, value, updated_at) VALUES (?, ?, ?)`,
-      ['correlation_insights', JSON.stringify(insights), now]
+    statements.push(
+      db.prepare(
+        `INSERT INTO macro_correlations (
+           metric_a, metric_b, window_start, window_end, observations,
+           correlation, lag_quarters, alignment_direction, method, computed_at
+         ) VALUES (?, ?, ?, ?, ?, ?, 0, 'contemporaneous', ?, ?)`
+      ).bind(
+        macroSeries,
+        bankMetric,
+        analysis.windowStart,
+        analysis.windowEnd,
+        analysis.observations,
+        Math.round(analysis.correlation * 10_000) / 10_000,
+        CORRELATION_METHOD,
+        computedAt
+      )
     );
+    rowsInserted++;
   }
 
-  console.log(`Correlations computed: ${totalInserted} rows`);
-  return totalInserted;
+  await db.batch(statements);
+  return rowsInserted;
 }
-

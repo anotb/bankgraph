@@ -1,9 +1,9 @@
 /**
- * Sync FDIC bank failure data into D1.
- * Fetches all ~4,100 failure records from the FDIC BankFind failures endpoint.
+ * Sync FDIC failure and assistance transactions into D1.
+ * The source includes both failed institutions and assistance transactions.
  */
 
-import { batchInsert } from '$lib/server/db';
+import { bulkUpsert, execute } from '$lib/server/db';
 import { delay } from './fdic-api';
 
 const FDIC_BASE_URL = 'https://api.fdic.gov/banks';
@@ -12,7 +12,8 @@ const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 500;
 
 const FAILURE_FIELDS = [
-  'CERT', 'NAME', 'CITYST', 'FAILDATE', 'SAVR', 'COST', 'QBFASSET', 'QBFDEP'
+  'ID', 'CERT', 'NAME', 'CITYST', 'FAILDATE', 'RESTYPE', 'RESTYPE1', 'SAVR', 'BIDNAME',
+  'COST', 'QBFASSET', 'QBFDEP'
 ].join(',');
 
 /** Fetch with retry + exponential backoff */
@@ -67,39 +68,69 @@ function normalizeDate(raw: unknown): string | null {
   return null;
 }
 
-/** Map a raw FDIC failure record to our schema */
+function optionalString(value: unknown): string | null {
+  if (value == null) return null;
+  const text = String(value).trim();
+  return text || null;
+}
+
+function optionalNumber(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+/** Map a raw FDIC failure or assistance record to our schema. */
 export function mapFailure(raw: Record<string, unknown>): Record<string, unknown> {
+  const sourceId = optionalString(raw.ID);
+  if (!sourceId) throw new Error('FDIC failure record is missing its source ID');
+
   const cityst = String(raw.CITYST ?? '');
   const parts = cityst.split(', ');
   const city = parts[0] || null;
   const state = parts.length > 1 ? parts[parts.length - 1] : null;
+  const rawTransactionType = optionalString(raw.RESTYPE)?.toUpperCase() ?? null;
+  const transactionType = rawTransactionType === 'FAILURE' || rawTransactionType === 'ASSISTANCE'
+    ? rawTransactionType
+    : null;
 
   return {
-    cert: Number(raw.CERT),
-    name: raw.NAME != null ? String(raw.NAME) : null,
+    source_id: sourceId,
+    cert: optionalNumber(raw.CERT),
+    name: optionalString(raw.NAME),
     city,
     state,
     fail_date: normalizeDate(raw.FAILDATE),
-    acquiring_institution: raw.SAVR != null ? String(raw.SAVR) : null,
-    cost: raw.COST != null ? Number(raw.COST) : null,
-    total_deposits: raw.QBFDEP != null ? Number(raw.QBFDEP) : null,
-    total_assets: raw.QBFASSET != null ? Number(raw.QBFASSET) : null
+    transaction_type: transactionType,
+    resolution_type: optionalString(raw.RESTYPE1),
+    insurance_fund: optionalString(raw.SAVR),
+    acquiring_institution: optionalString(raw.BIDNAME),
+    cost: optionalNumber(raw.COST),
+    total_deposits: optionalNumber(raw.QBFDEP),
+    total_assets: optionalNumber(raw.QBFASSET)
   };
 }
 
 export interface SyncFailuresResult {
   processed: number;
+  failures: number;
+  assistanceTransactions: number;
+  unclassified: number;
 }
 
 /**
- * Fetch all bank failures from FDIC and insert into D1.
- * Only ~4,100 records total, so this completes in one or two pages.
+ * Fetch all FDIC failure and assistance transactions and insert them into D1.
+ * Only a few thousand records exist, so this completes in one or two pages.
  */
 export async function syncFailures(db: D1Database): Promise<SyncFailuresResult> {
   let offset = 0;
   let totalProcessed = 0;
+  let failureCount = 0;
+  let assistanceCount = 0;
+  let unclassifiedCount = 0;
+  let expectedTotal: number | null = null;
 
-  console.log('Failures: starting sync...');
+  console.log('Failures and assistance: starting sync...');
 
   while (true) {
     const url = `${FDIC_BASE_URL}/failures?limit=${PAGE_SIZE}&offset=${offset}&fields=${FAILURE_FIELDS}&sort_by=FAILDATE&sort_order=DESC`;
@@ -107,22 +138,56 @@ export async function syncFailures(db: D1Database): Promise<SyncFailuresResult> 
     const json = (await response.json()) as FDICFailuresResponse;
 
     if (offset === 0) {
-      console.log(`Failures: total records in FDIC: ${json.totals.count}`);
+      expectedTotal = json.totals.count;
+      if (!Number.isSafeInteger(expectedTotal) || expectedTotal < 0 || expectedTotal > PAGE_SIZE) {
+        throw new Error(
+          `FDIC failures sync requires one atomic page; source reported ${expectedTotal}`
+        );
+      }
+      console.log(`Failures and assistance: total records in FDIC: ${json.totals.count}`);
     }
 
     if (json.data.length === 0) break;
 
     const rows = json.data.map((item) => mapFailure(item.data));
-    await batchInsert(db, 'failures', rows, ['cert']);
+    // The full source currently fits in one page and one compact D1 batch.
+    // Keeping the page atomic prevents a failed routine refresh from exposing
+    // a partially revised failure history while the prior bank release stays live.
+    await bulkUpsert(db, 'failures', rows, ['source_id']);
+
+    for (const row of rows) {
+      if (row.transaction_type === 'FAILURE') failureCount++;
+      else if (row.transaction_type === 'ASSISTANCE') assistanceCount++;
+      else unclassifiedCount++;
+    }
 
     totalProcessed += rows.length;
-    console.log(`Failures: processed ${totalProcessed} rows`);
+    console.log(`Failures and assistance: processed ${totalProcessed} rows`);
 
     if (json.data.length < PAGE_SIZE) break;
     offset += PAGE_SIZE;
     await delay(100);
   }
 
-  console.log(`Failures: sync complete, ${totalProcessed} total rows`);
-  return { processed: totalProcessed };
+  if (expectedTotal === null || totalProcessed !== expectedTotal) {
+    throw new Error(
+      `FDIC failures sync was incomplete: expected ${expectedTotal ?? 'an unknown number of'} rows, received ${totalProcessed}`
+    );
+  }
+
+  // Migration 0012 preserves pre-source-ID rows under a legacy key so the
+  // table is never emptied before a successful refresh. Remove those rows only
+  // after every source page has been fetched and persisted.
+  await execute(db, "DELETE FROM failures WHERE source_id LIKE 'legacy-cert:%'");
+
+  console.log(
+    `Failures and assistance: sync complete, ${failureCount} failures, ` +
+    `${assistanceCount} assistance transactions, ${unclassifiedCount} unclassified`
+  );
+  return {
+    processed: totalProcessed,
+    failures: failureCount,
+    assistanceTransactions: assistanceCount,
+    unclassified: unclassifiedCount
+  };
 }

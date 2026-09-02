@@ -7,6 +7,14 @@
  */
 
 const BATCH_CHUNK_SIZE = 50;
+const BULK_ROWS_PER_STATEMENT = 200;
+
+function safeIdentifier(identifier: string): string {
+  if (!/^[a-z_][a-z0-9_]*$/i.test(identifier)) {
+    throw new Error(`Unsafe SQL identifier: ${identifier}`);
+  }
+  return identifier;
+}
 
 /**
  * Extract D1 database binding from the SvelteKit platform object.
@@ -83,4 +91,66 @@ export async function batchInsert(
     });
     await db.batch(statements);
   }
+}
+
+/**
+ * Upsert rows using JSON1 so a group of rows consumes one bound parameter and
+ * one D1 query. This remains compact even for wide tables such as financials,
+ * where a conventional multi-value INSERT would hit SQLite's variable limit
+ * after only one row. Identifiers are validated and values remain bound data.
+ */
+export async function bulkUpsert(
+  db: D1Database,
+  table: string,
+  rows: Record<string, unknown>[],
+  primaryKeys: string[]
+): Promise<{ rows: number; statements: number }> {
+  const plan = buildBulkUpsertPlan(table, rows, primaryKeys);
+  if (plan.payloads.length === 0) return { rows: 0, statements: 0 };
+  const statements = plan.payloads.map((payload) => db.prepare(plan.sql).bind(payload));
+
+  for (let start = 0; start < statements.length; start += BATCH_CHUNK_SIZE) {
+    await db.batch(statements.slice(start, start + BATCH_CHUNK_SIZE));
+  }
+  return { rows: rows.length, statements: statements.length };
+}
+
+export function buildBulkUpsertPlan(
+  table: string,
+  rows: Record<string, unknown>[],
+  primaryKeys: string[]
+): { sql: string; payloads: string[] } {
+  if (rows.length === 0) return { sql: '', payloads: [] };
+  if (primaryKeys.length === 0) throw new Error('bulkUpsert requires a natural key');
+
+  const safeTable = safeIdentifier(table);
+  const columns = Object.keys(rows[0]).map(safeIdentifier);
+  const keys = primaryKeys.map(safeIdentifier);
+  if (!keys.every((key) => columns.includes(key))) {
+    throw new Error('Every primary key must be present in the upsert rows');
+  }
+  for (const row of rows) {
+    if (Object.keys(row).length !== columns.length || !columns.every((column) => column in row)) {
+      throw new Error('All bulkUpsert rows must have identical columns');
+    }
+  }
+
+  const updateColumns = columns.filter((column) => !keys.includes(column));
+  const updateSql = updateColumns.length > 0
+    ? ` DO UPDATE SET ${updateColumns.map((column) => `${column}=excluded.${column}`).join(', ')}`
+    : ' DO NOTHING';
+  const payloads: string[] = [];
+  const selectSql = columns
+    .map((column) => `json_extract(value, '$.${column}')`)
+    .join(', ');
+  const sql = `INSERT INTO ${safeTable} (${columns.join(', ')}) SELECT ${selectSql} FROM json_each(?) WHERE json_type(value) = 'object' ON CONFLICT(${keys.join(', ')})${updateSql}`;
+
+  for (let start = 0; start < rows.length; start += BULK_ROWS_PER_STATEMENT) {
+    const group = rows.slice(start, start + BULK_ROWS_PER_STATEMENT);
+    const payload = group.map((row) =>
+      Object.fromEntries(columns.map((column) => [column, row[column] ?? null]))
+    );
+    payloads.push(JSON.stringify(payload));
+  }
+  return { sql, payloads };
 }

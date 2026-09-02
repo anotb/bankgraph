@@ -1,93 +1,43 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Glossary page', () => {
-	test('glossary page loads at /glossary', async ({ page }) => {
+	test('opens with current coverage and source provenance', async ({ page }) => {
 		await page.goto('/glossary');
-		await expect(page).toHaveTitle(/Glossary/);
-		await expect(page.locator('h1')).toContainText('Field Glossary');
+		await expect(page).toHaveTitle(/Data definitions/);
+		await expect(page.locator('h1')).toContainText('Data & methods');
+		await expect(page.getByText('FDIC reporting period')).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Public sources, read directly' })).toBeVisible();
+		await expect(page.getByRole('link', { name: 'FDIC BankFind API' })).toBeVisible();
+		await expect(page.locator('.macro-table tbody tr')).toHaveCount(14);
 	});
 
-	test('shows field definitions with labels and descriptions', async ({ page }) => {
+	test('searches labels and source identifiers, then combines a category filter', async ({ page }) => {
 		await page.goto('/glossary');
+		const searchInput = page.getByRole('searchbox', { name: 'Search definitions' });
+		await searchInput.fill('NCLNLSR');
+		await expect(page.locator('.definition-row')).toHaveCount(1);
+		await expect(page.getByText('Noncurrent Loan Ratio', { exact: true })).toBeVisible();
 
-		// Should have at least one field definition card
-		const fieldCards = page.locator('h3');
-		await expect(fieldCards.first()).toBeVisible({ timeout: 15000 });
-
-		// Should have multiple fields
-		const count = await fieldCards.count();
-		expect(count).toBeGreaterThanOrEqual(5);
-
-		// Each card should have a description paragraph
-		const descriptions = page.locator('section .rounded-md p');
-		await expect(descriptions.first()).toBeVisible({ timeout: 15000 });
+		await searchInput.fill('income');
+		await page.getByRole('button', { name: /Performance Ratios/ }).click();
+		expect(await page.locator('.definition-row').count()).toBeGreaterThan(0);
+		await expect(page.getByRole('heading', { name: 'Performance Ratios' })).toBeVisible();
 	});
 
-	test('search filter narrows results', async ({ page }) => {
-		await page.goto('/glossary');
-
-		const searchInput = page.getByPlaceholder('Search fields...');
-		await expect(searchInput).toBeVisible({ timeout: 15000 });
-
-		// Count total fields before search
-		const allFields = page.locator('section h3');
-		await expect(allFields.first()).toBeVisible({ timeout: 15000 });
-		const totalCount = await allFields.count();
-
-		// Type a specific term that should match fewer fields
-		await searchInput.click();
-		await searchInput.fill('Total Assets');
-
-		// Should show the "Showing X of Y terms" text
-		const resultCount = page.locator('text=/Showing \\d+ of \\d+ terms/');
-		await expect(resultCount).toBeVisible({ timeout: 5000 });
-
-		// Filtered count should be less than total
-		const filteredFields = page.locator('section h3');
-		const filteredCount = await filteredFields.count();
-		expect(filteredCount).toBeLessThan(totalCount);
-		expect(filteredCount).toBeGreaterThanOrEqual(1);
+	test('opens a stable field deep link with its exact provenance', async ({ page }) => {
+		await page.goto('/glossary#field-roa');
+		const definition = page.locator('#field-roa');
+		await expect(definition).toHaveAttribute('open', '');
+		await expect(definition.getByText('UBPR2170')).toBeVisible();
+		await expect(definition.getByText('Formula')).toBeVisible();
 	});
 
-	test('search with no results shows empty state', async ({ page }) => {
+	test('gives a useful recovery when no definition matches', async ({ page }) => {
 		await page.goto('/glossary');
-
-		const searchInput = page.getByPlaceholder('Search fields...');
-		await expect(searchInput).toBeVisible({ timeout: 15000 });
-
+		const searchInput = page.getByRole('searchbox', { name: 'Search definitions' });
 		await searchInput.fill('xyznonexistentterm123');
-
-		await expect(page.getByText('No fields match your search.')).toBeVisible({ timeout: 5000 });
-	});
-
-	test('shows categories for different field types', async ({ page }) => {
-		await page.goto('/glossary');
-
-		// Category headings rendered as h2 elements inside sections
-		const categoryHeadings = page.locator('section h2');
-		await expect(categoryHeadings.first()).toBeVisible({ timeout: 15000 });
-
-		// Should have multiple category groups
-		const categoryCount = await categoryHeadings.count();
-		expect(categoryCount).toBeGreaterThanOrEqual(3);
-
-		// Check for known category labels
-		await expect(page.getByRole('heading', { name: 'Balance Sheet' })).toBeVisible({ timeout: 15000 });
-		await expect(page.getByRole('heading', { name: 'Performance Ratios' })).toBeVisible({ timeout: 15000 });
-		await expect(page.getByRole('heading', { name: 'Capital Adequacy' })).toBeVisible({ timeout: 15000 });
-	});
-
-	test('field definitions show code keys and optional MDRM badges', async ({ page }) => {
-		await page.goto('/glossary');
-
-		// Each field card shows the code key in a <code> element
-		const codeKeys = page.locator('section code');
-		await expect(codeKeys.first()).toBeVisible({ timeout: 15000 });
-		const codeCount = await codeKeys.count();
-		expect(codeCount).toBeGreaterThanOrEqual(5);
-
-		// At least one field should have an MDRM badge
-		const mdrmBadge = page.locator('text=/MDRM /');
-		await expect(mdrmBadge.first()).toBeVisible({ timeout: 15000 });
+		await expect(page.getByText('No definition matches “xyznonexistentterm123”.')).toBeVisible();
+		await page.getByRole('button', { name: 'Clear search and filters' }).click();
+		expect(await page.locator('.definition-row').count()).toBeGreaterThanOrEqual(20);
 	});
 });

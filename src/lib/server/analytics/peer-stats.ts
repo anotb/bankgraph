@@ -5,7 +5,9 @@
 
 import { queryAll, execute } from '$lib/server/db';
 
-const METRICS = ['roa', 'roe', 'nimy', 'eeffr', 'nclnlsr', 'rbcrwaj', 'lnlsdepr', 'eqv'] as const;
+export const PEER_STAT_METRICS = [
+  'roa', 'roe', 'nimy', 'eeffr', 'nclnlsr', 'rbcrwaj', 'rbc1rwaj', 'lnlsdepr', 'eqv'
+] as const;
 const BUCKETS = [1, 2, 3, 4, 5, 6, 7] as const;
 
 /** Compute interpolated percentile from a sorted array of numbers. */
@@ -49,7 +51,7 @@ export async function computePeerStats(db: D1Database, repdte: string): Promise<
   let totalInserted = 0;
 
   for (const bucket of BUCKETS) {
-    for (const metric of METRICS) {
+    for (const metric of PEER_STAT_METRICS) {
       const rows = await queryAll<Record<string, number>>(
         db,
         `SELECT ${metric} FROM financials WHERE asset_bucket = ? AND repdte = ? AND ${metric} IS NOT NULL ORDER BY ${metric}`,
