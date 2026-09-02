@@ -12,6 +12,7 @@ export interface AgentStep {
 }
 
 const LABELS: Record<string, string> = {
+	'bankgraph.navigate': 'Opening another Bankgraph view',
 	'bankgraph.get_context': 'Reading the board',
 	'bankgraph.read_research_board': 'Reading the board',
 	'bankgraph.read_board_block': 'Reading a view',

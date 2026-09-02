@@ -2,6 +2,7 @@
 	import { onMount, untrack } from 'svelte';
 	import {
 		createWebMcpToolHost,
+		createSiteNavigationTool,
 		createWorkspaceWebMcpTools,
 		type WebMcpToolHost,
 		type WorkspaceWebMcpCatalogOptions,
@@ -299,9 +300,10 @@
 		},
 		origin: () => latestDependencies.origin?.() ?? ''
 	}));
-	const tools = $derived(
-		createWorkspaceWebMcpTools(stableDependencies, { page, includeDiagnostics })
-	);
+	const tools = $derived([
+		...createWorkspaceWebMcpTools(stableDependencies, { page, includeDiagnostics }),
+		createSiteNavigationTool({ open: (path) => window.setTimeout(() => window.location.assign(path), 40) })
+	]);
 
 	$effect(() => {
 		latestDependencies = dependencies;

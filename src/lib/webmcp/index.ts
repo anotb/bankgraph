@@ -26,6 +26,8 @@ export {
   WORKSPACE_VISIBLE_METRICS,
 } from "./catalog.js";
 export { createBrowserBankSearch } from "./browser-services.js";
+export { createSiteNavigationTool, createSiteWebMcpTools } from "./site-catalog.js";
+export type { SiteWebMcpContext, SiteWebMcpDependencies } from "./site-catalog.js";
 export {
   createBankDirectoryRouteTools,
   createBankFinancialRouteTools,

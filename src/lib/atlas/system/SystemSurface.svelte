@@ -126,7 +126,7 @@
 
 <div class="plate geo">
 	<div class="ph"><h3>Where banks are headquartered</h3><span class="dim">click a state to start a cohort</span></div>
-	<TileMap values={stateValues} format={(v) => String(Math.round(v))} onhover={(s) => (hoveredState = s)} onselect={(st) => { location.href = `/b?template=geography&states=${st}`; }} />
+	<div class="geo-map"><TileMap fit values={stateValues} format={(v) => String(Math.round(v))} onhover={(s) => (hoveredState = s)} onselect={(st) => { location.href = `/b?template=geography&states=${st}`; }} /></div>
 	<div class="readout">{#if hoveredState}<span>{US_STATES[hoveredState] ?? hoveredState}</span><b>{count(stateValues[hoveredState] ?? 0)} active institutions</b>{/if}</div>
 </div>
 
@@ -165,6 +165,10 @@
 	table.atlas td.n a:hover { color: var(--accent); }
 	.ph { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
 	.ph h3 { font-size: 13px; font-weight: 600; margin: 0; }
+	.geo { display: grid; grid-template-rows: auto minmax(0, 1fr) 20px; }
+	.geo-map { min-width: 0; min-height: 0; }
+	.geo > .readout { min-height: 20px; }
+	@media (max-width: 1180px) { .geo { display: block; } .geo-map { height: auto; } }
 	@media (max-width: 1180px) { .explorer { grid-template-columns: 1fr; } }
 	@media (max-width: 640px) {
 		.radar { grid-template-columns: 1fr; }

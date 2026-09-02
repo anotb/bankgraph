@@ -124,6 +124,8 @@
 		.row.top { grid-template-rows: 510px 177px 321px; }
 		.ask, .row.top :global(.plate.system), .row.top :global(.plate.geo), .econ, .layouts { height: 100%; min-height: 0; }
 		.row.top :global(.plate.system), .layouts { overflow: auto; }
+		.layouts { grid-template-rows: auto repeat(2, minmax(0, 1fr)); align-content: stretch; }
+		.tmpl { height: 100%; }
 	}
 	@media (min-width: 1500px) { .starts { grid-template-columns: 1fr 1fr; column-gap: 20px; } }
 	@media (max-width: 1180px) {

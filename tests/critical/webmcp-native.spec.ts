@@ -58,6 +58,18 @@ async function expectWorkspaceTools(page: Page) {
 	);
 }
 
+async function expectSiteTools(page: Page) {
+	const required = [
+		'bankgraph.get_site_context',
+		'bankgraph.search_banks',
+		'bankgraph.navigate',
+		'bankgraph.set_appearance'
+	];
+	await expect.poll(() => page.evaluate(() => window.__bankgraphWebMcpE2E?.names() ?? [])).toEqual(
+		expect.arrayContaining(required)
+	);
+}
+
 const failurePattern = {
 	analysis: 'historical_failure_pattern_and_current_similarity',
 	semantics: {
@@ -262,9 +274,40 @@ test('native WebMCP reads the same chart data and controls the visible board lif
 
 	await page.getByRole('link', { name: 'Bankgraph home' }).click();
 	await expect(page).toHaveURL('/');
-	await expect.poll(() => page.evaluate(() => window.__bankgraphWebMcpE2E?.names() ?? [])).toEqual([]);
+	await expectSiteTools(page);
 	await expect.poll(() => page.evaluate(() => window.__bankgraphWebMcpE2E?.abortedNames() ?? [])).toContain(
 		'bankgraph.read_research_board'
+	);
+});
+
+test('site tools remain available across pages and hand off to the full research toolset', async ({ page }) => {
+	await page.goto('/');
+	await expectSiteTools(page);
+
+	const context = await invoke(page, 'bankgraph.get_site_context');
+	expect(context).toMatchObject({
+		ok: true,
+		data: {
+			path: '/',
+			researchLayouts: expect.arrayContaining([
+				expect.objectContaining({ id: 'credit_stress' })
+			])
+		}
+	});
+
+	await invoke(page, 'bankgraph.navigate', { destination: 'economy' });
+	await expect(page).toHaveURL('/economy');
+	await expectSiteTools(page);
+
+	await invoke(page, 'bankgraph.navigate', {
+		destination: 'research',
+		question: 'Which large banks saw noncurrent loans rise fastest?',
+		template: 'credit_stress'
+	});
+	await expect(page).toHaveURL(/\/b/);
+	await expectWorkspaceTools(page);
+	await expect.poll(() => page.evaluate(() => window.__bankgraphWebMcpE2E?.names() ?? [])).toContain(
+		'bankgraph.navigate'
 	);
 });
 

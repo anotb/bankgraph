@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import TopBar from '$lib/atlas/shell/TopBar.svelte';
 	import CommandPalette from '$lib/atlas/shell/CommandPalette.svelte';
+	import { SiteWebMcp } from '$lib/components/webmcp';
 
 	let { children, data } = $props();
 	let palette: ReturnType<typeof CommandPalette> | undefined = $state();
@@ -22,6 +23,9 @@
 
 <a href="#main" class="skip">Skip to content</a>
 <TopBar latestQuarter={data.latestQuarter} onsearch={() => palette?.show()} />
+{#if !onBoard}
+	<SiteWebMcp latestQuarter={data.latestQuarter} activeBankCount={data.activeBankCount} liveDataState={data.liveData.state} />
+{/if}
 <main id="main" class:board={onBoard}>
 	{@render children()}
 </main>

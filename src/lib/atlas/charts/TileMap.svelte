@@ -9,25 +9,32 @@
 		format?: (v: number) => string;
 		onselect?: (state: string, shift: boolean) => void;
 		onhover?: (state: string | null) => void;
+		/** Fit both the available width and height instead of deriving height from width alone. */
+		fit?: boolean;
 	}
-	let { values, labels = {}, focus = [], selected = [], gamma = 0.5, format = (v: number) => String(Math.round(v)), onselect, onhover }: Props = $props();
+	let { values, labels = {}, focus = [], selected = [], gamma = 0.5, format = (v: number) => String(Math.round(v)), onselect, onhover, fit = false }: Props = $props();
 	let width = $state(320);
+	let availableHeight = $state(220);
 	let el: HTMLDivElement | undefined = $state();
 	$effect(() => {
 		if (!el) return;
-		const ro = new ResizeObserver(([entry]) => { width = Math.max(160, entry.contentRect.width); });
+		const ro = new ResizeObserver(([entry]) => {
+			width = Math.max(160, entry.contentRect.width);
+			availableHeight = Math.max(120, entry.contentRect.height);
+		});
 		ro.observe(el);
 		return () => ro.disconnect();
 	});
-	let s = $derived(Math.floor(width / 12.2));
-	let height = $derived(s * 8 + 6);
+	let s = $derived(Math.max(13, Math.floor(Math.min(width / 12.2, fit ? availableHeight / 8.2 : Number.POSITIVE_INFINITY))));
+	let viewWidth = $derived(s * 12 + 6);
+	let viewHeight = $derived(s * 8 + 6);
 	let hi = $derived(Math.max(1, ...Object.values(values).filter((v): v is number => v != null && Number.isFinite(v))));
 	function alpha(v: number | null | undefined) { return v == null ? 0 : Math.pow(v / hi, gamma); }
 	let hovered = $state<string | null>(null);
 </script>
 
-<div bind:this={el} class="tm">
-	<svg viewBox="0 0 {width} {height}" width="100%" {height} role="img" aria-label="Tile map of U.S. states">
+<div bind:this={el} class="tm" class:fit>
+	<svg viewBox="0 0 {viewWidth} {viewHeight}" width="100%" height={fit ? '100%' : viewHeight} preserveAspectRatio="xMidYMid meet" role="img" aria-label="Tile map of U.S. states">
 		{#each Object.entries(STATE_TILES) as [st, [c, r]]}
 			{@const v = values[st]}
 			{@const a = alpha(v)}
@@ -48,6 +55,7 @@
 
 <style>
 	.tm { width: 100%; min-width: 0; display: block; }
+	.tm.fit { height: 100%; min-height: 0; }
 	svg { display: block; }
 	svg text { font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; fill: var(--ink-2); pointer-events: none; }
 	svg text.v { font-size: 9.5px; font-weight: 400; fill: var(--ink-3); }
