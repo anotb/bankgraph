@@ -5751,6 +5751,9 @@ export function createWorkspaceWebMcpTools(
     ];
     return names.map((name) => catalog[name]);
   }
+	const hasCohortTrendResult = deps.workspace.state.cohortTrendResult !== null;
+	const hasAnalysisResult = deps.workspace.state.analysisResult !== null;
+	const collectingAnalysis = !hasCohortTrendResult && !hasAnalysisResult;
   const names = [
     "bankgraph.get_context",
     "bankgraph.search_banks",
@@ -5760,14 +5763,14 @@ export function createWorkspaceWebMcpTools(
 		...(deps.getBoardPresentation ? [] : ["bankgraph.configure_view"]),
     "bankgraph.set_peer_cohort",
     ...(deps.readCurrentCohort ? ["bankgraph.read_current_cohort"] : []),
-    ...(deps.analyzeCohortTrends ? ["bankgraph.analyze_cohort_trends"] : []),
-    ...(deps.workspace.state.cohortTrendResult ? ["bankgraph.read_result_set"] : []),
-    ...(deps.analyzeCohortTrends && deps.workspace.state.cohortTrendResult ? ["bankgraph.build_board_from_result"] : []),
-    ...(deps.analyzeCohortChange ? ["bankgraph.analyze_cohort_change"] : []),
-    ...(deps.findTemporalPatterns ? ["bankgraph.find_temporal_patterns"] : []),
-    ...(deps.analyzeFinancialComposition ? ["bankgraph.analyze_financial_composition"] : []),
-    ...(deps.analyzeFailurePatterns ? ["bankgraph.analyze_failure_patterns"] : []),
-		...(deps.workspace.state.analysisResult && (deps.analyzeCohortChange || deps.findTemporalPatterns || deps.analyzeFinancialComposition || deps.analyzeFailurePatterns)
+    ...(deps.analyzeCohortTrends && collectingAnalysis ? ["bankgraph.analyze_cohort_trends"] : []),
+    ...(hasCohortTrendResult ? ["bankgraph.read_result_set"] : []),
+    ...(deps.analyzeCohortTrends && hasCohortTrendResult ? ["bankgraph.build_board_from_result"] : []),
+    ...(deps.analyzeCohortChange && collectingAnalysis ? ["bankgraph.analyze_cohort_change"] : []),
+    ...(deps.findTemporalPatterns && collectingAnalysis ? ["bankgraph.find_temporal_patterns"] : []),
+    ...(deps.analyzeFinancialComposition && collectingAnalysis ? ["bankgraph.analyze_financial_composition"] : []),
+    ...(deps.analyzeFailurePatterns && collectingAnalysis ? ["bankgraph.analyze_failure_patterns"] : []),
+		...(hasAnalysisResult && (deps.analyzeCohortChange || deps.findTemporalPatterns || deps.analyzeFinancialComposition || deps.analyzeFailurePatterns)
       ? ["bankgraph.read_analysis_result"]
       : []),
     "bankgraph.read_research_board",
@@ -5777,7 +5780,7 @@ export function createWorkspaceWebMcpTools(
     "bankgraph.add_workspace_view",
     "bankgraph.plot_metric_history",
     "bankgraph.publish_exact_table",
-    ...(deps.workspace.state.analysisResult ? ["bankgraph.publish_result_view"] : []),
+    ...(hasAnalysisResult ? ["bankgraph.publish_result_view"] : []),
     "bankgraph.upsert_takeaway",
     "bankgraph.update_board_block",
     "bankgraph.arrange_research_board",
@@ -5790,7 +5793,7 @@ export function createWorkspaceWebMcpTools(
 		...(deps.setAppearance ? ["bankgraph.set_appearance"] : []),
     ...(deps.readCurrentComparison ? ["bankgraph.read_current_comparison"] : []),
     ...(deps.analyzePeerDistribution ? ["bankgraph.analyze_peer_distribution"] : []),
-    ...(deps.analyzePeerDistribution && !deps.workspace.state.cohortTrendResult ? ["bankgraph.rank_cohort_on_board"] : []),
+    ...(deps.analyzePeerDistribution && collectingAnalysis ? ["bankgraph.rank_cohort_on_board"] : []),
     ...(deps.analyzeMetricRelationship ? ["bankgraph.analyze_metric_relationship"] : []),
     ...(deps.readGeographySummary ? ["bankgraph.read_geography_summary"] : []),
     ...(deps.readWorkspaceMacroContext ? ["bankgraph.read_workspace_macro_context"] : []),

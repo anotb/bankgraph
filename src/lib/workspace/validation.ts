@@ -1296,6 +1296,20 @@ export function normalizeWorkspaceState(value: unknown, path = 'workspace'): Wor
 	const period: SelectedPeriod = chartHistory.from !== null && chartHistory.to !== null
 		? { kind: 'range', from: chartHistory.from, to: chartHistory.to }
 		: { kind: 'quarter', quarter: asOfQuarter };
+	let cohortTrendResult = normalizeCohortTrendResult(
+		source.cohortTrendResult ?? null,
+		`${path}.cohortTrendResult`
+	);
+	let analysisResult = normalizeAnalysisResult(
+		source.analysisResult ?? null,
+		`${path}.analysisResult`
+	);
+	// Schema 3 has one current materialized result. Older saved workspaces can contain
+	// both result families because they predate that invariant; retain the newer one.
+	if (cohortTrendResult && analysisResult) {
+		if (cohortTrendResult.publishedRevision >= analysisResult.publishedRevision) analysisResult = null;
+		else cohortTrendResult = null;
+	}
 	return {
 		version: WORKSPACE_SCHEMA_VERSION,
 		revision: nonNegativeInteger(source.revision, `${path}.revision`),
@@ -1316,14 +1330,8 @@ export function normalizeWorkspaceState(value: unknown, path = 'workspace'): Wor
 		depth: enumValue<WorkspaceDepth>(source.depth, `${path}.depth`, DEPTHS),
 		activeMetric: normalizeActiveMetric(source.activeMetric, `${path}.activeMetric`),
 		mapSelection: normalizeMapSelection(source.mapSelection, `${path}.mapSelection`),
-		cohortTrendResult: normalizeCohortTrendResult(
-			source.cohortTrendResult ?? null,
-			`${path}.cohortTrendResult`
-		),
-		analysisResult: normalizeAnalysisResult(
-			source.analysisResult ?? null,
-			`${path}.analysisResult`
-		),
+		cohortTrendResult,
+		analysisResult,
 		board: normalizeResearchBoard(
 			source.board ?? { focusedBlockId: null, blocks: [] },
 			`${path}.board`
