@@ -1,5 +1,5 @@
 <script lang="ts">
-	interface Point { id: number; x: number; y: number; label?: string; color?: string; focus?: boolean }
+	interface Point { id: number; x: number; y: number; label?: string; color?: string; focus?: boolean; showLabel?: boolean }
 	interface Props { points: Point[]; fx?: (v: number) => string; fy?: (v: number) => string; xLabel: string; yLabel: string; height?: number; onselect?: (id: number) => void; onhover?: (id: number | null) => void }
 	let { points, fx = (v) => v.toFixed(2), fy = (v) => v.toFixed(2), xLabel, yLabel, height = 220, onselect, onhover }: Props = $props();
 	let width = $state(320);
@@ -22,7 +22,7 @@
 		<text x={width - pad.r} y={height - 6} text-anchor="end" class="ax">{xLabel} →</text>
 		<text x={pad.l + 4} y={pad.t + 9} class="ax">↑ {yLabel}</text>
 		{#each points as p}{#if !p.focus && p.x >= dx[0] && p.x <= dx[1] && p.y >= dy[0] && p.y <= dy[1]}<circle cx={x(p.x)} cy={y(p.y)} r="2.4" fill="var(--ink-3)" opacity="0.55" role="button" tabindex="0" aria-label={`${p.label ?? p.id}: ${fx(p.x)}, ${fy(p.y)}`} onclick={() => onselect?.(p.id)} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && onselect?.(p.id)} onpointerenter={() => onhover?.(p.id)} onpointerleave={() => onhover?.(null)} style="cursor:pointer"><title>{p.label ?? p.id}: {fx(p.x)}, {fy(p.y)}</title></circle>{/if}{/each}
-		{#each focus as p}<circle cx={x(Math.max(dx[0], Math.min(dx[1], p.x)))} cy={y(Math.max(dy[0], Math.min(dy[1], p.y)))} r="5" fill={p.color ?? 'var(--accent)'} stroke="var(--surface)" stroke-width="1.5" role="button" tabindex="0" aria-label={`${p.label ?? p.id}: ${fx(p.x)}, ${fy(p.y)}`} onclick={() => onselect?.(p.id)} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && onselect?.(p.id)} style="cursor:pointer" />{@const px = x(Math.max(dx[0], Math.min(dx[1], p.x)))}<text x={px > width * 0.72 ? px - 8 : px + 8} y={y(Math.max(dy[0], Math.min(dy[1], p.y))) + 3} text-anchor={px > width * 0.72 ? 'end' : 'start'} style="fill:{p.color ?? 'var(--accent)'}">{p.label}</text>{/each}
+		{#each focus as p}<circle cx={x(Math.max(dx[0], Math.min(dx[1], p.x)))} cy={y(Math.max(dy[0], Math.min(dy[1], p.y)))} r="5" fill={p.color ?? 'var(--accent)'} stroke="var(--surface)" stroke-width="1.5" role="button" tabindex="0" aria-label={`${p.label ?? p.id}: ${fx(p.x)}, ${fy(p.y)}`} onclick={() => onselect?.(p.id)} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && onselect?.(p.id)} onpointerenter={() => onhover?.(p.id)} onpointerleave={() => onhover?.(null)} style="cursor:pointer" />{#if p.showLabel}{@const px = x(Math.max(dx[0], Math.min(dx[1], p.x)))}<text x={px > width * 0.72 ? px - 8 : px + 8} y={y(Math.max(dy[0], Math.min(dy[1], p.y))) + 3} text-anchor={px > width * 0.72 ? 'end' : 'start'} style="fill:{p.color ?? 'var(--accent)'}">{p.label}</text>{/if}{/each}
 	</svg>
 </div>
 

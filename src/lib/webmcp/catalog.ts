@@ -3300,7 +3300,10 @@ export function createWorkspaceWebMcpToolCatalog(
       };
       const commit = executeSeries(
         deps.workspace,
-        [workspaceCommands.setCohortTrendResult(materialized)],
+        [
+          workspaceCommands.setAnalysisResult(null),
+          workspaceCommands.setCohortTrendResult(materialized),
+        ],
         commitRevision,
         context.signal,
       );
@@ -3354,10 +3357,10 @@ export function createWorkspaceWebMcpToolCatalog(
             resultRevision: materialized.publishedRevision,
             visibleRows: matches.length,
           },
-          nextAction: {
-            tool: "bankgraph.read_result_set",
-            input: { resultId },
-          },
+          nextActions: [
+            { tool: "bankgraph.build_board_from_result", input: { resultId, rankMetric: requestedMetrics[0], direction: "highest", bankCount: 8, boardMode: "replace" } },
+            { tool: "bankgraph.read_result_set", input: { resultId } },
+          ],
         };
         if (
           (fittedPageSize === 1 && fittedGroupPageSize === 1) ||
@@ -3477,6 +3480,183 @@ export function createWorkspaceWebMcpToolCatalog(
     },
   });
 
+  const buildBoardFromResult = mutationTool({
+    name: "bankgraph.build_board_from_result",
+    title: "Build a board from measure-defined results",
+    description:
+      "Turn the matching banks from the current bankgraph.analyze_cohort_trends result into the selected banks on a comparison board. The original cohort remains the benchmark. Rank the matches by any measure used in the result, choose up to 10 banks, and optionally replace the board with exact values, histories, a peer distribution, and a relationship view. Use this after a multi-period measure screen when the bank names were not known in advance. Read bankgraph.get_context first and pass its revision as ifRevision.",
+		maxResultChars: MAX_WEBMCP_EXTENDED_ENVELOPE_CHARS,
+    inputSchema: OBJECT(
+      {
+        resultId: STRING(64, "Stable resultId returned by bankgraph.analyze_cohort_trends.", 1),
+        rankMetric: VISIBLE_METRIC_SCHEMA,
+        direction: ENUM(["highest", "lowest"]),
+        bankCount: NUMBER(1, 10, true, "Number of matching banks to place on the board."),
+        metrics: ARRAY(VISIBLE_METRIC_SCHEMA, 6, 1),
+        question: STRING(1_000, "Optional board title or research question."),
+        boardMode: ENUM(["replace", "keep"], "Replace the current views with a comparison board, or keep its views."),
+        ifRevision: REVISION_SCHEMA,
+      },
+      ["resultId", "rankMetric", "direction", "bankCount", "boardMode", "ifRevision"],
+    ),
+    controller: async (input, context) => {
+      const source = inputObject(input, [
+        "resultId", "rankMetric", "direction", "bankCount", "metrics", "question", "boardMode", "ifRevision",
+      ]);
+      const resultId = identifier(source.resultId, "resultId");
+      const rankMetric = enumValue(source.rankMetric, "rankMetric", WORKSPACE_VISIBLE_METRICS);
+      const direction = enumValue(source.direction, "direction", ["highest", "lowest"] as const);
+      const bankCount = integer(source.bankCount, "bankCount", 1, 10);
+      const boardMode = enumValue(source.boardMode, "boardMode", ["replace", "keep"] as const);
+      const commitRevision = requiredRevision(source.ifRevision);
+      requireRevision(deps.workspace.state, commitRevision);
+      const result = deps.workspace.state.cohortTrendResult;
+      if (!result || result.id !== resultId) {
+        throw new WebMcpToolError(
+          "result_set_not_found",
+          result
+            ? `Result ${resultId} is no longer current. The visible workspace now holds ${result.id}.`
+            : `Result ${resultId} is no longer present in the visible workspace.`,
+          { requestedResultId: resultId, currentResultId: result?.id ?? null },
+        );
+      }
+      if (!result.metrics.includes(rankMetric)) {
+        throw new WebMcpInputError(`rankMetric must be one of the measures in this result: ${result.metrics.join(", ")}`);
+      }
+      const ranked = result.rows
+        .flatMap((row) => {
+          const value = row.changes[rankMetric];
+          return value == null ? [] : [{ ...row, value }];
+        })
+        .sort((left, right) => {
+          const byValue = direction === "highest" ? right.value - left.value : left.value - right.value;
+          return byValue || (right.totalAssets ?? 0) - (left.totalAssets ?? 0) || left.cert - right.cert;
+        });
+      const selected = ranked.slice(0, bankCount);
+      if (!selected.length) {
+        throw new WebMcpToolError("empty_result_set", `Result ${resultId} has no comparable ${rankMetric} values.`, { resultId, rankMetric });
+      }
+      const certs = selected.map((row) => row.cert);
+      const requestedMetrics = source.metrics === undefined
+        ? result.metrics.slice(0, 6) as WorkspaceVisibleMetric[]
+        : parseMetrics(source.metrics, "metrics", 6, 1);
+      const metrics = [rankMetric, ...requestedMetrics.filter((metric) => metric !== rankMetric)].slice(0, 6);
+      await deps.ensureBanksLoaded?.(certs, context);
+      throwIfAborted(context.signal);
+      requireRevision(deps.workspace.state, commitRevision);
+      const commands: WorkspaceCommand[] = [
+        workspaceCommands.setSelectedCerts(certs),
+        workspaceCommands.setActiveBank(certs[0]),
+        workspaceCommands.setAsOfQuarter(result.to),
+        workspaceCommands.setComparison({ mode: "custom", rangeStartQuarter: result.from, customQuarter: result.from }),
+        workspaceCommands.setChartHistory({ from: result.from, to: result.to }),
+        workspaceCommands.setActiveMetric(rankMetric),
+        workspaceCommands.upsertChart({ id: "linked-analysis", title: "Banks selected from the measure screen", kind: "line", metrics, certs, scale: "value", stacked: false, visible: true }),
+      ];
+      if (source.question !== undefined) {
+        commands.unshift(workspaceCommands.setQuestion(stringValue(source.question, "question", { max: 1_000, trim: false })));
+      }
+      const committed = executeSeries(deps.workspace, commands, commitRevision, context.signal);
+      const board = boardMode === "replace" && deps.applyBoardTemplate
+        ? await deps.applyBoardTemplate({
+            templateId: "peer_comparison",
+            mode: "replace",
+            focus: false,
+            sortMetric: rankMetric,
+            sortBasis: "change",
+            sortDirection: direction === "highest" ? "desc" : "asc",
+          }, context)
+        : { changed: false, blockIds: [] as string[] };
+      return {
+        summary: `${selected.length} matching bank${selected.length === 1 ? "" : "s"} now form the visible answer set; the original ${result.counts.cohort}-bank cohort remains the benchmark.`,
+        data: {
+          changed: committed.changed || board.changed,
+          revision: deps.workspace.state.revision,
+          resultId,
+          ranking: { metric: rankMetric, unit: result.changeUnits[rankMetric], direction },
+          selectedBanks: selected.map(({ cert, name, state, totalAssets, value }) => ({ cert, name, state, totalAssets, value })),
+          metrics,
+          comparison: { from: result.from, to: result.to },
+          benchmark: { cohortCount: result.counts.cohort, comparableCount: result.counts.comparable, matchingCount: result.counts.matching },
+          board: { mode: boardMode, blockIds: board.blockIds },
+          ...dataContext(deps),
+        },
+      };
+    },
+  });
+
+  const rankCohortOnBoard = mutationTool({
+    name: "bankgraph.rank_cohort_on_board",
+    title: "Rank a cohort by a measure and build a board",
+    description:
+      "Rank the current cohort by one reported measure, select up to 10 banks from either tail, and optionally replace the board with exact values, histories, a peer distribution, and a relationship view. Use this for questions such as which banks have the highest loan-to-deposit ratio when bank names are not known in advance. The full cohort remains the benchmark behind the selected answer set. Read bankgraph.get_context first and pass its revision as ifRevision.",
+    inputSchema: OBJECT(
+      {
+        metric: VISIBLE_METRIC_SCHEMA,
+        direction: ENUM(["highest", "lowest"]),
+        bankCount: NUMBER(1, 10, true, "Number of ranked banks to place on the board."),
+        metrics: ARRAY(VISIBLE_METRIC_SCHEMA, 6, 1),
+        question: STRING(1_000, "Optional board title or research question."),
+        boardMode: ENUM(["replace", "keep"], "Replace the current views with a comparison board, or keep its views."),
+        ifRevision: REVISION_SCHEMA,
+      },
+      ["metric", "direction", "bankCount", "boardMode", "ifRevision"],
+    ),
+    controller: async (input, context) => {
+      const source = inputObject(input, ["metric", "direction", "bankCount", "metrics", "question", "boardMode", "ifRevision"]);
+      if (!deps.analyzePeerDistribution) throw capabilityUnavailable("Cohort ranking", "Open the analysis workspace and retry.");
+      requireBoundedCurrentCohort(deps);
+      const metric = enumValue(source.metric, "metric", WORKSPACE_VISIBLE_METRICS);
+      const direction = enumValue(source.direction, "direction", ["highest", "lowest"] as const);
+      const bankCount = integer(source.bankCount, "bankCount", 1, 10);
+      const boardMode = enumValue(source.boardMode, "boardMode", ["replace", "keep"] as const);
+      const commitRevision = requiredRevision(source.ifRevision);
+      requireRevision(deps.workspace.state, commitRevision);
+      const distribution = await deps.analyzePeerDistribution({ metric }, context);
+      throwIfAborted(context.signal);
+      requireRevision(deps.workspace.state, commitRevision);
+      requireMatchingSourceMode(deps, distribution.sourceMode, "Cohort ranking");
+      const tail = direction === "highest" ? distribution.highest : distribution.lowest;
+      const selected = tail.slice(0, bankCount).map((bank, index) => boundedDistributionBank(bank, `result.${direction}[${index}]`));
+      if (!selected.length) throw new WebMcpToolError("empty_cohort", `The current cohort has no comparable ${metric} values.`, { metric });
+      const certs = selected.map((bank) => bank.cert);
+      const requestedMetrics = source.metrics === undefined ? visibleMetricsFromState(deps.workspace.state) : parseMetrics(source.metrics, "metrics", 6, 1);
+      const metrics = [metric, ...requestedMetrics.filter((item) => item !== metric)].slice(0, 6);
+      await deps.ensureBanksLoaded?.(certs, context);
+      throwIfAborted(context.signal);
+      requireRevision(deps.workspace.state, commitRevision);
+      const commands: WorkspaceCommand[] = [
+        workspaceCommands.setSelectedCerts(certs),
+        workspaceCommands.setActiveBank(certs[0]),
+        workspaceCommands.setActiveMetric(metric),
+        workspaceCommands.upsertChart({ id: "linked-analysis", title: `Banks ranked by ${researchMetricDefinition(metric).label}`, kind: "line", metrics, certs, scale: "value", stacked: false, visible: true }),
+      ];
+      if (source.question !== undefined) {
+        commands.unshift(workspaceCommands.setQuestion(stringValue(source.question, "question", { max: 1_000, trim: false })));
+      }
+      const committed = executeSeries(deps.workspace, commands, commitRevision, context.signal);
+      const board = boardMode === "replace" && deps.applyBoardTemplate
+        ? await deps.applyBoardTemplate({ templateId: "peer_comparison", mode: "replace", focus: false }, context)
+        : { changed: false, blockIds: [] as string[] };
+      return {
+        summary: `${selected.length} bank${selected.length === 1 ? "" : "s"} from the ${direction} end of the cohort now form the visible answer set.`,
+        data: {
+          changed: committed.changed || board.changed,
+          revision: deps.workspace.state.revision,
+          metric,
+          unit: WEBMCP_METRIC_METHODS[metric].unit,
+          direction,
+          period: distribution.period,
+          selectedBanks: selected,
+          metrics,
+          benchmark: { cohortCount: distribution.count, missingCount: distribution.missingCount, statistics: distribution.statistics },
+          board: { mode: boardMode, blockIds: board.blockIds },
+          ...dataContext(deps),
+        },
+      };
+    },
+  });
+
   const analyzeCohortChange = mutationTool({
     name: "bankgraph.analyze_cohort_change",
     title: "Explain change across the current cohort",
@@ -3540,6 +3720,7 @@ export function createWorkspaceWebMcpToolCatalog(
       requireRevision(deps.workspace.state, commitRevision);
       const block = analysisBoardBlock(materialized, ref, source, "breadth");
       const commands: WorkspaceCommand[] = [
+		workspaceCommands.setCohortTrendResult(null),
         workspaceCommands.setAnalysisResult(materialized),
         workspaceCommands.upsertBoardBlock(block),
       ];
@@ -3672,6 +3853,7 @@ export function createWorkspaceWebMcpToolCatalog(
       requireRevision(deps.workspace.state, commitRevision);
       const block = analysisBoardBlock(materialized, ref, source, "matched_banks");
       const commands: WorkspaceCommand[] = [
+		workspaceCommands.setCohortTrendResult(null),
         workspaceCommands.setAnalysisResult(materialized),
         workspaceCommands.upsertBoardBlock(block),
       ];
@@ -3775,6 +3957,7 @@ export function createWorkspaceWebMcpToolCatalog(
       requireRevision(deps.workspace.state, commitRevision);
       const block = analysisBoardBlock(materialized, ref, source, "stacked_composition");
       const commands: WorkspaceCommand[] = [
+		workspaceCommands.setCohortTrendResult(null),
         workspaceCommands.setAnalysisResult(materialized),
         workspaceCommands.upsertBoardBlock(block),
       ];
@@ -3873,6 +4056,7 @@ export function createWorkspaceWebMcpToolCatalog(
       requireRevision(deps.workspace.state, commitRevision);
       const block = analysisBoardBlock(materialized, ref, source, "both");
       const commands: WorkspaceCommand[] = [
+		workspaceCommands.setCohortTrendResult(null),
         workspaceCommands.setAnalysisResult(materialized),
         workspaceCommands.upsertBoardBlock(block),
       ];
@@ -5523,6 +5707,7 @@ export function createWorkspaceWebMcpToolCatalog(
       readCurrentCohort,
       analyzeCohortTrends,
       readResultSet,
+      buildBoardFromResult,
       analyzeCohortChange,
       findTemporalPatterns,
       analyzeFinancialComposition,
@@ -5530,6 +5715,7 @@ export function createWorkspaceWebMcpToolCatalog(
       readAnalysisResult,
       readCurrentComparison,
       analyzePeerDistribution,
+      rankCohortOnBoard,
       analyzeMetricRelationship,
       readGeographySummary,
       readWorkspaceMacroContext,
@@ -5575,12 +5761,13 @@ export function createWorkspaceWebMcpTools(
     "bankgraph.set_peer_cohort",
     ...(deps.readCurrentCohort ? ["bankgraph.read_current_cohort"] : []),
     ...(deps.analyzeCohortTrends ? ["bankgraph.analyze_cohort_trends"] : []),
-    "bankgraph.read_result_set",
+    ...(deps.workspace.state.cohortTrendResult ? ["bankgraph.read_result_set"] : []),
+    ...(deps.analyzeCohortTrends && deps.workspace.state.cohortTrendResult ? ["bankgraph.build_board_from_result"] : []),
     ...(deps.analyzeCohortChange ? ["bankgraph.analyze_cohort_change"] : []),
     ...(deps.findTemporalPatterns ? ["bankgraph.find_temporal_patterns"] : []),
     ...(deps.analyzeFinancialComposition ? ["bankgraph.analyze_financial_composition"] : []),
     ...(deps.analyzeFailurePatterns ? ["bankgraph.analyze_failure_patterns"] : []),
-		...(deps.analyzeCohortChange || deps.findTemporalPatterns || deps.analyzeFinancialComposition || deps.analyzeFailurePatterns
+		...(deps.workspace.state.analysisResult && (deps.analyzeCohortChange || deps.findTemporalPatterns || deps.analyzeFinancialComposition || deps.analyzeFailurePatterns)
       ? ["bankgraph.read_analysis_result"]
       : []),
     "bankgraph.read_research_board",
@@ -5590,7 +5777,7 @@ export function createWorkspaceWebMcpTools(
     "bankgraph.add_workspace_view",
     "bankgraph.plot_metric_history",
     "bankgraph.publish_exact_table",
-    "bankgraph.publish_result_view",
+    ...(deps.workspace.state.analysisResult ? ["bankgraph.publish_result_view"] : []),
     "bankgraph.upsert_takeaway",
     "bankgraph.update_board_block",
     "bankgraph.arrange_research_board",
@@ -5603,6 +5790,7 @@ export function createWorkspaceWebMcpTools(
 		...(deps.setAppearance ? ["bankgraph.set_appearance"] : []),
     ...(deps.readCurrentComparison ? ["bankgraph.read_current_comparison"] : []),
     ...(deps.analyzePeerDistribution ? ["bankgraph.analyze_peer_distribution"] : []),
+    ...(deps.analyzePeerDistribution && !deps.workspace.state.cohortTrendResult ? ["bankgraph.rank_cohort_on_board"] : []),
     ...(deps.analyzeMetricRelationship ? ["bankgraph.analyze_metric_relationship"] : []),
     ...(deps.readGeographySummary ? ["bankgraph.read_geography_summary"] : []),
     ...(deps.readWorkspaceMacroContext ? ["bankgraph.read_workspace_macro_context"] : []),

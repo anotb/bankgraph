@@ -27,6 +27,8 @@ const LABELS: Record<string, string> = {
 	'bankgraph.analyze_peer_distribution': 'Reading the peer distribution',
 	'bankgraph.analyze_metric_relationship': 'Testing a relationship',
 	'bankgraph.analyze_cohort_trends': 'Scanning the cohort',
+	'bankgraph.build_board_from_result': 'Turning the matches into a board',
+	'bankgraph.rank_cohort_on_board': 'Ranking the cohort',
 	'bankgraph.analyze_cohort_change': 'Explaining cohort change',
 	'bankgraph.find_temporal_patterns': 'Finding multi-quarter patterns',
 	'bankgraph.analyze_financial_composition': 'Analyzing composition',

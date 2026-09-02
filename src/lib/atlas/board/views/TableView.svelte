@@ -11,13 +11,27 @@
 	let follow = $derived(block.kind !== 'exact_table' || block.binding.followCurrent);
 	let oneBank = $derived(e.certs.length === 1 && !follow);
 	let sortKey = $state<string | null>(null);
+	let sortBasis = $state<'level' | 'change'>('level');
 	let sortDir = $state<'asc' | 'desc'>('desc');
+	let userSorted = $state(false);
+	$effect(() => {
+		if (userSorted) return;
+		const configured = board.overrides[block.id];
+		sortKey = configured?.sortMetric ?? board.activeMetric;
+		sortBasis = configured?.sortBasis ?? 'level';
+		sortDir = configured?.sortDirection ?? 'desc';
+	});
 	let rows = $derived.by(() => {
 		const list = e.certs.map((cert, i) => ({ cert, i, name: shortBankName(board.data.institutions[cert]?.name ?? String(cert)), state: board.data.institutions[cert]?.state ?? '', values: Object.fromEntries(e.metrics.map((m) => [m, metricValue(m, board.data.rows[cert], e.asOf, board.data.institutions[cert])])) as Record<string, number | null> }));
 		if (!sortKey) return list;
-		return list.sort((a, b) => ((a.values[sortKey!] ?? -Infinity) - (b.values[sortKey!] ?? -Infinity)) * (sortDir === 'asc' ? 1 : -1));
+		return list.sort((a, b) => {
+			const value = (row: typeof a) => sortBasis === 'change'
+				? metricChange(sortKey! as Parameters<typeof metricChange>[0], row.values[sortKey!], metricValue(sortKey! as Parameters<typeof metricValue>[0], board.data.rows[row.cert], e.compareWith, board.data.institutions[row.cert])).value
+				: row.values[sortKey!];
+			return ((value(a) ?? -Infinity) - (value(b) ?? -Infinity)) * (sortDir === 'asc' ? 1 : -1);
+		});
 	});
-	function sortBy(m: string) { if (sortKey === m) sortDir = sortDir === 'asc' ? 'desc' : 'asc'; else { sortKey = m; sortDir = 'desc'; } }
+	function sortBy(m: string) { userSorted = true; sortBasis = 'level'; if (sortKey === m) sortDir = sortDir === 'asc' ? 'desc' : 'asc'; else { sortKey = m; sortDir = 'desc'; } }
 </script>
 
 {#if !e.certs.length}

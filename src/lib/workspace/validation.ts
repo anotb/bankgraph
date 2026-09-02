@@ -507,7 +507,8 @@ export function normalizeCohortTrendResult(
 	const from = normalizeReportingQuarter(source.from, `${path}.from`);
 	const to = normalizeReportingQuarter(source.to, `${path}.to`);
 	if (from === null || to === null) issue(path, 'from and to are required');
-	if (compareReportingQuarters(from, to) !== -1) issue(path, 'from must be earlier than to');
+	const order = compareReportingQuarters(from, to);
+	if (order === null || order >= 0) issue(path, 'from must be earlier than to');
 
 	const conditionValues = array(source.conditions, `${path}.conditions`);
 	if (conditionValues.length < 1 || conditionValues.length > WORKSPACE_LIMITS.cohortTrendConditions) {

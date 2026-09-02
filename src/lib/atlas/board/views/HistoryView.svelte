@@ -7,7 +7,7 @@
 	import { quarterLabel, shortBankName, tinyBankName, seriesColor } from '$lib/atlas/format';
 	import { viewport } from '$lib/atlas/viewport.svelte';
 
-	let { block, span }: { block: ResearchBoardBlock; span: number } = $props();
+	let { block, span, tall = false }: { block: ResearchBoardBlock; span: number; tall?: boolean } = $props();
 	const board = Board.use();
 	let e = $derived(effective(board, block));
 	let scale = $derived(block.kind === 'history' ? block.binding.scale : 'value');
@@ -57,12 +57,12 @@
 				{@const med = medianSeries(m)}
 				<div class="cell" class:on={m === metric}>
 					<button type="button" class="ct" onclick={() => board.setActiveMetric(m)}><span>{researchMetricDefinition(m).label}</span><span class="mono">{formatMetric(m, metricValue(m, board.data.rows[e.certs[0]], readQuarter, board.data.institutions[e.certs[0]]))}</span></button>
-					<LineChart series={med ? [...series(m), med] : series(m)} {labels} band={band(m)} marker={asOfIndex} marker2={cmpIndex >= 0 ? cmpIndex : null} format={(v) => (scale === 'index' ? v.toFixed(0) : formatMetric(m, v, { compact: true }))} height={span >= 9 ? 132 : 118} direct={false} bind:hover onselect={(i, shift) => { const q = e.quarters[i]; if (!q) return; if (shift) board.setComparison('custom', q); else board.setAsOf(q); }} />
+					<LineChart series={med ? [...series(m), med] : series(m)} {labels} band={band(m)} marker={asOfIndex} marker2={cmpIndex >= 0 ? cmpIndex : null} format={(v) => (scale === 'index' ? v.toFixed(0) : formatMetric(m, v, { compact: true }))} height={tall ? (span >= 9 ? 210 : 180) : span >= 9 ? 132 : 118} direct={false} bind:hover onselect={(i, shift) => { const q = e.quarters[i]; if (!q) return; if (shift) board.setComparison('custom', q); else board.setAsOf(q); }} />
 				</div>
 			{/each}
 		</div>
 	{:else}
-		<LineChart series={primary} {labels} band={band(metric)} marker={asOfIndex} marker2={cmpIndex >= 0 ? cmpIndex : null} format={(v) => (scale === 'index' ? v.toFixed(0) : formatMetric(metric, v, { compact: true }))} height={span >= 8 ? 230 : 210} direct={true} bind:hover onselect={(i, shift) => { const q = e.quarters[i]; if (!q) return; if (shift) board.setComparison('custom', q); else board.setAsOf(q); }} />
+		<LineChart series={primary} {labels} band={band(metric)} marker={asOfIndex} marker2={cmpIndex >= 0 ? cmpIndex : null} format={(v) => (scale === 'index' ? v.toFixed(0) : formatMetric(metric, v, { compact: true }))} height={tall ? (span >= 8 ? 480 : 450) : span >= 8 ? 230 : 210} direct={true} bind:hover onselect={(i, shift) => { const q = e.quarters[i]; if (!q) return; if (shift) board.setComparison('custom', q); else board.setAsOf(q); }} />
 	{/if}
 
 	<div class="readout">

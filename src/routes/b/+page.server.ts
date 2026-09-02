@@ -18,6 +18,7 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
 			states: url.searchParams.get('states')?.split(',').filter(Boolean) ?? [],
 			certs: url.searchParams.get('certs')?.split(',').map(Number).filter((n) => Number.isSafeInteger(n) && n > 0) ?? [],
 			asOf: url.searchParams.get('asOf'),
+			assetMin: url.searchParams.get('asset_min') ? Number(url.searchParams.get('asset_min')) : null,
 			assetMax: url.searchParams.get('asset_max') ? Number(url.searchParams.get('asset_max')) : null,
 			add: url.searchParams.get('add'),
 			series: url.searchParams.get('series')?.split(',').filter(Boolean) ?? [],

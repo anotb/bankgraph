@@ -26,32 +26,39 @@
 	/** Half-width plates drop the middle-half column; the expanded strip above still shows it for the selected measure. */
 	let compact = $derived(span < 8);
 	let pts = $derived(cohortValues(board, metric, e.asOf));
-	let focusPoints = $derived(e.certs.map((cert, i) => ({ cert, i, value: metricValue(metric, board.data.rows[cert], e.asOf, board.data.institutions[cert]) })).filter((f) => f.value != null).map((f) => ({ cert: f.cert, value: f.value as number, label: tinyBankName(board.data.institutions[f.cert]?.name ?? String(f.cert)), color: seriesColor(f.i) })));
+	let focusPoints = $derived(e.certs.map((cert, i) => ({ cert, i, value: metricValue(metric, board.data.rows[cert], e.asOf, board.data.institutions[cert]) })).filter((f) => f.value != null).map((f) => ({ cert: f.cert, value: f.value as number, label: tinyBankName(board.data.institutions[f.cert]?.name ?? String(f.cert)), color: seriesColor(f.i), showLabel: board.state.activeBank === f.cert || board.hoverCert === f.cert })));
 	const cls = (ch: { favorable: boolean | null }) => (ch.favorable === true ? 'up' : ch.favorable === false ? 'down' : 'flat');
 </script>
 
 {#if board.data.cohort.length < 5}
 	<div class="empty">{board.data.pending ? 'Loading the cohort…' : 'Define a cohort of five or more to see where the banks sit.'}</div>
-{:else if !e.certs.length}
-	<div class="empty">Add a bank to place it among peers.</div>
 {:else}
 	<div class="focus-strip">
-		<div class="fh"><b>{focusRow?.def.label}</b><span class="dim">{shortBankName(board.data.institutions[focusCert]?.name ?? String(focusCert))} among {count(pts.length)} peers{#if focusRow?.p25 != null} · middle half {formatMetric(metric, focusRow.p25, { compact: true })} – {formatMetric(metric, focusRow.p75, { compact: true })}{/if} · {quarterLabel(e.asOf)}{focusRow?.def.direction !== 'neutral' ? ` · ${focusRow?.def.direction === 'higher' ? 'higher' : 'lower'} is better` : ''}</span></div>
-		<Strip points={pts.map((p) => ({ cert: p.cert, value: p.value, label: shortBankName(board.data.institutions[p.cert]?.name ?? String(p.cert)) }))} focus={focusPoints} format={(v) => formatMetric(metric, v, { compact: true })} height={Math.max(span >= 8 ? 72 : 64, 44 + focusPoints.length * 12)} onselect={(cert) => board.addCert(cert)} />
+		<div class="fh"><b>{focusRow?.def.label}</b><span class="dim">{#if focusCert != null}{shortBankName(board.data.institutions[focusCert]?.name ?? String(focusCert))} among {/if}{count(pts.length)} {focusCert != null ? 'peers' : 'institutions'}{#if focusRow?.p25 != null} · middle half {formatMetric(metric, focusRow.p25, { compact: true })} – {formatMetric(metric, focusRow.p75, { compact: true })}{/if} · {quarterLabel(e.asOf)}{focusRow?.def.direction !== 'neutral' ? ` · ${focusRow?.def.direction === 'higher' ? 'higher' : 'lower'} is better` : ''}</span></div>
+		<Strip points={pts.map((p) => ({ cert: p.cert, value: p.value, label: shortBankName(board.data.institutions[p.cert]?.name ?? String(p.cert)) }))} focus={focusPoints} format={(v) => formatMetric(metric, v, { compact: true })} height={span >= 8 ? 72 : 64} onselect={(cert) => board.addCert(cert)} />
 	</div>
 	<div class="scroll">
 		<table class="atlas matrix">
-			<thead><tr><th>Measure</th><th>Bank</th><th>Peer median</th>{#if !compact}<th>Middle half</th>{/if}<th>Percentile</th>{#if !compact}<th>Rank</th>{/if}<th>vs {quarterLabel(e.compareWith)}</th></tr></thead>
+			<thead>
+				{#if focusCert != null}<tr><th>Measure</th><th>Bank</th><th>Peer median</th>{#if !compact}<th>Middle half</th>{/if}<th>Percentile</th>{#if !compact}<th>Rank</th>{/if}<th>vs {quarterLabel(e.compareWith)}</th></tr>
+				{:else}<tr><th>Measure</th><th>Median</th><th>Middle half</th><th>Institutions</th></tr>{/if}
+			</thead>
 			<tbody>
 				{#each rows as r}
 					<tr class:focus={r.m === metric} onclick={() => board.setActiveMetric(r.m)}>
 						<td class="n"><b>{r.def.label}</b></td>
-						<td class="v">{formatMetric(r.m, r.cur)}</td>
-						<td class="dim">{formatMetric(r.m, r.med)}</td>
-						{#if !compact}<td class="dim">{formatMetric(r.m, r.p25, { compact: true })} – {formatMetric(r.m, r.p75, { compact: true })}</td>{/if}
-						<td>{#if r.pct != null}<span class="pbar" style="--p:{r.pct}%"><i></i></span><span class:hi={r.pct >= 75} class:lo={r.pct <= 25}>P{r.pct}</span>{#if compact && r.rank != null}<span class="chg">{r.rank} of {r.n + 1}</span>{/if}{:else}—{/if}</td>
-						{#if !compact}<td class="dim">{r.rank != null ? `${r.rank} of ${r.n + 1}` : '—'}</td>{/if}
-						<td class={cls(r.move)}>{r.move.text}</td>
+						{#if focusCert != null}
+							<td class="v">{formatMetric(r.m, r.cur)}</td>
+							<td class="dim">{formatMetric(r.m, r.med)}</td>
+							{#if !compact}<td class="dim">{formatMetric(r.m, r.p25, { compact: true })} – {formatMetric(r.m, r.p75, { compact: true })}</td>{/if}
+							<td>{#if r.pct != null}<span class="pbar" style="--p:{r.pct}%"><i></i></span><span class:hi={r.pct >= 75} class:lo={r.pct <= 25}>P{r.pct}</span>{#if compact && r.rank != null}<span class="chg">{r.rank} of {r.n + 1}</span>{/if}{:else}—{/if}</td>
+							{#if !compact}<td class="dim">{r.rank != null ? `${r.rank} of ${r.n + 1}` : '—'}</td>{/if}
+							<td class={cls(r.move)}>{r.move.text}</td>
+						{:else}
+							<td class="v">{formatMetric(r.m, r.med)}</td>
+							<td class="dim">{formatMetric(r.m, r.p25, { compact: true })} – {formatMetric(r.m, r.p75, { compact: true })}</td>
+							<td class="dim mono">{count(r.n)}</td>
+						{/if}
 					</tr>
 				{/each}
 			</tbody>

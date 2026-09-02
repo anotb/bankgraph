@@ -133,11 +133,11 @@
 	function boardHref(g: Group) { return `/b?add=economy&series=${g.series.map((s) => s.id).join(',')}`; }
 </script>
 
-<svelte:head><title>Economy · Bankgraph</title><meta name="description" content="Rates and the yield curve, bank credit, deposits and lending, inflation and labor: direct-agency series on one synchronized time axis, with recessions and banking events marked." /></svelte:head>
+<svelte:head><title>Economy · Bankgraph</title><meta name="description" content="Follow interest rates, the yield curve, bank credit, deposits, lending, inflation, and employment across the same period." /></svelte:head>
 
 <div class="page">
 	<header class="head">
-		<div><h1>Economy</h1><p class="sub">Direct-agency series on one time axis. Hover any chart to read every series at that date; change the window once and every chart follows.</p></div>
+		<div><h1>Economy</h1><p class="sub">Follow the forces around bank balance sheets: interest rates, credit, deposits, inflation, and employment.</p></div>
 		<div class="controls">
 			<div class="seg" role="group" aria-label="Window">{#each RANGES as r}<button type="button" aria-pressed={rangeId === r.id} onclick={() => (rangeId = r.id)}>{r.label}</button>{/each}</div>
 			<div class="seg" role="group" aria-label="Bank series"><button type="button" aria-pressed={mode === 'level'} onclick={() => (mode = 'level')}>Levels</button><button type="button" aria-pressed={mode === 'yoy'} onclick={() => (mode = 'yoy')}>Year-over-year</button></div>
@@ -181,7 +181,6 @@
 		{/each}
 	</div>
 
-	<footer class="foot dim">Sources: {[...new Set(data.catalog.map((s: MacroSeriesMeta) => s.source_agency))].join(' · ')}. Shaded bands are NBER recessions; the pandemic band covers February to April 2020. Series are aligned to a {step}ly grid by carrying each last observation forward; hover values are the last observation at or before that date.</footer>
 </div>
 
 <style>
@@ -207,7 +206,6 @@
 	td.v { font-weight: 600; }
 	.flat { color: var(--ink-3); }
 	.small { font-size: 11.5px; margin-top: 6px; }
-	.foot { font-size: 11.5px; line-height: 1.5; max-width: 110ch; }
 	@media (max-width: 1200px) { .plate, .plate.wide, .plate.short, .plate.full { grid-column: span 12; } .plate.short .readings th:nth-child(5), .plate.short .readings td:nth-child(5) { display: table-cell; } }
 	@media (max-width: 640px) { .page { padding: 10px 12px 16px; gap: 10px; } .grid { grid-template-columns: minmax(0, 1fr); gap: 10px; } .plate, .plate.wide, .plate.short, .plate.full { grid-column: span 1; } .ph .btn { margin-left: 0; } .readings th:nth-child(5), .readings td:nth-child(5) { display: none; } }
 </style>

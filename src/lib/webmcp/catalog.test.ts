@@ -346,7 +346,7 @@ describe("workspace WebMCP catalog", () => {
   it("exposes every connected workspace operation without panel-dependent hiding", () => {
     const { deps, workspace } = dependencies();
     const tools = createWorkspaceWebMcpTools(deps, { page: "workspace" });
-		expect(tools).toHaveLength(34);
+		expect(tools).toHaveLength(33);
     expect(tools.map((item) => item.name)).not.toEqual(
       expect.arrayContaining([
         expect.stringMatching(/sync|pipeline|admin|secret/i),
@@ -362,7 +362,6 @@ describe("workspace WebMCP catalog", () => {
       "bankgraph.set_peer_cohort",
       "bankgraph.read_current_cohort",
       "bankgraph.analyze_cohort_trends",
-      "bankgraph.read_result_set",
 			"bankgraph.read_research_board",
 			"bankgraph.read_board_block",
 			"bankgraph.list_board_templates",
@@ -370,7 +369,6 @@ describe("workspace WebMCP catalog", () => {
 			"bankgraph.add_workspace_view",
       "bankgraph.plot_metric_history",
       "bankgraph.publish_exact_table",
-      "bankgraph.publish_result_view",
       "bankgraph.upsert_takeaway",
       "bankgraph.update_board_block",
       "bankgraph.arrange_research_board",
@@ -378,6 +376,7 @@ describe("workspace WebMCP catalog", () => {
       "bankgraph.focus_board_block",
       "bankgraph.read_current_comparison",
       "bankgraph.analyze_peer_distribution",
+			"bankgraph.rank_cohort_on_board",
       "bankgraph.analyze_metric_relationship",
       "bankgraph.read_geography_summary",
       "bankgraph.read_workspace_macro_context",
@@ -390,8 +389,7 @@ describe("workspace WebMCP catalog", () => {
     ]);
     expect(tools.find((item) => item.name === "bankgraph.analyze_cohort_trends")?.maxResultChars)
       .toBe(32_768);
-    expect(tools.find((item) => item.name === "bankgraph.read_result_set")?.maxResultChars)
-      .toBe(32_768);
+    expect(tools.find((item) => item.name === "bankgraph.read_result_set")).toBeUndefined();
 
     for (const panel of [
       "screen",
@@ -557,6 +555,7 @@ describe("workspace WebMCP catalog", () => {
       ifRevision: 0,
     }, { signal }) as { ok: boolean; data: { workspace: { resultId: string } } };
     expect(analysis.ok).toBe(true);
+		await host.syncScope("workspace", createWorkspaceWebMcpTools(deps, { page: "workspace" }));
 
     const native = modelContext.active.get("bankgraph.read_result_set")!;
     const first = await native.execute({
@@ -1599,10 +1598,10 @@ describe("workspace WebMCP catalog", () => {
         resultRevision: 1,
         visibleRows: 2,
       },
-      nextAction: {
-        tool: "bankgraph.read_result_set",
-        input: { resultId: expect.stringMatching(/^trend-[0-9a-f]{8}$/) },
-      },
+      nextActions: [
+        { tool: "bankgraph.build_board_from_result", input: { resultId: expect.stringMatching(/^trend-[0-9a-f]{8}$/) } },
+        { tool: "bankgraph.read_result_set", input: { resultId: expect.stringMatching(/^trend-[0-9a-f]{8}$/) } },
+      ],
     });
     expect(workspace.state.cohortTrendResult).toMatchObject({
       id: expect.stringMatching(/^trend-[0-9a-f]{8}$/),
@@ -2339,7 +2338,7 @@ describe("workspace WebMCP catalog", () => {
     });
     const sync = await host.syncScope("workspace", tools);
     expect(sync.failed).toEqual({});
-    expect(sync.registered).toHaveLength(35);
+		expect(sync.registered).toHaveLength(34);
     const output = await modelContext.active
       .get("bankgraph.get_context")!
       .execute({}, { signal });

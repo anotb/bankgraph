@@ -39,7 +39,6 @@
 	const PAGES = [
 		{ title: 'Research', sub: 'your board', href: '/b' },
 		{ title: 'Institutions', sub: 'every FDIC-insured bank, screened and sorted', href: '/banks' },
-		{ title: 'Banking system', sub: 'the whole system by size group, ten years', href: '/system' },
 		{ title: 'Economy', sub: 'rates, the yield curve, bank credit, inflation and labor', href: '/economy' },
 		{ title: 'Data and methods', sub: 'every measure, its source field, and how change is measured', href: '/methods' }
 	];

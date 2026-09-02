@@ -5,7 +5,7 @@
 	const SPAN: Record<string, number> = { lead: 8, support: 4, contrast: 6, reference: 4, multiples: 12, context: 12, investigation: 12 };
 	function spans(views: BoardTemplate['strips'][number]['views']): number[] {
 		if (views.length === 1) return [12];
-		const raw = views.map((v) => SPAN[v.role] ?? 6); const sum = raw.reduce((a, b) => a + b, 0);
+		const raw = views.map((v) => typeof v.options?.columns === 'number' ? v.options.columns : SPAN[v.role] ?? 6); const sum = raw.reduce((a, b) => a + b, 0);
 		return raw.map((r) => Math.max(2, Math.round((r / sum) * 12)));
 	}
 	function glyph(kind: ViewKind): 'line' | 'bars' | 'dots' | 'grid' | 'map' | 'text' {

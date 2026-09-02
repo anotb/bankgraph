@@ -55,7 +55,11 @@
 		try { await navigator.clipboard.writeText(url); copied = 'Link copied'; } catch { copied = url; }
 		setTimeout(() => (copied = null), 2500);
 	}
-	function autosize(el: HTMLTextAreaElement) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; }
+	function autosize(el: HTMLTextAreaElement) {
+		el.style.height = 'auto';
+		const lineHeight = Number.parseFloat(getComputedStyle(el).lineHeight) || 25;
+		el.style.height = `${Math.min(el.scrollHeight + 2, lineHeight * 2 + 10)}px`;
+	}
 	$effect(() => {
 		const el = questionEl; const _q = board.state.question;
 		if (!el) return;
@@ -82,7 +86,7 @@
 				{#if layoutOpen}
 					<div class="pop menu" role="menu">
 						{#each BOARD_TEMPLATES as t}
-							<button type="button" role="menuitem" onclick={() => { board.applyTemplate(t, 'replace'); layoutOpen = false; }}><span class="th"><LayoutPreview template={t} height={26} /></span><span><b>{t.name}</b><small>{t.description}</small></span></button>
+							<button type="button" role="menuitem" onclick={() => { board.applyCuratedTemplate(t, 'replace'); layoutOpen = false; }}><span class="th"><LayoutPreview template={t} height={26} /></span><span><b>{t.name}</b><small>{t.description}</small></span></button>
 						{/each}
 						<div class="sep"></div>
 						<button type="button" role="menuitem" onclick={() => { board.clearOverrides(); layoutOpen = false; }}><span class="th"></span><span><b>Arrange automatically</b><small>Drop manual sizes and positions</small></span></button>
@@ -149,8 +153,9 @@
 	.board { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 20px 40px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-content: start; }
 	.board.has-ruler { padding-bottom: 24px; }
 	.head { display: flex; align-items: flex-start; gap: 16px; }
-	.question { flex: 1; min-width: 0; resize: none; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 20px; font-weight: 650; line-height: 1.25; letter-spacing: -0.015em; padding: 4px 0; margin: 0; outline: none; overflow: hidden; field-sizing: content; border-bottom: 1px solid transparent; transition: border-color 140ms ease-out; }
+	.question { flex: 1; min-width: 0; resize: none; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 20px; font-weight: 650; line-height: 1.25; letter-spacing: -0.015em; padding: 4px 4px 4px 0; margin: 0; outline: none; overflow-x: hidden; overflow-y: auto; scrollbar-width: none; field-sizing: content; border-bottom: 1px solid transparent; transition: border-color 140ms ease-out; }
 	.question:hover, .question:focus { border-bottom-color: var(--rule); }
+	.question::-webkit-scrollbar { display: none; }
 	.question::placeholder { color: var(--ink-4); font-weight: 500; }
 	.actions { display: flex; gap: 8px; align-items: center; flex: none; padding-top: 2px; }
 	.menu-wrap { position: relative; }
@@ -169,8 +174,8 @@
 	.ah { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
 	.activity ol { margin: 0; padding-left: 18px; display: grid; gap: 3px; color: var(--ink-2); }
 	.activity li.failed { color: var(--caution); }
-	.field { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
-	.end { display: flex; gap: 8px; padding: 4px 0 20px; }
+	.field { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 12px; min-width: 0; align-items: start; }
+	.end { grid-column: 1 / -1; display: flex; gap: 8px; padding: 4px 0 20px; }
 	.needs-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; border-radius: 4px; background: var(--surface); border: 1px dashed var(--rule); font-size: 12.5px; color: var(--ink-2); }
 	.needs-bar span { flex: 1; min-width: 200px; }
 	.undo { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; background: var(--ink); color: var(--bg); padding: 8px 8px 8px 14px; font-size: 12.5px; z-index: 35; border-radius: 6px; box-shadow: var(--shadow-md); }
@@ -187,4 +192,6 @@
 		.menu { right: auto; left: 0; width: min(340px, calc(100vw - 24px)); }
 		.undo { left: 12px; right: 12px; transform: none; bottom: 76px; flex-wrap: wrap; }
 	}
+	@media (max-width: 1024px) { .field { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+	@media (max-width: 640px) { .field { grid-template-columns: minmax(0, 1fr); gap: 10px; } }
 </style>

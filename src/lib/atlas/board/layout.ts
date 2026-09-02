@@ -23,6 +23,10 @@ export interface BlockLayoutOverride {
 	yMetric?: string;
 	geographyMode?: 'count' | 'assets' | 'median';
 	attributionMode?: 'assets' | 'funding' | 'quarterlyNetIncome' | 'loanToDeposit';
+	/** Default ordering for exact tables; a person can replace it by clicking a column. */
+	sortMetric?: string;
+	sortBasis?: 'level' | 'change';
+	sortDirection?: 'asc' | 'desc';
 }
 
 export interface LaidOutBlock {

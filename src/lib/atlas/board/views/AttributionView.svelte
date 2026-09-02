@@ -8,7 +8,7 @@
 	interface Bridge { metric: string; unit: string; from: { repdte: string; value: number }; to: { repdte: string; value: number }; totalChange: number; contributions: Array<{ key: string; label: string; change: number; availability: string }>; residual: number; dataCoverage: number; method: string; reconciliation: string }
 	interface Brief { bank: { name: string }; comparison: { status: string; isConsecutiveQuarter: boolean; message: string | null }; bridges: Record<string, Bridge> | null }
 
-	let { block, span }: { block: ResearchBoardBlock; span: number } = $props();
+	let { block, span, tall = false }: { block: ResearchBoardBlock; span: number; tall?: boolean } = $props();
 	const board = Board.use();
 	let e = $derived(effective(board, block));
 	let cert = $derived(board.state.activeBank && e.certs.includes(board.state.activeBank) ? board.state.activeBank : e.certs[0] ?? null);
@@ -56,7 +56,7 @@
 		{#if !reported.length}
 			<div class="empty">No component bridge is reported for this measure{bridge.method ? ` (${bridge.method.replace(/_/g, ' ')})` : ''}.</div>
 		{:else if reconciled}
-			<Waterfall start={{ label: quarterLabel(bridge.from.repdte), value: bridge.from.value }} end={{ label: quarterLabel(bridge.to.repdte), value: bridge.to.value }} steps={reported.map((c) => ({ label: c.label, code: c.key.toUpperCase(), value: c.change }))} format={(v) => usdThousands(v, 3)} formatDelta={fmt} height={span >= 8 ? 220 : 200} />
+			<Waterfall start={{ label: quarterLabel(bridge.from.repdte), value: bridge.from.value }} end={{ label: quarterLabel(bridge.to.repdte), value: bridge.to.value }} steps={reported.map((c) => ({ label: c.label, code: c.key.toUpperCase(), value: c.change }))} format={(v) => usdThousands(v, 3)} formatDelta={fmt} height={tall ? 470 : span >= 8 ? 220 : 200} />
 		{:else}
 			<div class="scroll">
 				<table class="atlas contrib">

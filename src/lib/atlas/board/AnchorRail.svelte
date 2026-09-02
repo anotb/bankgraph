@@ -62,6 +62,9 @@
 	function setCondition(i: number, patch: Partial<MetricCondition>) { const next = recipe.metricConditions.map((c, k) => (k === i ? { ...c, ...patch } : c)); board.setPeerRecipe({ ...recipe, metricConditions: next }); }
 	function removeCondition(i: number) { board.setPeerRecipe({ ...recipe, metricConditions: recipe.metricConditions.filter((_, k) => k !== i) }); }
 	let stateInput = $state('');
+	let displayedCerts = $derived(board.state.activeBank == null
+		? board.selectedCerts
+		: [board.state.activeBank, ...board.selectedCerts.filter((cert) => cert !== board.state.activeBank)]);
 	function addState() { const code = stateInput.trim().toUpperCase(); if (US_STATES[code] && !recipe.states.includes(code)) setStates([...recipe.states, code]); stateInput = ''; }
 
 	let allQuarters = $derived(quartersBetween('19920331', board.latest).reverse());
@@ -74,7 +77,8 @@
 	<div class="anchor" class:open={open === 'banks'}>
 		<button type="button" class="lab" onclick={() => toggle('banks')}>Banks</button>
 		<div class="val">
-			{#each board.selectedCerts as cert, i}
+			{#each displayedCerts as cert}
+				{@const i = board.selectedCerts.indexOf(cert)}
 				{@const inst = board.data.institutions[cert]}
 				<span class="chip bank" class:active={board.state.activeBank === cert}>
 					<button type="button" class="pick" onclick={() => board.setActiveBank(cert)} onmouseenter={() => (board.hoverCert = cert)} onmouseleave={() => (board.hoverCert = null)} title={inst?.name}><i class="dot" style="background:{seriesColor(i)}"></i>{inst ? shortBankName(inst.name) : cert}</button>
@@ -189,7 +193,10 @@
 	.anchor:last-child { border-right: 0; padding-right: 0; }
 	.lab { border: 0; background: none; padding: 4px 0; cursor: pointer; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); text-align: left; }
 	.anchor.open .lab, .lab:hover { color: var(--accent); }
-	.val { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 26px; min-width: 0; }
+	.val { display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; align-items: center; min-height: 26px; max-height: 66px; min-width: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-gutter: stable; }
+	.val::-webkit-scrollbar { width: 5px; }
+	.val::-webkit-scrollbar-button { display: none; }
+	.val::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 4px; }
 	.chip.bank { padding: 0; gap: 0; overflow: hidden; }
 	.chip.bank .pick { display: inline-flex; align-items: center; gap: 6px; height: 100%; padding: 0 8px; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
 	.chip.bank .x { border: 0; border-left: 1px solid var(--rule); background: none; color: var(--ink-3); font: inherit; height: 100%; padding: 0 7px; cursor: pointer; }
@@ -223,7 +230,7 @@
 	@media (max-width: 640px) {
 		.deck { grid-template-columns: 1fr; gap: 8px; padding: 10px 12px; }
 		.anchor { border-right: 0; padding-right: 0; grid-template-columns: 64px 1fr; }
-		.val { flex-wrap: wrap; }
+		.val { flex-wrap: wrap; max-height: none; overflow: visible; scrollbar-gutter: auto; }
 		.panel { position: fixed; left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: 70vh; overflow: auto; z-index: 70; }
 		.rule-row { grid-template-columns: 1fr; gap: 4px; }
 	}

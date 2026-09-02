@@ -22,7 +22,7 @@
 	});
 	function needs(t: (typeof BOARD_TEMPLATES)[number]): string | null {
 		if (t.needs.includes('banks') && !board.selectedCerts.length) return 'Add a bank first';
-		if (t.needs.includes('cohort') && !board.data.cohort.length) return 'Define a cohort first';
+		if (t.needs.includes('cohort') && !board.data.cohort.length && !t.start?.cohort) return 'Define a cohort first';
 		return null;
 	}
 	const COHORTS = [
@@ -38,10 +38,10 @@
 		<h3>Start with a bank or a cohort</h3>
 		<input class="in" placeholder="Bank name, city, or FDIC certificate" bind:value={bankQuery} aria-label="Find a bank" />
 		{#if results.length}
-			<div class="list">{#each results as b}<button type="button" onclick={() => { board.addCert(b.cert); bankQuery = ''; board.applyTemplate('one_bank'); }}><span>{shortBankName(b.name)}</span><span class="sub">{b.city}{b.state ? `, ${b.state}` : ''} · {usdThousands(b.total_assets)}</span></button>{/each}</div>
+			<div class="list">{#each results as b}<button type="button" onclick={() => { board.addCert(b.cert); bankQuery = ''; board.applyCuratedTemplate('one_bank', 'replace', { banks: true }); }}><span>{shortBankName(b.name)}</span><span class="sub">{b.city}{b.state ? `, ${b.state}` : ''} · {usdThousands(b.total_assets)}</span></button>{/each}</div>
 		{/if}
 		<div class="cap" style="margin-top:14px">Or a cohort</div>
-		<div class="chips">{#each COHORTS as c}<button type="button" class="chip" onclick={() => { board.setPeerRecipe({ ...board.state.peerRecipe, basis: 'custom', name: c.label, active: 'active', ...c.recipe, maximumPeers: 200 }); board.applyTemplate('credit_stress'); }}>{c.label}</button>{/each}<a class="chip add" href="/banks">Filter the directory</a></div>
+		<div class="chips">{#each COHORTS as c}<button type="button" class="chip" onclick={() => { board.setPeerRecipe({ ...board.state.peerRecipe, basis: 'custom', name: c.label, active: 'active', ...c.recipe, maximumPeers: 200 }); board.applyCuratedTemplate('credit_stress', 'replace', { cohort: true }); }}>{c.label}</button>{/each}<a class="chip add" href="/banks">Filter the directory</a></div>
 		{#if board.selectedCerts.length || board.data.cohort.length}
 			<p class="have">{board.selectedCerts.length ? `${board.selectedCerts.length} bank${board.selectedCerts.length > 1 ? 's' : ''} selected` : ''}{board.selectedCerts.length && board.data.cohort.length ? ' · ' : ''}{board.data.cohort.length ? `Cohort of ${board.data.cohort.length}` : ''}. Pick a layout to place views.</p>
 		{/if}
@@ -52,7 +52,7 @@
 		<div class="grid">
 			{#each BOARD_TEMPLATES as t}
 				{@const gap = needs(t)}
-				<button type="button" class="tmpl" class:gap={gap} onclick={() => { board.applyTemplate(t); if (gap) board.requestPanel = t.needs.includes('banks') && !board.selectedCerts.length ? 'banks' : 'cohort'; }}>
+				<button type="button" class="tmpl" class:gap={gap} onclick={() => { board.applyCuratedTemplate(t); if (gap) board.requestPanel = t.needs.includes('banks') && !board.selectedCerts.length ? 'banks' : 'cohort'; }}>
 					<LayoutPreview template={t} height={40} />
 					<b>{t.name}</b>
 					<span class="d">{t.description}</span>
@@ -76,6 +76,7 @@
 
 <style>
 	.launch { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 6fr) minmax(0, 3fr); gap: 12px; }
+	.path { min-width: 0; }
 	.path h3 { font-size: 13px; font-weight: 600; margin: 0 0 10px; }
 	.in { width: 100%; height: 32px; font-size: 13px; }
 	.list { display: grid; gap: 1px; margin-top: 6px; }
@@ -95,6 +96,10 @@
 	.tmpl .gap-note { display: block; color: var(--ink-3); font-size: 11px; margin-top: 3px; font-style: normal; }
 	.agent p { margin: 0 0 8px; font-size: 12.5px; color: var(--ink-2); line-height: 1.5; }
 	.agent .ex { color: var(--ink); font-style: italic; }
+	@media (min-width: 1101px) {
+		.launch { height: clamp(360px, calc(100dvh - 205px), 440px); min-height: 0; }
+		.path { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+	}
 	@media (max-width: 1100px) { .launch { grid-template-columns: 1fr 1fr; } .layouts { grid-column: 1 / -1; } }
 	@media (max-width: 640px) { .launch { grid-template-columns: 1fr; } .layouts { grid-column: auto; } .grid { grid-template-columns: 1fr 1fr; } }
 </style>

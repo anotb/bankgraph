@@ -48,11 +48,6 @@
 	}
 	function resizeEnd() { resizing = false; }
 	function subtitle(): string {
-		const pinBits: string[] = [];
-		if (pins.asOf) pinBits.push(quarterLabel(pins.asOf));
-		if (pins.certs?.length) pinBits.push(pins.certs.map((c) => shortBankName(board.data.institutions[c]?.name ?? String(c))).join(', '));
-		if (pins.metrics?.length) pinBits.push(pins.metrics.map(metricShort).join(', '));
-		if (pinBits.length) return pinBits.join(' · ');
 		if (block.kind === 'history' && !block.binding.certs.length) return '';
 		if (block.kind === 'history') return `${quarterLabel(block.binding.from)} – ${quarterLabel(block.binding.to)}`;
 		if (block.kind === 'exact_table' && !block.binding.followCurrent && block.binding.from) return `${quarterLabel(block.binding.from)} – ${quarterLabel(block.binding.to)}`;
@@ -79,7 +74,7 @@
 		{:else}
 			<button type="button" class="title" onclick={() => board.select(selected ? null : block.id)} ondblclick={() => (renaming = true)} title="Select this view; double-click to rename">{block.title || 'Untitled view'}</button>
 		{/if}
-		{#if subtitle()}<span class="u" class:pinned>{pinned ? 'Kept: ' : ''}{subtitle()}</span>{/if}
+		{#if subtitle()}<span class="u">{subtitle()}</span>{/if}
 		<div class="tools" role="toolbar" aria-label="View controls">
 			<div class="mw"><button type="button" class="tool" aria-expanded={menu === 'size'} onclick={() => (menu = menu === 'size' ? null : 'size')} title="Size and placement">{full ? 'Full row' : span >= 8 ? 'Primary' : 'Beside'}</button>
 				{#if menu === 'size'}<div class="pop mn"><button type="button" aria-pressed={span >= 8 && !full} onclick={() => size('primary')}>Make primary</button><button type="button" aria-pressed={span <= 6 && !full} onclick={() => size('beside')}>Place beside</button><button type="button" aria-pressed={full} onclick={() => size('row')}>Own row</button><div class="sep"></div><button type="button" aria-pressed={!board.overrides[block.id]?.tall} onclick={() => { board.setOverride(block.id, { tall: undefined }); menu = null; }}>Standard height</button><button type="button" aria-pressed={Boolean(board.overrides[block.id]?.tall)} onclick={() => { board.setOverride(block.id, { tall: true }); menu = null; }}>Tall</button></div>{/if}
@@ -99,8 +94,8 @@
 				{#if menu === 'more'}
 					<div class="pop mn">
 						<button type="button" onclick={() => { renaming = true; menu = null; }}>Rename</button>
-						<button type="button" onclick={() => { board.moveBlock(block.id, board.blocks[Math.max(0, board.blocks.findIndex((b) => b.id === block.id) - 1)]?.id ?? null); menu = null; }}>Move up</button>
-						<button type="button" onclick={() => { const i = board.blocks.findIndex((b) => b.id === block.id); board.moveBlock(block.id, board.blocks[i + 2]?.id ?? null); menu = null; }}>Move down</button>
+						<button type="button" onclick={() => { board.moveBlock(block.id, board.blocks[Math.max(0, board.blocks.findIndex((b) => b.id === block.id) - 1)]?.id ?? null); board.setOverride(block.id, { strip: undefined, stripTitle: undefined }); menu = null; }}>Move up</button>
+						<button type="button" onclick={() => { const i = board.blocks.findIndex((b) => b.id === block.id); board.moveBlock(block.id, board.blocks[i + 2]?.id ?? null); board.setOverride(block.id, { strip: undefined, stripTitle: undefined }); menu = null; }}>Move down</button>
 						<button type="button" onclick={() => { board.setSpan(block.id, undefined); menu = null; }}>Reset size</button>
 						<button type="button" onclick={() => { board.upsertBlock({ ...block, id: `${block.id}-copy-${Date.now().toString(36)}`, title: `${block.title} (copy)` }, board.overrides[block.id]); menu = null; }}>Duplicate</button>
 						<button type="button" class="danger" onclick={() => { board.removeBlock(block.id); menu = null; }}>Remove</button>
@@ -113,7 +108,7 @@
 		{#if needs}
 			<div class="needs"><span>{NEED_TEXT[needs]}</span><button type="button" class="btn sm pri" onclick={() => (board.requestPanel = needs)}>{NEED_ACTION[needs]}</button></div>
 		{:else}
-			<BlockContent {block} {role} {span} />
+			<BlockContent {block} {role} {span} {tall} />
 		{/if}
 	</div>
 	<div class="resize" class:active={resizing} onpointerdown={resizeStart} onpointermove={resizeMove} onpointerup={resizeEnd} onpointercancel={resizeEnd} role="separator" aria-orientation="vertical" aria-label="Resize" title={neighbor ? 'Drag to trade width with the next view' : 'Drag to resize'}></div>
@@ -132,7 +127,6 @@
 	@media (max-width: 640px) { .bh { flex-wrap: wrap; row-gap: 2px; } .bh .title { white-space: nowrap; max-width: calc(100% - 100px); overflow: hidden; text-overflow: ellipsis; } .bh .u { flex-basis: 100%; order: 3; margin-left: 12px; } }
 	.rename { font: inherit; font-size: 13px; font-weight: 600; border: 0; border-bottom: 1px solid var(--accent); background: transparent; color: var(--ink); outline: none; }
 	.u { color: var(--ink-3); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-	.u.pinned { color: var(--accent); }
 	.tools { margin-left: auto; display: flex; gap: 2px; align-items: center; opacity: 0; transition: opacity 140ms ease-out; flex: none; }
 	.block:hover .tools, .block.selected .tools, .block:focus-within .tools { opacity: 1; }
 	.tool { height: 24px; border: 1px solid transparent; border-radius: 4px; background: none; color: var(--ink-2); font: inherit; font-size: 11.5px; font-weight: 500; cursor: pointer; padding: 0 7px; white-space: nowrap; }
@@ -149,7 +143,10 @@
 	.mn .in { width: 100%; height: 26px; font-size: 12px; }
 	.content { min-width: 0; flex: 1; display: flex; flex-direction: column; }
 	/* Two plate heights. A row takes the taller of its plates; content scrolls inside. Phones use natural height. */
-	@media (min-width: 641px) { .content { flex: none; height: 300px; overflow: auto; overscroll-behavior: contain; } .block.tall .content { height: 560px; } }
+	@media (min-width: 641px) { .content { flex: none; height: 300px; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; scrollbar-width: thin; } .block.tall .content { height: 560px; } }
+	.content::-webkit-scrollbar { width: 6px; height: 6px; }
+	.content::-webkit-scrollbar-button { display: none; }
+	.content::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 4px; }
 	.sep { height: 1px; background: var(--rule-2); margin: 4px 0; }
 	.content > :global(*) { min-width: 0; }
 	.needs { flex: 1; min-height: 168px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--ink-2); font-size: 12.5px; text-align: center; padding: 12px; border: 1px dashed var(--rule); border-radius: 4px; }

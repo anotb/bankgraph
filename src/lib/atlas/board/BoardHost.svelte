@@ -14,7 +14,7 @@
 	import BoardView from './BoardView.svelte';
 	import { templateById } from '$lib/atlas/templates';
 
-	export interface Launch { template?: string | null; question?: string | null; states?: string[]; certs?: number[]; asOf?: string | null; assetMax?: number | null; share?: boolean; add?: string | null; series?: string[] }
+	export interface Launch { template?: string | null; question?: string | null; states?: string[]; certs?: number[]; asOf?: string | null; assetMin?: number | null; assetMax?: number | null; share?: boolean; add?: string | null; series?: string[] }
 	interface Props {
 		launch: Launch;
 		/** Persisted boards share the browser draft; shells (a bank page) start fresh each visit. */
@@ -56,20 +56,22 @@
 		if (!persist) board.overrides = {};
 		const l = launch;
 		if (!l.share) {
-			const cmds = [];
+			const template = templateById(l.template);
 			const certs = l.certs ?? [];
+			const explicitCohort = Boolean(l.states?.length || l.assetMin != null || l.assetMax != null);
+			if (template) board.prepareTemplate(template, { banks: certs.length > 0, question: Boolean(l.question) });
+			const cmds = [];
 			if (l.question) cmds.push(workspaceCommands.setQuestion(l.question));
 			if (certs.length) { cmds.push(workspaceCommands.setSelectedCerts(certs)); cmds.push(workspaceCommands.setActiveBank(certs[0])); }
 			if (l.asOf) cmds.push(workspaceCommands.setAsOfQuarter(l.asOf));
-			if (l.states?.length || l.assetMax != null) {
+			if (explicitCohort) {
 				const s = store.state;
-				cmds.push(workspaceCommands.setPeerRecipe({ ...s.peerRecipe, basis: 'custom', name: l.states?.length ? `Banks in ${l.states.join(', ')}` : s.peerRecipe.name, states: l.states ?? [], assetRange: { min: s.peerRecipe.assetRange.min, max: l.assetMax ?? s.peerRecipe.assetRange.max }, maximumPeers: 200 }));
+				cmds.push(workspaceCommands.setPeerRecipe({ ...s.peerRecipe, basis: 'custom', name: l.states?.length ? `Banks in ${l.states.join(', ')}` : 'Filtered institutions', states: l.states ?? [], assetRange: { min: l.assetMin ?? s.peerRecipe.assetRange.min, max: l.assetMax ?? s.peerRecipe.assetRange.max }, maximumPeers: 200 }));
 			}
 			if (cmds.length) store.executeBatch(cmds);
-			const template = templateById(l.template);
 			if (template) {
-				if (!l.question && !store.state.question && template.id !== 'one_bank') store.execute(workspaceCommands.setQuestion(template.description));
 				board.applyTemplate(template, 'replace');
+				if (!certs.length) void board.selectCuratedMatches(template);
 			}
 			if (l.add === 'economy') {
 				const id = `econ-${Date.now().toString(36)}`;
@@ -84,7 +86,7 @@
 					const untouched = r.basis === 'screen' && !r.states.length && !r.metricConditions.length && r.assetRange.min == null && r.assetRange.max == null;
 					const band = inst.asset_tier ? TIERS[inst.asset_tier] : null;
 					if (untouched && band) store.execute(workspaceCommands.setPeerRecipe({ ...r, basis: 'asset-range', name: 'Same asset group', active: 'active', assetRange: { min: band[0], max: band[1] }, maximumPeers: 100 }));
-					if (!store.state.question && template?.id === 'one_bank') store.execute(workspaceCommands.setQuestion(`${inst.name.replace(/,?\s+National Association$/i, '')}: what stands out in the balance sheet, funding, earnings, credit, and capital?`));
+					if (!store.state.question && template?.id === 'one_bank') store.execute(workspaceCommands.setQuestion(`How does ${inst.name.replace(/,?\s+National Association$/i, '')} compare with other U.S. banks in the same asset group?`));
 				});
 			}
 			if (cleanUrl && (l.template || l.question || certs.length || l.states?.length || l.add)) setTimeout(() => replaceState(cleanUrl, {}), 0);

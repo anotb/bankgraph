@@ -1,6 +1,6 @@
 <script lang="ts">
 	/** Distribution strip: cohort points along a value axis, quartile band, median tick, focused banks. */
-	interface Point { cert: number; value: number; label?: string; color?: string }
+	interface Point { cert: number; value: number; label?: string; color?: string; showLabel?: boolean }
 	interface Props {
 		points: Point[];
 		focus?: Point[];
@@ -24,8 +24,9 @@
 	function q(p: number) { if (!sorted.length) return 0; const idx = (sorted.length - 1) * p; const l = Math.floor(idx), h = Math.ceil(idx); return sorted[l] + (sorted[h] - sorted[l]) * (idx - l); }
 	let q1 = $derived(q(0.25)), med = $derived(q(0.5)), q3 = $derived(q(0.75));
 	function x(v: number) { return pad + ((v - lo) / ((hi - lo) || 1)) * (width - pad * 2); }
-	// Stacked focus labels sit above the band; the band drops to leave room for however many there are.
-	let cy = $derived(Math.max(height / 2 + 2, 16 + Math.max(1, focus.length) * 12));
+	let labeledFocus = $derived(focus.filter((point) => point.showLabel));
+	// Only the active or hovered selection is labeled; the other answer-set members remain colored marks.
+	let cy = $derived(Math.max(height / 2 + 2, 16 + Math.max(1, labeledFocus.length) * 12));
 	function jitter(i: number) { return ((i * 7919) % 9) - 4; }
 </script>
 
@@ -38,10 +39,10 @@
 		{/each}
 		<line x1={x(med)} x2={x(med)} y1={cy - 12} y2={cy + 12} stroke="var(--ink)" stroke-width="1.25" />
 		<text x={x(med)} y={cy + 21} text-anchor="middle">median {format(med)}</text>
-		{#each focus as f, i}
+		{#each focus as f}
 			<circle cx={x(f.value)} cy={cy} r="5" fill={f.color ?? 'var(--accent)'} role="button" tabindex="0" aria-label={`${f.label ?? f.cert}: ${format(f.value)}`} onclick={() => onselect?.(f.cert)} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && onselect?.(f.cert)} style="cursor:pointer"><title>{f.label ?? f.cert}: {format(f.value)}</title></circle>
-			<text x={x(f.value)} y={cy - 14 - i * 12} text-anchor="middle" class="fl" style="fill:{f.color ?? 'var(--accent)'}">{f.label ? f.label + ' ' : ''}{format(f.value)}</text>
 		{/each}
+		{#each labeledFocus as f, i}<text x={x(f.value)} y={cy - 14 - i * 12} text-anchor="middle" class="fl" style="fill:{f.color ?? 'var(--accent)'}">{f.label ? f.label + ' ' : ''}{format(f.value)}</text>{/each}
 		<text x={pad - 6} y={cy + 4} text-anchor="end">{format(lo)}</text>
 		<text x={width - pad + 6} y={cy + 4}>{format(hi)}</text>
 	</svg>

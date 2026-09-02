@@ -7,7 +7,7 @@
 
 	interface Obs { date: string; value: number }
 	interface Series { id: string; title: string; units: string; data: Obs[] }
-	let { block, span }: { block: ResearchBoardBlock; span: number } = $props();
+	let { block, span, tall = false }: { block: ResearchBoardBlock; span: number; tall?: boolean } = $props();
 	const board = Board.use();
 	let e = $derived(effective(board, block));
 	const CHOICES = [
@@ -66,7 +66,7 @@
 		</select>
 	{/if}
 </div>
-<LineChart series={picked.map((id, i) => ({ id, label: CHOICES.find((c) => c.id === id)?.label ?? id, values: aligned(id), color: ['var(--s1)', 'var(--ink)', 'var(--s2)'][i] }))} {labels} marker={asOfIndex >= 0 ? asOfIndex : null} format={(v) => (isPct ? pct(v, 1) : `$${v.toFixed(1)}T`)} height={span >= 8 ? 200 : 180} {events} zero={isPct} bind:hover />
+<LineChart series={picked.map((id, i) => ({ id, label: CHOICES.find((c) => c.id === id)?.label ?? id, values: aligned(id), color: ['var(--s1)', 'var(--ink)', 'var(--s2)'][i] }))} {labels} marker={asOfIndex >= 0 ? asOfIndex : null} format={(v) => (isPct ? pct(v, 1) : `$${v.toFixed(1)}T`)} height={tall ? 490 : span >= 8 ? 200 : 180} {events} zero={isPct} bind:hover />
 <div class="readout">
 	{#if hover != null}<span>{quarterLabel(quarters[hover])}</span>{#each picked as id}<b>{CHOICES.find((c) => c.id === id)?.label} {isPct ? pct(aligned(id)[hover], 2) : `$${(aligned(id)[hover] ?? 0).toFixed(2)}T`}</b>{/each}{:else}<span>Quarterly averages · <a href="/economy">the economy in full</a></span>{/if}
 	

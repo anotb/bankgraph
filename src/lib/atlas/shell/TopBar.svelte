@@ -11,7 +11,6 @@
 	const links = [
 		{ href: '/b', label: 'Research' },
 		{ href: '/banks', label: 'Institutions' },
-		{ href: '/system', label: 'Banking system' },
 		{ href: '/economy', label: 'Economy' },
 		{ href: '/methods', label: 'Data & methods' }
 	];

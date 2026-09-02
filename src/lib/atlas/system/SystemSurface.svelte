@@ -2,7 +2,7 @@
 	/**
 	 * The banking system as one operating surface: a measure explorer across size groups,
 	 * a comparative table, breadth and movers for the latest quarter, and geography.
-	 * Used by the front page and by /system.
+	 * Used by the front page.
 	 */
 	import LineChart from '$lib/atlas/charts/LineChart.svelte';
 	import TileMap from '$lib/atlas/charts/TileMap.svelte';
@@ -57,8 +57,6 @@
 	let radarMetric = $state<'total_assets' | 'total_deposits' | 'net_loans'>('total_assets');
 	let radar = $derived(data.radar?.metrics.find((x) => x.id === radarMetric) ?? null);
 	let stateValues = $derived(Object.fromEntries(data.states.map((s) => [s.state, s.count])) as Record<string, number>);
-	let topStates = $derived([...data.states].filter((s) => US_STATES[s.state]).sort((a, b) => b.count - a.count).slice(0, full ? 12 : 8));
-	let geoSignal = $derived(data.signals.find((s) => s.id === 'geography-asset-movement') ?? null);
 	let hoveredState = $state<string | null>(null);
 </script>
 
@@ -69,7 +67,6 @@
 			<select class="in" value={asOf} onchange={(e) => (quarter = (e.currentTarget as HTMLSelectElement).value)} aria-label="Reporting period">
 				{#each [...quarters].reverse() as q}<option value={q} selected={q === asOf}>{quarterLabel(q, 'long')}</option>{/each}
 			</select>
-			<a class="btn" href="/b?template=system{asOf ? `&asOf=${asOf}` : ''}">Open as a board</a>
 		</div>
 	</div>
 	<div class="explorer">
@@ -109,6 +106,7 @@
 				<div class="dim small">{count(data.radar.population.matchedInstitutions)} institutions filed both quarters</div>
 			</div>
 			<div class="scroll"><table class="atlas movers">
+				<colgroup><col class="bank-col" /><col class="value-col" /><col class="bank-col" /><col class="value-col" /></colgroup>
 				<thead><tr><th>Largest increases</th><th></th><th>Largest decreases</th><th></th></tr></thead>
 				<tbody>
 					{#each radar.contributors.increases.slice(0, full ? 8 : 4) as inc, i}
@@ -122,7 +120,7 @@
 			</table></div>
 		</div>
 	{:else}
-		<div class="dim small" style="margin-top:10px">Breadth and largest movers are computed for the latest quarter across all filers. <a href="/b?template=system&asOf={asOf}">Open {quarterLabel(asOf, 'long')} as a board</a> to compute them for this selection.</div>
+		<div class="dim small" style="margin-top:10px">Breadth and largest movers are available for the latest quarter across all filers.</div>
 	{/if}
 </div>
 
@@ -130,17 +128,6 @@
 	<div class="ph"><h3>Where banks are headquartered</h3><span class="dim">click a state to start a cohort</span></div>
 	<TileMap values={stateValues} format={(v) => String(Math.round(v))} onhover={(s) => (hoveredState = s)} onselect={(st) => { location.href = `/b?template=geography&states=${st}`; }} />
 	<div class="readout">{#if hoveredState}<span>{US_STATES[hoveredState] ?? hoveredState}</span><b>{count(stateValues[hoveredState] ?? 0)} active institutions</b>{/if}</div>
-</div>
-<div class="plate states">
-	<div class="ph"><h3>Most institutions</h3></div>
-	<table class="atlas">
-		<tbody>
-			{#each topStates as s}
-				<tr><td class="n"><a href="/b?template=geography&states={s.state}">{US_STATES[s.state]}</a></td><td><span class="bar" style="width:{Math.round((s.count / topStates[0].count) * 64)}px"></span>{count(s.count)}</td></tr>
-			{/each}
-		</tbody>
-	</table>
-	{#if geoSignal}<p class="note">{geoSignal.title} moved {signed(geoSignal.change.percent, 1)}% against {signed(geoSignal.comparison?.value ?? null, 1)}% for the system last quarter.</p>{/if}
 </div>
 
 <style>
@@ -170,18 +157,17 @@
 	.breadth-l b { font-family: var(--font-mono); font-weight: 500; }
 	.small { font-size: 11.5px; margin-top: 6px; }
 	.movers td.n { white-space: normal; }
+	.movers .bank-col { width: 40%; }
+	.movers .value-col { width: 10%; }
+	.movers td:nth-child(2), .movers td:nth-child(4) { text-align: right; white-space: nowrap; }
 	.movers tr { cursor: default; }
 	table.atlas td.n a { color: var(--ink); text-decoration: none; }
 	table.atlas td.n a:hover { color: var(--accent); }
 	.ph { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
 	.ph h3 { font-size: 13px; font-weight: 600; margin: 0; }
-	.note { margin: 10px 0 0; font-size: 12px; color: var(--ink-2); line-height: 1.45; }
-	table.atlas td .bar { display: inline-block; height: 8px; background: var(--ink-3); vertical-align: middle; margin-right: 8px; border-radius: 1px; }
-	.states tr { cursor: default; }
-	@media (max-width: 1500px) { .explorer { grid-template-columns: 1fr; } }
+	@media (max-width: 1180px) { .explorer { grid-template-columns: 1fr; } }
 	@media (max-width: 640px) {
 		.radar { grid-template-columns: 1fr; }
 		.controls { margin-left: 0; width: 100%; }
-		.controls .btn { margin-left: auto; }
 	}
 </style>

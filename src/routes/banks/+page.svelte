@@ -19,11 +19,12 @@
 	let pages = $derived(Math.max(1, Math.ceil(data.total / data.limit)));
 	const BANDS = [
 		{ label: 'Any size', min: '', max: '' }, { label: 'Under $1B', min: '', max: '1000000' }, { label: '$1B – $10B', min: '1000000', max: '10000000' },
-		{ label: '$10B – $50B', min: '10000000', max: '50000000' }, { label: '$50B+', min: '50000000', max: '' }
+		{ label: '$10B – $50B', min: '10000000', max: '50000000' }, { label: '$50B – $250B', min: '50000000', max: '250000000' }, { label: '$250B+', min: '250000000', max: '' }
 	];
 	let cohortHref = $derived.by(() => {
 		const p = new URLSearchParams({ template: 'geography' });
 		if (data.state) p.set('states', data.state);
+		if (data.assetMin) p.set('asset_min', data.assetMin);
 		if (data.assetMax) p.set('asset_max', data.assetMax);
 		return `/b?${p}`;
 	});

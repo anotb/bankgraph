@@ -6,6 +6,8 @@ import type {
 	WebMcpMetricHistoryRequest,
 	WebMcpMetricHistoryResult,
 	WebMcpCurrentCohortResult,
+	WebMcpCohortTrendRequest,
+	WebMcpCohortTrendResult,
 	WebMcpCurrentComparisonResult,
 	WebMcpDistributionRequest,
 	WebMcpPeerDistributionResult,
@@ -42,6 +44,7 @@ import type { BoardData } from './board-data.svelte';
 import type { Board } from '$lib/atlas/board/board.svelte';
 import {
 	metricValue,
+	metricChange,
 	previousQuarter,
 	quartersBetween,
 	researchMetricDefinition,
@@ -250,6 +253,17 @@ export function createBoardDependencies(options: {
 		const bucket = assetBucket(exactMetricValue('asset', cert, period));
 		return bucket === null ? null : { key: String(bucket), label: assetBucketLabel(bucket) };
 	}
+	function trendConditionMatches(value: number, condition: WebMcpCohortTrendRequest['conditions'][number]): boolean {
+		switch (condition.operator) {
+			case 'eq': return value === condition.value;
+			case 'ne': return value !== condition.value;
+			case 'gt': return value > condition.value;
+			case 'gte': return value >= condition.value;
+			case 'lt': return value < condition.value;
+			case 'lte': return value <= condition.value;
+			case 'between': return condition.upperValue !== null && value >= condition.value && value <= condition.upperValue;
+		}
+	}
 
 	return {
 		workspace: {
@@ -296,6 +310,70 @@ export function createBoardDependencies(options: {
 				cohortHash: analysis.cohortHash,
 				coverage: { status: withRequired === data.cohort.length ? 'ready' : 'partial', memberCount: data.cohort.length, membersWithHistory: withHistory, membersWithRequiredPeriods: withRequired, requiredPeriods: required, earliestPeriod: all[0] ?? null, latestPeriod: all.at(-1) ?? null },
 				sourceMode: 'live', sourceAsOf: c.sourceAsOf ?? data.latestQuarter, retrievedAt: c.retrievedAt
+			};
+		},
+
+		analyzeCohortTrends: async (
+			request: WebMcpCohortTrendRequest,
+			context
+		): Promise<WebMcpCohortTrendResult> => {
+			const s = state();
+			await data.loadCohort(s, context.signal);
+			// Four extra quarters are required for year-over-year derived measures at the opening date.
+			await hydrate(data.cohort, context, previousQuarter(request.from, 4));
+			const metrics = [...new Set(request.conditions.map((condition) => condition.metric))] as ResearchMetric[];
+			const comparable = data.cohort.flatMap((cert) => {
+				const changes = Object.fromEntries(metrics.map((metric) => {
+					const from = exactMetricValue(metric, cert, request.from);
+					const to = exactMetricValue(metric, cert, request.to);
+					return [metric, metricChange(metric, to, from).value];
+				})) as Partial<Record<ResearchMetric, number | null>>;
+				return metrics.every((metric) => changes[metric] !== null) ? [{ cert, changes }] : [];
+			});
+			const matches = comparable.filter(({ changes }) => request.conditions.every((condition) =>
+				trendConditionMatches(changes[condition.metric as ResearchMetric] as number, condition)
+			));
+			const groups = new Map<string, { label: string; matchingCount: number }>();
+			for (const { cert } of matches) {
+				const openingBucket = assetBucket(exactMetricValue('asset', cert, request.from));
+				const key = request.groupBy === 'state' ? stateOf(cert) ?? 'Unknown' : openingBucket === null ? 'Unknown' : String(openingBucket);
+				const label = request.groupBy === 'state' ? key : openingBucket === null ? 'Asset group unknown' : assetBucketLabel(openingBucket);
+				const group = groups.get(key) ?? { label, matchingCount: 0 };
+				group.matchingCount += 1;
+				groups.set(key, group);
+			}
+			const analysis = analysisContext();
+			aborted(context);
+			return {
+				matches: matches.map(({ cert, changes }) => ({
+					cert,
+					name: name(cert),
+					state: stateOf(cert),
+					assetBucket: assetBucket(exactMetricValue('asset', cert, request.from)),
+					totalAssets: data.institutions[cert]?.total_assets ?? null,
+					changes
+				})).sort((left, right) => left.cert - right.cert),
+				cohortCount: data.cohort.length,
+				comparableCount: comparable.length,
+				groups: [...groups.entries()].map(([key, group]) => ({
+					key,
+					label: group.label,
+					matchingCount: group.matchingCount,
+					shareOfMatches: matches.length ? group.matchingCount / matches.length : 0
+				})).sort((left, right) => right.matchingCount - left.matchingCount || left.key.localeCompare(right.key)),
+				changeUnits: Object.fromEntries(metrics.map((metric) => [metric, researchMetricDefinition(metric).change])),
+				definition: analysis.definition,
+				definitionHash: analysis.definitionHash,
+				cohortHash: analysis.cohortHash,
+				coverage: {
+					status: comparable.length === data.cohort.length ? 'ready' : 'partial',
+					from: request.from,
+					to: request.to,
+					missingCount: data.cohort.length - comparable.length
+				},
+				sourceMode: analysis.sourceMode,
+				sourceAsOf: analysis.sourceAsOf,
+				retrievedAt: analysis.retrievedAt
 			};
 		},
 
@@ -346,7 +424,7 @@ export function createBoardDependencies(options: {
 				metric: request.metric, period: q, count: present.length, missingCount: rows.length - present.length,
 				statistics: { minimum: values[0] ?? null, p25: quantile(values, 0.25), median: median(values), p75: quantile(values, 0.75), maximum: values.at(-1) ?? null },
 				focusedBank: focused ? { ...focused, percentile: rank != null && present.length > 1 ? ((rank - 1) / (present.length - 1)) * 100 : null, rank } : null,
-				lowest: present.slice(0, 5), highest: present.slice(-5).reverse(),
+				lowest: present.slice(0, 10), highest: present.slice(-10).reverse(),
 				sourceMode: 'live', sourceAsOf: c.sourceAsOf ?? data.latestQuarter, retrievedAt: c.retrievedAt
 			};
 		},
@@ -632,6 +710,16 @@ export function createBoardDependencies(options: {
 			await options.board!.applyTemplate(template, request.mode);
 			aborted(context);
 			const blockIds = options.board!.blocks.filter((block) => request.mode === 'replace' || !before.has(block.id)).map((block) => block.id);
+			if (request.sortMetric) {
+				for (const block of options.board!.blocks) {
+					if (!blockIds.includes(block.id) || block.kind !== 'exact_table') continue;
+					options.board!.setOverride(block.id, {
+						sortMetric: request.sortMetric,
+						sortBasis: request.sortBasis ?? 'level',
+						sortDirection: request.sortDirection ?? 'desc'
+					});
+				}
+			}
 			if (request.focus && blockIds[0]) options.board!.select(blockIds[0]);
 			return { changed: beforeState !== JSON.stringify({ blocks: options.board!.blocks, overrides: options.board!.overrides }), blockIds };
 		} : undefined,

@@ -200,7 +200,15 @@ export interface ResearchBoardWebMcpDependencies {
 	listBoardTemplates?(): ResearchBoardTemplateSummary[];
 	getBoardPresentation?(): ResearchBoardPresentation;
 	applyBoardTemplate?(
-		request: { templateId: string; mode: 'append' | 'replace'; focus: boolean },
+		request: {
+			templateId: string;
+			mode: 'append' | 'replace';
+			focus: boolean;
+			/** Internal handoff used when a measure-driven result becomes a board. */
+			sortMetric?: ResearchMetric;
+			sortBasis?: 'level' | 'change';
+			sortDirection?: 'asc' | 'desc';
+		},
 		context: WebMcpControllerContext,
 	): Promise<{ changed: boolean; blockIds: string[] }>;
 	setAppearance?(theme: 'light' | 'dark'): { changed: boolean; theme: 'light' | 'dark' };

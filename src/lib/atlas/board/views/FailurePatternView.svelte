@@ -8,7 +8,7 @@
 	import { quarterLabel, shortBankName, seriesColor, count } from '$lib/atlas/format';
 	import { viewport } from '$lib/atlas/viewport.svelte';
 
-	let { block, span }: { block: ResearchBoardBlock & { kind: 'analysis' }; span: number } = $props();
+	let { block, span, tall = false }: { block: ResearchBoardBlock & { kind: 'analysis' }; span: number; tall?: boolean } = $props();
 	const board = Board.use();
 	let result = $state<FailurePatternsResponse | null>(null);
 	let missing = $state(false);
@@ -65,7 +65,7 @@
 			{@const med = s.points.map((p) => p.median)}
 			<div class="cell">
 				<h4><span>{s.label}</span>{#if hover != null && med[hover] != null}<span class="mono live" title="Failed-cohort median at {labels[hover]}; middle half in brackets">{fmtPct(med[hover]!)} <small>[{s.points[hover].q25 != null ? fmtPct(s.points[hover].q25!) : '—'} – {s.points[hover].q75 != null ? fmtPct(s.points[hover].q75!) : '—'}]</small></span>{:else}<span class="mono">{med[0] != null ? fmtPct(med[0]) : '—'} → {med.at(-1) != null ? fmtPct(med.at(-1)!) : '—'}</span>{/if}</h4>
-				<LineChart series={[{ id: s.metric, label: '', values: med, color: ['noncurrent_loan_ratio', 'net_charge_off_ratio'].includes(s.metric) ? 'var(--adverse)' : 'var(--ink)', width: 1.75 }]} labels={smLabels} band={{ lo: s.points.map((p) => p.q25), hi: s.points.map((p) => p.q75) }} format={fmtPct} height={viewport.narrow ? 220 : showAll ? 110 : span < 6 ? 120 : 160} direct={false} zero={s.metric === 'roa'} bind:hover />
+				<LineChart series={[{ id: s.metric, label: '', values: med, color: ['noncurrent_loan_ratio', 'net_charge_off_ratio'].includes(s.metric) ? 'var(--adverse)' : 'var(--ink)', width: 1.75 }]} labels={smLabels} band={{ lo: s.points.map((p) => p.q25), hi: s.points.map((p) => p.q75) }} format={fmtPct} height={viewport.narrow ? 220 : tall ? (showAll ? 160 : 390) : showAll ? 110 : span < 6 ? 120 : 160} direct={false} zero={s.metric === 'roa'} bind:hover />
 				
 			</div>
 		{/each}
@@ -97,7 +97,7 @@
 	<div class="hd"><select class="in" value={F} onchange={(e) => (feature = e.currentTarget.value)}>{#each features as s}<option value={s.metric}>{s.label}</option>{/each}</select></div>
 	{@const fs = features.find((s) => s.metric === F)}
 	{#if fs}
-		<LineChart series={[{ id: 'median', label: 'failed median', values: fs.points.map((p) => p.median), color: 'var(--ink-3)', width: 1.25 }, ...topThree.map((a, i) => ({ id: String(a.cert), label: shortBankName(a.name).split(' ')[0], values: path(a, F), color: seriesColor(Math.max(0, board.selectedCerts.indexOf(a.cert)) || i) }))]} {labels} band={{ lo: fs.points.map((p) => p.q25), hi: fs.points.map((p) => p.q75) }} format={fmtPct} height={span >= 8 ? 220 : 200} zero={F === 'roa'} bind:hover />
+		<LineChart series={[{ id: 'median', label: 'failed median', values: fs.points.map((p) => p.median), color: 'var(--ink-3)', width: 1.25 }, ...topThree.map((a, i) => ({ id: String(a.cert), label: shortBankName(a.name).split(' ')[0], values: path(a, F), color: seriesColor(Math.max(0, board.selectedCerts.indexOf(a.cert)) || i) }))]} {labels} band={{ lo: fs.points.map((p) => p.q25), hi: fs.points.map((p) => p.q75) }} format={fmtPct} height={tall ? 480 : span >= 8 ? 220 : 200} zero={F === 'roa'} bind:hover />
 		<div class="readout">
 			{#if hover != null}
 				<span class="live">{labels[hover]}</span><b>failed median {fs.points[hover]?.median != null ? fmtPct(fs.points[hover].median!) : '—'}</b>

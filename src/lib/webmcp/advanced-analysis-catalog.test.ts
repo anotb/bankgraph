@@ -124,7 +124,7 @@ function harness() {
 const signal = new AbortController().signal;
 
 describe('advanced workspace analysis catalog', () => {
-	it('registers four mutation tools and a read-only materialized-result reader', () => {
+	it('registers the advanced mutations and keeps result readers contextual', () => {
 		const { deps } = harness();
 		const tools = createWorkspaceWebMcpTools(deps, { page: 'workspace' });
 		const names = tools.map((tool) => tool.name);
@@ -133,10 +133,9 @@ describe('advanced workspace analysis catalog', () => {
 			'bankgraph.analyze_cohort_change',
 			'bankgraph.find_temporal_patterns',
 			'bankgraph.analyze_financial_composition',
-			'bankgraph.analyze_failure_patterns',
-			'bankgraph.read_analysis_result'
+			'bankgraph.analyze_failure_patterns'
 		]));
-		expect(tools.find((tool) => tool.name === 'bankgraph.read_analysis_result')?.annotations.readOnlyHint).toBe(true);
+		expect(tools.find((tool) => tool.name === 'bankgraph.read_analysis_result')).toBeUndefined();
 		for (const name of names.filter((name) => name.startsWith('bankgraph.analyze_') || name === 'bankgraph.find_temporal_patterns')) {
 			if (!['bankgraph.analyze_cohort_change', 'bankgraph.find_temporal_patterns', 'bankgraph.analyze_financial_composition', 'bankgraph.analyze_failure_patterns'].includes(name)) continue;
 			const definition = tools.find((tool) => tool.name === name)!;

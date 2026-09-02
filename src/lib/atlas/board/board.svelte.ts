@@ -4,7 +4,7 @@ import { createDefaultWorkspaceState, workspaceCommands } from '$lib/workspace/s
 import type { ChartSpec, ResearchBoardBlock, WorkspaceState } from '$lib/workspace/types';
 import { DEFAULT_WORKSPACE_METRICS, type ResearchMetric } from '$lib/research-metrics';
 import { BoardData } from '$lib/atlas/engine/board-data.svelte';
-import { previousQuarter, quartersBetween, isQuarterEnd } from '$lib/atlas/engine/metrics';
+import { metricChange, metricValue, previousQuarter, quartersBetween, isQuarterEnd, yearAgo } from '$lib/atlas/engine/metrics';
 import { composeStrips, type BlockLayoutOverride, type Strip, type ViewRole } from './layout';
 import { BOARD_TEMPLATES, templateById, type BoardTemplate, type TemplateView } from '$lib/atlas/templates';
 
@@ -113,7 +113,7 @@ export class Board {
 		if (block.kind === 'workspace_view') {
 			const v = block.binding.view;
 			if (['comparison_matrix', 'change_attribution', 'bank_context', 'metric_history'].includes(v)) return pins?.certs?.length || this.selectedCerts.length ? null : 'banks';
-			if (v === 'peer_distribution') return this.selectedCerts.length && this.data.cohort.length >= 5 ? null : this.selectedCerts.length ? 'cohort' : 'banks';
+			if (v === 'peer_distribution') return this.data.cohort.length >= 5 ? null : 'cohort';
 			if (v === 'metric_relationship' || v === 'headquarters_geography') return this.data.cohort.length >= 5 || this.selectedCerts.length ? null : 'cohort';
 		}
 		return null;
@@ -324,9 +324,135 @@ export class Board {
 	}
 
 	// ----- templates → blocks in the shared block vocabulary
+	/** Apply the question and anchors that make a human-facing template useful on first open. */
+	prepareTemplate(template: BoardTemplate | string, preserve: { banks?: boolean; cohort?: boolean; question?: boolean } = {}): BoardTemplate | null {
+		const t = typeof template === 'string' ? templateById(template) : template;
+		if (!t) return null;
+		const start = t.start;
+		if (!start) return t;
+		if (start.clearBanks && !preserve.banks) this.setSelectedCerts([]);
+		if (start.clearCohort && !preserve.cohort) {
+			const defaults = createDefaultWorkspaceState();
+			this.setPeerRecipe(defaults.peerRecipe);
+			this.setExcluded([]);
+		}
+		if (start.cohort && !preserve.cohort) {
+			this.setPeerRecipe({
+				...this.state.peerRecipe,
+				basis: 'custom',
+				name: start.cohort.name,
+				active: 'active',
+				states: [...(start.cohort.states ?? [])],
+				assetRange: { ...start.cohort.assetRange },
+				metricConditions: [],
+				maximumPeers: start.cohort.maximumPeers ?? 200
+			});
+			this.setExcluded([]);
+		}
+		if (start.metrics?.length) {
+			this.setMetrics(start.metrics);
+			this.setActiveMetric(start.metrics[0]);
+		}
+		if (start.question && !preserve.question) this.setQuestion(start.question);
+		return t;
+	}
+
+	async applyCuratedTemplate(template: BoardTemplate | string, mode: 'replace' | 'append' = 'replace', preserve: { banks?: boolean; cohort?: boolean; question?: boolean } = {}): Promise<void> {
+		const t = this.prepareTemplate(template, preserve);
+		if (!t) return;
+		await this.applyTemplate(t, mode);
+		if (!preserve.banks) await this.selectCuratedMatches(t);
+	}
+
+	/** Resolve a question-led template into named banks while retaining its cohort as the benchmark. */
+	async selectCuratedMatches(template: BoardTemplate | string): Promise<number[]> {
+		const t = typeof template === 'string' ? templateById(template) : template;
+		const selection = t?.start?.selection;
+		if (!selection) return [];
+		await this.data.loadCohort(this.state);
+		const asOf = this.state.asOfQuarter ?? this.data.cohortAsOf ?? this.data.latestQuarter;
+		if (!asOf || !this.data.cohort.length) return [];
+		const prior = selection.basis === 'year-ago-change'
+			? yearAgo(asOf)
+			: selection.basis === 'prior-quarter-change'
+				? previousQuarter(asOf)
+				: null;
+		await Promise.all([
+			this.data.ensureInstitutions(this.data.cohort),
+			this.data.ensureRows(this.data.cohort, prior ?? asOf)
+		]);
+		const ranked = this.data.cohort.flatMap((cert) => {
+			const current = metricValue(selection.metric, this.data.rows[cert], asOf, this.data.institutions[cert]);
+			if (current == null) return [];
+			const value = prior
+				? metricChange(selection.metric, current, metricValue(selection.metric, this.data.rows[cert], prior, this.data.institutions[cert])).value
+				: current;
+			return value == null ? [] : [{ cert, value, assets: this.data.institutions[cert]?.total_assets ?? 0 }];
+		}).sort((a, b) => {
+			const byValue = selection.direction === 'highest' ? b.value - a.value : a.value - b.value;
+			return byValue || b.assets - a.assets || a.cert - b.cert;
+		});
+		const certs = ranked.slice(0, Math.max(1, Math.min(10, selection.limit))).map((row) => row.cert);
+		if (certs.length) {
+			this.setSelectedCerts(certs);
+			this.setActiveBank(certs[0]);
+			if (selection.basis === 'year-ago-change') this.setComparison('year-ago');
+			else if (selection.basis === 'prior-quarter-change') this.setComparison('prior-quarter');
+		}
+		return certs;
+	}
+
 	async applyTemplate(template: BoardTemplate | string, mode: 'replace' | 'append' = 'replace'): Promise<void> {
 		const t = typeof template === 'string' ? templateById(template) : template;
 		if (!t) return;
+		const includesFailureAnalysis = t.strips.some((strip) => strip.views.some((view) => view.kind === 'failure_pattern'));
+
+		// A regular replacement is one absolute board operation. Building the desired board first
+		// makes retries genuinely idempotent: the store compares the final state rather than seeing
+		// a transient clear followed by four separate inserts.
+		if (mode === 'replace' && !includesFailureAnalysis) {
+			const blocks: ResearchBoardBlock[] = [];
+			const overrides: Record<string, BlockLayoutOverride> = {};
+			const pending: Board['pendingViews'] = [];
+			let n = 0;
+			for (const strip of t.strips) {
+				const stripId = `${t.id}-${strip.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+				for (const view of strip.views) {
+					const id = `${t.id}-${++n}`;
+					if ((view.kind === 'history' || view.kind === 'exact_table') && !this.selectedCerts.length) {
+						pending.push({ view, id, stripId, stripTitle: strip.title });
+						continue;
+					}
+					const block = this.blockForTemplateView(view, id);
+					if (!block) continue;
+					blocks.push(block);
+					overrides[id] = { ...this.overrideForTemplateView(view), role: view.role, strip: stripId, stripTitle: strip.title };
+				}
+			}
+
+			const commands = [
+				...this.blocks.map((block) => workspaceCommands.removeBoardBlock(block.id)),
+				...blocks.map((block) => workspaceCommands.upsertBoardBlock(block)),
+				...(blocks.length ? [workspaceCommands.reorderBoardBlocks(blocks.map((block) => block.id))] : [])
+			];
+			const shared = this.store.executeBatch(commands);
+			const presentationChanged = JSON.stringify(this.overrides) !== JSON.stringify(overrides);
+			if (presentationChanged) {
+				this.overrides = overrides;
+				this.presentationRevision += 1;
+				this.#persistOverrides();
+			}
+			this.pendingViews = pending;
+			this.recentlyRemoved = null;
+			this.focusedBlockId = null;
+			this.timeAxisChoice = null;
+			if (shared.changed || presentationChanged) {
+				this.composingIds = new Set(blocks.map((block) => block.id));
+				setTimeout(() => { this.composingIds = new Set(); }, 400);
+			}
+			return;
+		}
+
 		if (mode === 'replace') { this.clearBoard(); this.timeAxisChoice = null; }
 		let n = this.blocks.length + this.pendingViews.length;
 		let needsFailureAnalysis = false;
@@ -404,9 +530,16 @@ export class Board {
 		const metrics = view.options?.metrics as ResearchMetric[] | undefined;
 		return {
 			...(metrics?.length ? { pins: { metrics } } : {}),
+			...(typeof view.options?.columns === 'number' ? { span: Math.max(3, Math.min(12, Math.round(view.options.columns))) } : {}),
+			...(view.options?.tall === true ? { tall: true } : {}),
 			...(view.options?.layout === 'multiples' ? { presentation: 'multiples' as const } : {}),
+			...(Array.isArray(view.options?.series) ? { series: (view.options.series as string[]).slice(0, 3) } : {}),
 			...(typeof view.options?.x === 'string' ? { xMetric: view.options.x } : {}),
-			...(typeof view.options?.y === 'string' ? { yMetric: view.options.y } : {})
+			...(typeof view.options?.y === 'string' ? { yMetric: view.options.y } : {}),
+			...(typeof view.options?.geographyMode === 'string' ? { geographyMode: view.options.geographyMode as BlockLayoutOverride['geographyMode'] } : {}),
+			...(typeof view.options?.sortMetric === 'string' ? { sortMetric: view.options.sortMetric } : {}),
+			...(view.options?.sortBasis === 'change' || view.options?.sortBasis === 'level' ? { sortBasis: view.options.sortBasis } : {}),
+			...(view.options?.sortDirection === 'asc' || view.options?.sortDirection === 'desc' ? { sortDirection: view.options.sortDirection } : {})
 		};
 	}
 

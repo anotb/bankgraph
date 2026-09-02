@@ -61,6 +61,14 @@ describe('materialized cohort trend workspace state', () => {
 		});
 	});
 
+	it('accepts a multi-quarter comparison window', () => {
+		const result = applyWorkspaceCommand(
+			createDefaultWorkspaceState(),
+			workspaceCommands.setCohortTrendResult({ ...trendResult(), from: '20240630', to: '20250630' })
+		);
+		expect(result.state.cohortTrendResult).toMatchObject({ from: '20240630', to: '20250630' });
+	});
+
 	it('does not overwrite a human edit made against the scan revision', () => {
 		const store = createWorkspaceStore({ persist: false });
 		store.setQuestion('Human changed the question');
