@@ -1,23 +1,49 @@
 import type { ResearchBoardBlock } from '$lib/workspace/types';
 import type { Board } from '../board.svelte';
 import { metricValue, quartersBetween, type ResearchMetric } from '$lib/atlas/engine/metrics';
+import { BOARD_TEMPLATES } from '$lib/atlas/templates';
+
+function isCuratedTemplateBlock(id: string): boolean {
+	return BOARD_TEMPLATES.some((template) => {
+		const suffix = id.slice(template.id.length + 1);
+		return id.startsWith(`${template.id}-`) && /^\d+$/.test(suffix);
+	});
+}
+
+/**
+ * Curated layouts are live views of the board selection. Older saved boards predate
+ * the explicit sidecar flag, so recognize their stable template block IDs too.
+ * A source-bound history or table starts with its stored selection, but a person or
+ * agent can reconnect it to the board or replace that selection at any time.
+ */
+export function followsWorkspace(board: Board, block: ResearchBoardBlock): boolean {
+	const configured = board.overrides[block.id]?.followWorkspace;
+	if (configured !== undefined) return configured;
+	if (block.kind === 'history' || block.kind === 'exact_table') return isCuratedTemplateBlock(block.id);
+	return true;
+}
 
 /** Anchors a view actually uses: the board's, unless the view pins its own. */
 export function effective(board: Board, block: ResearchBoardBlock) {
 	const override = board.overrides[block.id];
 	const pins = override?.pins ?? {};
+	const followWorkspace = followsWorkspace(board, block);
 	let certs = pins.certs?.length ? pins.certs : board.selectedCerts;
 	let metrics = (pins.metrics?.length ? pins.metrics : board.metrics) as ResearchMetric[];
 	let from = board.historyFrom, to = board.historyTo;
-	if (block.kind === 'history' && override?.followWorkspace !== true) {
+	if (block.kind === 'history' && !followWorkspace) {
 		certs = pins.certs?.length ? pins.certs : block.binding.certs.length ? block.binding.certs : certs;
 		metrics = (pins.metrics?.length ? pins.metrics : block.binding.metrics) as ResearchMetric[];
-		from = block.binding.from; to = block.binding.to;
+		from = pins.compareWith ?? block.binding.from;
+		to = pins.asOf ?? block.binding.to;
 	}
-	if (block.kind === 'exact_table' && override?.followWorkspace !== true) {
+	if (block.kind === 'exact_table' && !followWorkspace) {
 		certs = pins.certs?.length ? pins.certs : block.binding.certs.length ? block.binding.certs : certs;
 		metrics = (pins.metrics?.length ? pins.metrics : block.binding.metrics) as ResearchMetric[];
-		if (!block.binding.followCurrent && block.binding.from && block.binding.to) { from = block.binding.from; to = block.binding.to; }
+		if (!block.binding.followCurrent && block.binding.from && block.binding.to) {
+			from = pins.compareWith ?? block.binding.from;
+			to = pins.asOf ?? block.binding.to;
+		}
 	}
 	const asOf = pins.asOf ?? board.asOf;
 	const compareWith = pins.compareWith ?? board.compareWith;

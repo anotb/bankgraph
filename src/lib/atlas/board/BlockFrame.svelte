@@ -5,6 +5,7 @@
 	import BlockContent from './BlockContent.svelte';
 	import { quarterLabel, shortBankName } from '$lib/atlas/format';
 	import { metricShort } from '$lib/atlas/engine/metrics';
+	import { effective, followsWorkspace } from './views/util';
 
 	interface Sibling { id: string; span: number }
 	let { block, role, span, siblings = [], tall = false }: { block: ResearchBoardBlock; role: ViewRole; span: number; siblings?: Sibling[]; tall?: boolean } = $props();
@@ -16,7 +17,8 @@
 	let el: HTMLElement | undefined = $state();
 
 	let pins = $derived(board.overrides[block.id]?.pins ?? {});
-	let pinned = $derived(Boolean(pins.asOf || pins.certs?.length || pins.metrics?.length));
+	let follows = $derived(followsWorkspace(board, block));
+	let ownData = $derived(!follows || Boolean(pins.asOf || pins.compareWith || pins.certs?.length || pins.metrics?.length));
 	let selected = $derived(board.state.board.focusedBlockId === block.id);
 	let full = $derived(span >= 12);
 	let needs = $derived(board.blockNeeds(block));
@@ -49,9 +51,26 @@
 	function resizeEnd() { resizing = false; }
 	function subtitle(): string {
 		if (block.kind === 'history' && !block.binding.certs.length) return '';
-		if (block.kind === 'history') return `${quarterLabel(block.binding.from)} – ${quarterLabel(block.binding.to)}`;
-		if (block.kind === 'exact_table' && !block.binding.followCurrent && block.binding.from) return `${quarterLabel(block.binding.from)} – ${quarterLabel(block.binding.to)}`;
+		if (block.kind === 'history') {
+			const scope = effective(board, block);
+			return `${quarterLabel(scope.from)} – ${quarterLabel(scope.to)}`;
+		}
+		if (block.kind === 'exact_table' && !follows && !block.binding.followCurrent && block.binding.from) {
+			const scope = effective(board, block);
+			return `${quarterLabel(scope.from)} – ${quarterLabel(scope.to)}`;
+		}
 		return '';
+	}
+	function useBoardData() {
+		board.setOverride(block.id, { followWorkspace: true, pins: undefined });
+		menu = null;
+	}
+	function keepOwnData() {
+		const scope = effective(board, block);
+		board.setOverride(block.id, {
+			followWorkspace: false,
+			pins: { certs: [...scope.certs], metrics: [...scope.metrics], asOf: scope.asOf, compareWith: scope.compareWith }
+		});
 	}
 	function size(kind: 'primary' | 'beside' | 'row') {
 		const partner = neighbor ?? (index > 0 ? siblings[index - 1] : null);
@@ -79,13 +98,15 @@
 			<div class="mw"><button type="button" class="tool" aria-expanded={menu === 'size'} onclick={() => (menu = menu === 'size' ? null : 'size')} title="Size and placement">{full ? 'Full row' : span >= 8 ? 'Primary' : 'Beside'}</button>
 				{#if menu === 'size'}<div class="pop mn"><button type="button" aria-pressed={span >= 8 && !full} onclick={() => size('primary')}>Make primary</button><button type="button" aria-pressed={span <= 6 && !full} onclick={() => size('beside')}>Place beside</button><button type="button" aria-pressed={full} onclick={() => size('row')}>Own row</button><div class="sep"></div><button type="button" aria-pressed={!board.overrides[block.id]?.tall} onclick={() => { board.setOverride(block.id, { tall: undefined }); menu = null; }}>Standard height</button><button type="button" aria-pressed={Boolean(board.overrides[block.id]?.tall)} onclick={() => { board.setOverride(block.id, { tall: true }); menu = null; }}>Tall</button></div>{/if}
 			</div>
-			<div class="mw"><button type="button" class="tool" class:on={pinned} aria-expanded={menu === 'keep'} onclick={() => (menu = menu === 'keep' ? null : 'keep')} title="Keep this view on its own bank, period, or measures">{pinned ? 'Kept' : 'Keep'}</button>
+			<div class="mw"><button type="button" class="tool" class:on={ownData} aria-expanded={menu === 'keep'} onclick={() => (menu = menu === 'keep' ? null : 'keep')} title="Choose whether this view follows the board or uses its own data">Data</button>
 				{#if menu === 'keep'}
 					<div class="pop mn wide">
-						<label><span>Period</span><select class="in" value={pins.asOf ?? ''} onchange={(e) => board.setOverride(block.id, { pins: { ...pins, asOf: e.currentTarget.value || undefined } })}><option value="">Use board period</option>{#each board.quarters.slice().reverse() as q}<option value={q}>Keep {quarterLabel(q, 'long')}</option>{/each}</select></label>
-						<label><span>Bank</span><select class="in" value={pins.certs?.join(',') ?? ''} onchange={(e) => board.setOverride(block.id, { pins: { ...pins, certs: e.currentTarget.value ? e.currentTarget.value.split(',').map(Number) : undefined } })}><option value="">Use board banks</option>{#each board.selectedCerts as c}<option value={String(c)}>Keep {shortBankName(board.data.institutions[c]?.name ?? String(c))}</option>{/each}</select></label>
-						<label><span>Measure</span><select class="in" value={pins.metrics?.join(',') ?? ''} onchange={(e) => board.setOverride(block.id, { pins: { ...pins, metrics: e.currentTarget.value ? e.currentTarget.value.split(',') : undefined } })}><option value="">Use board measures</option>{#each board.metrics as m}<option value={m}>Keep {metricShort(m)}</option>{/each}</select></label>
-						{#if pinned}<button type="button" class="btn sm" onclick={() => { board.setOverride(block.id, { pins: {} }); menu = null; }}>Use the board selection</button>{/if}
+						<button type="button" aria-pressed={follows && !ownData} onclick={useBoardData}>Use the board selection</button>
+						<button type="button" aria-pressed={ownData} onclick={keepOwnData}>Keep a separate selection</button>
+						<div class="sep"></div>
+						<label><span>Period</span><select class="in" value={pins.asOf ?? ''} onchange={(e) => board.setOverride(block.id, { followWorkspace: false, pins: { ...pins, asOf: e.currentTarget.value || undefined } })}><option value="">Use board period</option>{#each board.quarters.slice().reverse() as q}<option value={q}>Keep {quarterLabel(q, 'long')}</option>{/each}</select></label>
+						<label><span>Bank</span><select class="in" value={pins.certs?.join(',') ?? ''} onchange={(e) => board.setOverride(block.id, { followWorkspace: false, pins: { ...pins, certs: e.currentTarget.value ? e.currentTarget.value.split(',').map(Number) : undefined } })}><option value="">Use board banks</option>{#each board.selectedCerts as c}<option value={String(c)}>Keep {shortBankName(board.data.institutions[c]?.name ?? String(c))}</option>{/each}</select></label>
+						<label><span>Measure</span><select class="in" value={pins.metrics?.join(',') ?? ''} onchange={(e) => board.setOverride(block.id, { followWorkspace: false, pins: { ...pins, metrics: e.currentTarget.value ? e.currentTarget.value.split(',') : undefined } })}><option value="">Use board measures</option>{#each board.metrics as m}<option value={m}>Keep {metricShort(m)}</option>{/each}</select></label>
 					</div>
 				{/if}
 			</div>

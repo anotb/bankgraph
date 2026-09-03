@@ -10,7 +10,7 @@ import {
 	type ResearchMetric,
 	yearAgo
 } from './metrics';
-import { cohortBand, cohortValues, effective, percentileOf } from '$lib/atlas/board/views/util';
+import { cohortBand, cohortValues, effective, followsWorkspace, percentileOf } from '$lib/atlas/board/views/util';
 
 export const ATLAS_STRUCTURED_READ_MAX_PAGE_SIZE = 200;
 
@@ -364,7 +364,7 @@ function readHistory(board: Board, block: ResearchBoardBlock, pageInput: AtlasSt
 
 function readExactTable(board: Board, block: ResearchBoardBlock, pageInput: AtlasStructuredReadPageInput | undefined) {
 	const anchors = effective(board, block);
-	const followsCurrent = block.kind !== 'exact_table' || block.binding.followCurrent;
+	const followsCurrent = block.kind !== 'exact_table' || followsWorkspace(board, block) || block.binding.followCurrent;
 	if (anchors.certs.length === 1 && !followsCurrent) {
 		const cert = anchors.certs[0];
 		const rows = [...anchors.quarters].reverse().map((period) => ({

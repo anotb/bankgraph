@@ -215,6 +215,62 @@ test('native WebMCP reads the same chart data and controls the visible board lif
 		}
 	});
 
+	board = await readBoard(page);
+	let retargeted = await invoke(page, 'bankgraph.configure_board_view', {
+		blockId: history!.id,
+		width: 'auto',
+		height: 'standard',
+		role: 'auto',
+		presentation: 'auto',
+		followWorkspace: false,
+		certs: [900002],
+		metrics: ['roa'],
+		asOf: '20260630',
+		compareWith: '20250331',
+		ifRevision: board.workspaceRevision,
+		ifPresentationRevision: board.presentation.presentationRevision
+	});
+	if (!retargeted.ok && retargeted.error?.code === 'stale_revision') {
+		board = await readBoard(page);
+		retargeted = await invoke(page, 'bankgraph.configure_board_view', {
+			blockId: history!.id,
+			width: 'auto', height: 'standard', role: 'auto', presentation: 'auto', followWorkspace: false,
+			certs: [900002], metrics: ['roa'], asOf: '20260630', compareWith: '20250331',
+			ifRevision: board.workspaceRevision,
+			ifPresentationRevision: board.presentation.presentationRevision
+		});
+	}
+	if (!retargeted.ok) throw new Error(`configure_board_view retarget failed: ${JSON.stringify(retargeted.error)}`);
+	expect(retargeted).toMatchObject({ ok: true, data: { changed: true } });
+	const retargetedRead = await invoke(page, 'bankgraph.read_board_block', { blockId: history!.id, pageSize: 100 });
+	expect(retargetedRead).toMatchObject({
+		ok: true,
+		data: {
+			numerical: {
+				items: expect.arrayContaining([expect.objectContaining({ cert: 900002, metric: 'roa' })]),
+				metadata: { anchors: { certs: [900002], metrics: ['roa'], from: '20250331', to: '20260630' } }
+			}
+		}
+	});
+
+	board = await readBoard(page);
+	const reconnected = await invoke(page, 'bankgraph.configure_board_view', {
+		blockId: history!.id,
+		width: 'auto',
+		height: 'standard',
+		role: 'auto',
+		presentation: 'auto',
+		followWorkspace: true,
+		ifRevision: board.workspaceRevision,
+		ifPresentationRevision: board.presentation.presentationRevision
+	});
+	expect(reconnected).toMatchObject({ ok: true, data: { changed: true } });
+	const reconnectedRead = await invoke(page, 'bankgraph.read_board_block', { blockId: history!.id, pageSize: 100 });
+	expect(reconnectedRead).toMatchObject({
+		ok: true,
+		data: { numerical: { metadata: { anchors: { certs: [900001] } } } }
+	});
+
 	const appearance = await invoke(page, 'bankgraph.set_appearance', { theme: 'dark' });
 	expect(appearance).toMatchObject({ ok: true, data: { changed: true } });
 	await expect(page.locator('html')).toHaveClass(/night/);
@@ -309,6 +365,48 @@ test('site tools remain available across pages and hand off to the full research
 	await expect.poll(() => page.evaluate(() => window.__bankgraphWebMcpE2E?.names() ?? [])).toContain(
 		'bankgraph.navigate'
 	);
+});
+
+test('adding peers through WebMCP refreshes curated tables and charts on the visible board', async ({ page }) => {
+	await page.goto('/b?template=peer_comparison&certs=900001');
+	await expectWorkspaceTools(page);
+	await expect(page.locator('article[data-block="peer_comparison-1"] tbody tr')).toHaveCount(1);
+
+	let context = await invoke(page, 'bankgraph.get_context');
+	let revision = context.data?.revision;
+	if (typeof revision !== 'number') throw new Error('get_context did not return a revision');
+	const comparisonInput = {
+		certs: [900001, 900002],
+		metrics: ['asset', 'roa'],
+		asOfQuarter: '20260630',
+		comparisonMode: 'prior-quarter',
+		focusMode: 'keep',
+		chartKind: 'line',
+		chartScale: 'value'
+	};
+	let comparison = await invoke(page, 'bankgraph.configure_comparison', { ...comparisonInput, ifRevision: revision });
+	if (!comparison.ok && comparison.error?.code === 'stale_revision') {
+		context = await invoke(page, 'bankgraph.get_context');
+		revision = context.data?.revision;
+		if (typeof revision !== 'number') throw new Error('get_context did not return a retry revision');
+		comparison = await invoke(page, 'bankgraph.configure_comparison', { ...comparisonInput, ifRevision: revision });
+	}
+	if (!comparison.ok) throw new Error(`configure_comparison failed: ${JSON.stringify(comparison.error)}`);
+	expect(comparison).toMatchObject({ ok: true, data: { changed: true } });
+
+	await expect(page.locator('article[data-block="peer_comparison-1"] tbody tr')).toHaveCount(2);
+	await expect(page.locator('article[data-block="peer_comparison-1"]')).toContainText('CI South Bank');
+	const historyRead = await invoke(page, 'bankgraph.read_board_block', {
+		blockId: 'peer_comparison-2',
+		section: 'series',
+		pageSize: 100
+	});
+	expect(historyRead).toMatchObject({
+		ok: true,
+		data: {
+			numerical: { items: expect.arrayContaining([expect.objectContaining({ cert: 900002 })]) }
+		}
+	});
 });
 
 test('a failure-pattern call publishes a readable analysis into the live board', async ({ page }) => {

@@ -18,6 +18,7 @@
 		zero?: boolean;
 		direct?: boolean;
 		dots?: boolean;
+		area?: boolean;
 		min?: number | null;
 		max?: number | null;
 		hover?: number | null;
@@ -27,7 +28,7 @@
 	let {
 		series, labels, band = null, events = [], marker = null, marker2 = null,
 		format = (v: number) => v.toFixed(2), height = 140, yTicks = 3, zero = false,
-		direct = true, dots = false, min = null, max = null, hover = $bindable(null), onhover, onselect
+		direct = true, dots = false, area = false, min = null, max = null, hover = $bindable(null), onhover, onselect
 	}: Props = $props();
 
 	let width = $state(320);
@@ -63,6 +64,19 @@
 		let d = ''; let started = false;
 		values.forEach((v, i) => { if (v == null || !Number.isFinite(v)) { started = false; return; } d += `${started ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)} `; started = true; });
 		return d;
+	}
+	function areaPaths(values: (number | null)[]) {
+		const paths: string[] = [];
+		let points: Array<{ i: number; value: number }> = [];
+		const close = () => {
+			if (!points.length) return;
+			const first = points[0], last = points[points.length - 1];
+			paths.push(`M${x(first.i)} ${pad.t + ih} L${points.map((point) => `${x(point.i)} ${y(point.value)}`).join(' L')} L${x(last.i)} ${pad.t + ih} Z`);
+			points = [];
+		};
+		values.forEach((value, i) => { if (value == null || !Number.isFinite(value)) close(); else points.push({ i, value }); });
+		close();
+		return paths;
 	}
 	let bandPath = $derived.by(() => {
 		if (!band) return '';
@@ -124,6 +138,7 @@
 		{#if marker != null}<line x1={x(marker)} x2={x(marker)} y1={pad.t} y2={pad.t + ih} stroke="var(--accent)" stroke-width="1.5" />{/if}
 		{#each series as s, si}
 			{@const c = s.color ?? colors[si % colors.length]}
+			{#if area && !s.context}{#each areaPaths(s.values) as d}<path {d} fill={c} opacity="0.10" />{/each}{/if}
 			<path d={path(s.values)} fill="none" stroke={c} stroke-width={s.width ?? (s.muted ? 1 : 1.5)} stroke-dasharray={s.dash ?? 'none'} opacity={s.muted ? 0.55 : 1} stroke-linejoin="round" />
 			{#if dots}{#each s.values as v, i}{#if v != null}<circle cx={x(i)} cy={y(v)} r="2.2" fill={c} />{/if}{/each}{/if}
 			{#if direct && labelPositions.pos[si] != null}

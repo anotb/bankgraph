@@ -529,6 +529,7 @@ export class Board {
 	overrideForTemplateView(view: TemplateView): BlockLayoutOverride {
 		const metrics = view.options?.metrics as ResearchMetric[] | undefined;
 		return {
+			...((view.kind === 'history' || view.kind === 'exact_table') ? { followWorkspace: true } : {}),
 			...(metrics?.length ? { pins: { metrics } } : {}),
 			...(typeof view.options?.columns === 'number' ? { span: Math.max(3, Math.min(12, Math.round(view.options.columns))) } : {}),
 			...(view.options?.tall === true ? { tall: true } : {}),

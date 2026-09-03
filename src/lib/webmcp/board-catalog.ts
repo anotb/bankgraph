@@ -736,7 +736,7 @@ export function createResearchBoardWebMcpToolCatalog(
 	const updateBlock = mutation({
 		name: 'bankgraph.update_board_block',
 		title: 'Update a board view',
-		description: 'Replace the title, width, and compatible presentation choice for one visible board view. Send the complete desired presentation so retries are idempotent.',
+		description: 'Update any visible board view after it is created. Rename or resize it, change a history chart between line and area or values and index, or switch the compatible view of a stored analysis result. Send the complete desired presentation so retries are idempotent.',
 		inputSchema: OBJECT({
 			blockId: ID_SCHEMA, title: TITLE_SCHEMA, span: SPAN_SCHEMA, view: ENUM(ANALYSIS_VIEWS),
 			chartKind: ENUM(['line', 'area']), scale: ENUM(['value', 'index']), ifRevision: REVISION_SCHEMA,
@@ -816,7 +816,7 @@ export function createResearchBoardWebMcpToolCatalog(
 	const configureBoardView = mutation({
 		name: 'bankgraph.configure_board_view',
 		title: 'Configure a board view',
-		description: 'Configure one visible view in place: its analytical role, width, height, presentation, and whether it follows the board anchors or pins its own banks, measures, and comparison dates. Send the complete desired presentation so retries are exact.',
+		description: 'Retarget and configure any visible view after it is created: its analytical role, width, height, presentation, and whether it follows the board or uses its own banks, measures, and comparison dates. A curated layout is only a starting point. Send the complete desired presentation so retries are exact.',
 		maxResultChars: MAX_WEBMCP_EXTENDED_ENVELOPE_CHARS,
 		inputSchema: OBJECT({
 			blockId: ID_SCHEMA,

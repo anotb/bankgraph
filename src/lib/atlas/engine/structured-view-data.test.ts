@@ -121,12 +121,13 @@ describe('readAtlasStructuredView', () => {
 		expect(result.anchors.certs).toEqual([3]);
 		expect(result.anchors.metrics).toEqual(['roa']);
 		expect(result.anchors.asOf).toBe(Q2);
-		expect(result.page).toEqual({ offset: 1, limit: 2, total: 3, returned: 2, hasMore: false, nextOffset: null });
+		expect(result.anchors.from).toBe(Q1);
+		expect(result.anchors.to).toBe(Q2);
+		expect(result.page).toEqual({ offset: 1, limit: 2, total: 2, returned: 1, hasMore: false, nextOffset: null });
 		expect(result.data.kind).toBe('history');
 		if (result.data.kind !== 'history') return;
 		expect(result.data.presentation).toBe('primary');
 		expect(result.data.observations[0]?.value).toBeCloseTo(110);
-		expect(result.data.observations[1]?.value).toBeCloseTo(120);
 		expect(result.data.peerBand).toBeNull();
 		expect(result.sources[0]).toMatchObject({ dataset: 'FDIC BankFind Suite', grain: 'institution-quarter' });
 	});
@@ -145,12 +146,40 @@ describe('readAtlasStructuredView', () => {
 		}
 		expect(exact.page).toMatchObject({ total: 3, returned: 2, hasMore: true, nextOffset: 2 });
 
+		const reattached = await readAtlasStructuredView({
+			board: board({ selectedCerts: [1, 2], overrides: { table: { followWorkspace: true } } } as Partial<Board>),
+			block: table
+		});
+		expect(reattached.data.kind).toBe('exact_table');
+		if (reattached.data.kind === 'exact_table') {
+			expect(reattached.data.orientation).toBe('institutions');
+			expect(reattached.data.rows).toHaveLength(2);
+		}
+
 		const matrix = await readAtlasStructuredView({ board: atlas, block: view('matrix', 'comparison_matrix') });
 		expect(matrix.data.kind).toBe('comparison_matrix');
 		if (matrix.data.kind === 'comparison_matrix') {
 			expect(matrix.data.orientation).toBe('measures');
 			expect(matrix.data.rows[0]).toMatchObject({ metric: 'asset', value: 120, peerMedian: 540, peerCount: 8 });
 		}
+	});
+
+	it('keeps curated peer tables and histories synchronized with the board bank selection', async () => {
+		const atlas = board({ selectedCerts: [1, 2, 3] } as Partial<Board>);
+		const curatedTable: ResearchBoardBlock = {
+			id: 'peer_comparison-1', title: 'Exact values', span: 'full', kind: 'exact_table',
+			binding: { certs: [1], metrics: ['asset', 'roa'], from: null, to: null, followCurrent: true }
+		};
+		const curatedHistory: ResearchBoardBlock = {
+			id: 'peer_comparison-2', title: 'Over time', span: 'full', kind: 'history',
+			binding: { certs: [1], metrics: ['asset'], from: Q1, to: Q3, chartKind: 'line', scale: 'value' }
+		};
+
+		const table = await readAtlasStructuredView({ board: atlas, block: curatedTable });
+		const history = await readAtlasStructuredView({ board: atlas, block: curatedHistory });
+
+		expect(table.anchors.certs).toEqual([1, 2, 3]);
+		expect(history.anchors.certs).toEqual([1, 2, 3]);
 	});
 
 	it('reads distributions, relationships, geography, and institution records from the shared BoardData cache', async () => {

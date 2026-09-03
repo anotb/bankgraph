@@ -21,11 +21,18 @@
 	$effect(() => {
 		const s = board.state;
 		const selected = [...s.selectedCerts];
-		const certs = [...new Set([...selected, ...board.data.cohort])];
-		const from = BoardData.windowStart(s, board.data.latestQuarter);
+		const bound = board.blocks.flatMap((block) => block.kind === 'history' || block.kind === 'exact_table' ? block.binding.certs : []);
+		const pinned = Object.values(board.overrides).flatMap((override) => override.pins?.certs ?? []);
+		const certs = [...new Set([...selected, ...board.data.cohort, ...bound, ...pinned])];
+		const starts = [
+			BoardData.windowStart(s, board.data.latestQuarter),
+			...board.blocks.flatMap((block) => block.kind === 'history' ? [block.binding.from] : block.kind === 'exact_table' && block.binding.from ? [block.binding.from] : []),
+			...Object.values(board.overrides).flatMap((override) => override.pins?.compareWith ? [override.pins.compareWith] : [])
+		].filter(Boolean);
+		const from = starts.sort()[0];
 		const controller = new AbortController();
 		const t = setTimeout(() => {
-			void board.data.ensureInstitutions(selected, controller.signal);
+			void board.data.ensureInstitutions(certs, controller.signal);
 			if (certs.length) void board.data.ensureRows(certs, from, controller.signal);
 		}, 0);
 		return () => { clearTimeout(t); controller.abort(); };

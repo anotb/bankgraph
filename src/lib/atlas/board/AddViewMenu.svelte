@@ -17,9 +17,10 @@
 	];
 	async function runFailureAnalysis() { try { await board.runFailureAnalysis(); onclose(); } catch { /* the plate menu stays open so the person can retry */ } }
 	function add(v: (typeof VIEWS)[number]) {
-		const block = board.blockForTemplateView({ kind: v.kind, role: v.role }, `${v.kind}-${Date.now().toString(36)}`);
+		const view = { kind: v.kind, role: v.role };
+		const block = board.blockForTemplateView(view, `${v.kind}-${Date.now().toString(36)}`);
 		if (block) {
-			board.upsertBlock(block, { role: v.role });
+			board.upsertBlock(block, { ...board.overrideForTemplateView(view), role: v.role });
 			board.select(block.id);
 			// Bring the new plate into view once it has composed into its strip.
 			setTimeout(() => document.querySelector(`[data-block="${block.id}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 60);
