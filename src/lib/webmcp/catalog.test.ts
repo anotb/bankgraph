@@ -5,6 +5,7 @@ import {
   applyWorkspaceCommand,
   applyWorkspaceCommands,
   workspaceCommands,
+  WORKSPACE_LIMITS,
   type WorkspaceCommand,
   type WorkspaceCommandOptions,
 } from "$lib/workspace/index.js";
@@ -916,6 +917,24 @@ describe("workspace WebMCP catalog", () => {
       bankMode: "keep",
       metricMode: "add",
     });
+  });
+
+  it("rejects an incremental bank add at capacity instead of silently dropping it", async () => {
+    const { deps, workspace } = dependencies();
+    workspace.execute(workspaceCommands.setSelectedCerts(
+      Array.from({ length: WORKSPACE_LIMITS.selectedBanks }, (_, index) => index + 1),
+    ));
+    const comparison = tool(deps, "bankgraph.configure_comparison");
+
+    await expect(comparison.controller({
+      bankMode: "add",
+      certs: [99_999],
+      ifRevision: workspace.state.revision,
+    }, { signal, scope: "test", toolName: comparison.name })).rejects.toThrow(
+      `supports ${WORKSPACE_LIMITS.selectedBanks} selected banks`,
+    );
+    expect(workspace.state.selectedCerts).toHaveLength(WORKSPACE_LIMITS.selectedBanks);
+    expect(workspace.state.selectedCerts).not.toContain(99_999);
   });
 
   it("inherits the published reporting period for a first incremental comparison edit", async () => {

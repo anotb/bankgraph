@@ -38,8 +38,8 @@
 			<ul class="starts">
 				{#each questions as item}<li><a href={item.href ?? `/b?q=${encodeURIComponent(item.q)}`}>{item.q}</a></li>{/each}
 			</ul>
-			<a class="agent-start" href="/b"><span><b>Build a board with ChatGPT</b><small>Ask a question. Your agent can screen the data, choose the banks, and arrange the analysis here.</small></span><span aria-hidden="true">→</span></a>
-			<div class="ask-foot"><a href="/banks">All institutions</a><a href="/economy">Economy</a><a href="/b">Blank board</a></div>
+			<a class="agent-start" href="/b?fresh=1"><span><b>Build a board with ChatGPT</b><small>Ask a question. Your agent can screen the data, choose the banks, and arrange the analysis here.</small></span><span aria-hidden="true">→</span></a>
+			<div class="ask-foot"><a href="/banks">All institutions</a><a href="/economy">Economy</a><a href="/b?fresh=1">Blank board</a></div>
 		</div>
 
 		<SystemSurface {data} />
@@ -67,7 +67,7 @@
 					<b>{t.name}</b><span>{t.description}</span>
 				</a>
 			{/each}
-			<a class="tmpl" href="/b"><div class="th blank"><div class="r"><i></i></div></div><b>Blank board</b><span>Choose banks, measures, and time, then add views.</span></a>
+			<a class="tmpl" href="/b?fresh=1"><div class="th blank"><div class="r"><i></i></div></div><b>Blank board</b><span>Choose banks, measures, and time, then add views.</span></a>
 		</section>
 	</section>
 </div>

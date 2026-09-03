@@ -18,7 +18,8 @@ import type { AnalysisResultRef } from './analysis-result-repository';
 export const WORKSPACE_SCHEMA_VERSION = 3 as const;
 
 export const WORKSPACE_LIMITS = {
-	selectedBanks: 10,
+	/** Large enough for a working comparison set; views may progressively disclose dense series. */
+	selectedBanks: 25,
 	visibleMetrics: 6,
 	findings: 20,
 	/** One current, fully inspectable cohort-trend result. Older scans are replaced. */

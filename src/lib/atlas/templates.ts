@@ -79,7 +79,7 @@ export const BOARD_TEMPLATES: BoardTemplate[] = [
 	{
 		id: 'peer_comparison',
 		name: 'Peer comparison',
-		description: 'Up to ten banks on six measures, with the cohort band behind them.',
+		description: 'Compare selected banks across six measures, with the cohort behind them.',
 		needs: ['banks'],
 		timeForm: 'standard',
 		start: {

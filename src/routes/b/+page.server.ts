@@ -13,6 +13,7 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
 		releaseGeneration,
 		pageLoadedAt: new Date().toISOString(),
 		launch: {
+			fresh: url.searchParams.get('fresh') === '1',
 			template: url.searchParams.get('template'),
 			question: url.searchParams.get('q'),
 			states: url.searchParams.get('states')?.split(',').filter(Boolean) ?? [],

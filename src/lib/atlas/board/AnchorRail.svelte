@@ -4,7 +4,7 @@
 	import { quarterLabel, shortBankName, usdThousands, seriesColor, count } from '$lib/atlas/format';
 	import { US_STATES } from '$lib/atlas/states';
 	import { quartersBetween, previousQuarter } from '$lib/atlas/engine/metrics';
-	import type { MetricCondition } from '$lib/workspace/types';
+	import { WORKSPACE_LIMITS, type MetricCondition } from '$lib/workspace/types';
 
 	const board = Board.use();
 	let open = $state<'banks' | 'cohort' | 'measures' | 'time' | null>(null);
@@ -65,6 +65,13 @@
 	let displayedCerts = $derived(board.state.activeBank == null
 		? board.selectedCerts
 		: [board.state.activeBank, ...board.selectedCerts.filter((cert) => cert !== board.state.activeBank)]);
+	let bankSelectionFull = $derived(board.selectedCerts.length >= WORKSPACE_LIMITS.selectedBanks);
+	let cohortCountLabel = $derived.by(() => {
+		const shown = board.data.cohort.length;
+		const total = board.data.cohortTotal;
+		if (!shown) return board.data.pending ? 'loading' : '';
+		return shown < total ? `${count(shown)} largest of ${count(total)} matches` : `${count(total)} match${total === 1 ? '' : 'es'}`;
+	});
 	function addState() { const code = stateInput.trim().toUpperCase(); if (US_STATES[code] && !recipe.states.includes(code)) setStates([...recipe.states, code]); stateInput = ''; }
 
 	let allQuarters = $derived(quartersBetween('19920331', board.latest).reverse());
@@ -92,7 +99,7 @@
 				<input class="in" placeholder="Name, city, state, or certificate" bind:value={bankQuery} aria-label="Find a bank" />
 				<div class="list">
 					{#each bankResults as b}
-						<button type="button" class="row" disabled={board.selectedCerts.includes(b.cert)} onclick={() => { board.addCert(b.cert); bankQuery = ''; }}>
+						<button type="button" class="row" disabled={board.selectedCerts.includes(b.cert) || bankSelectionFull} onclick={() => { board.addCert(b.cert); bankQuery = ''; }}>
 							<span>{shortBankName(b.name)}</span><span class="sub">{b.city}{b.state ? `, ${b.state}` : ''} · {usdThousands(b.total_assets)}</span>
 						</button>
 					{/each}
@@ -102,11 +109,11 @@
 					<div class="cap" style="margin-top:10px">From the cohort</div>
 					<div class="list">
 						{#each board.data.cohort.filter((c) => !board.selectedCerts.includes(c)).slice(0, 6) as cert}
-							<button type="button" class="row" onclick={() => board.addCert(cert)}><span>{shortBankName(board.data.institutions[cert]?.name ?? String(cert))}</span><span class="sub">{board.data.institutions[cert]?.state} · {usdThousands(board.data.institutions[cert]?.total_assets)}</span></button>
+							<button type="button" class="row" disabled={bankSelectionFull} onclick={() => board.addCert(cert)}><span>{shortBankName(board.data.institutions[cert]?.name ?? String(cert))}</span><span class="sub">{board.data.institutions[cert]?.state} · {usdThousands(board.data.institutions[cert]?.total_assets)}</span></button>
 						{/each}
 					</div>
 				{/if}
-				<div class="hint">Up to ten. Click a bank to make it the focus.</div>
+				<div class="hint">{bankSelectionFull ? `${WORKSPACE_LIMITS.selectedBanks} banks selected. Remove one to add another.` : `${board.selectedCerts.length} selected. Click a bank to make it the focus.`}</div>
 			</div>
 		{/if}
 	</div>
@@ -115,7 +122,7 @@
 		<button type="button" class="lab" onclick={() => toggle('cohort')}>Cohort</button>
 		<div class="val">
 			<button type="button" class="chip" onclick={() => toggle('cohort')}>{cohortLabel}</button>
-			<span class="count mono">{board.data.cohort.length ? `${count(board.data.cohort.length)} of ${count(board.data.cohortTotal)}` : board.data.pending ? 'loading' : ''}{board.state.excludedCerts.length ? ` · ${board.state.excludedCerts.length} excluded` : ''}</span>
+			<span class="count mono">{cohortCountLabel}{board.state.excludedCerts.length ? ` · ${board.state.excludedCerts.length} excluded` : ''}</span>
 		</div>
 		{#if open === 'cohort'}
 			<div class="pop panel wide">
@@ -137,7 +144,7 @@
 				{#if board.state.excludedCerts.length}
 					<div class="rule-row"><span class="rl">Excluded</span><div class="chips">{#each board.state.excludedCerts as cert}<button type="button" class="chip strike" onclick={() => board.setExcluded(board.state.excludedCerts.filter((x) => x !== cert))}>{shortBankName(board.data.institutions[cert]?.name ?? String(cert))} ×</button>{/each}</div></div>
 				{/if}
-				<div class="hint">{count(board.data.cohortTotal)} institutions match these rules; members are recomputed on each release.</div>
+				<div class="hint">{board.data.cohort.length < board.data.cohortTotal ? `${count(board.data.cohortTotal)} institutions match. This board compares the ${count(board.data.cohort.length)} largest so multi-quarter views stay responsive.` : `All ${count(board.data.cohortTotal)} matching institutions are in the cohort.`} Members are recomputed on each release.</div>
 			</div>
 		{/if}
 	</div>
@@ -230,7 +237,7 @@
 	@media (max-width: 640px) {
 		.deck { grid-template-columns: 1fr; gap: 8px; padding: 10px 12px; }
 		.anchor { border-right: 0; padding-right: 0; grid-template-columns: 64px 1fr; }
-		.val { flex-wrap: wrap; max-height: none; overflow: visible; scrollbar-gutter: auto; }
+		.val { flex-wrap: wrap; max-height: 104px; overflow-y: auto; scrollbar-gutter: stable; }
 		.panel { position: fixed; left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; max-height: 70vh; overflow: auto; z-index: 70; }
 		.rule-row { grid-template-columns: 1fr; gap: 4px; }
 	}

@@ -14,7 +14,7 @@
 	import BoardView from './BoardView.svelte';
 	import { templateById } from '$lib/atlas/templates';
 
-	export interface Launch { template?: string | null; question?: string | null; states?: string[]; certs?: number[]; asOf?: string | null; assetMin?: number | null; assetMax?: number | null; share?: boolean; add?: string | null; series?: string[] }
+	export interface Launch { fresh?: boolean; template?: string | null; question?: string | null; states?: string[]; certs?: number[]; asOf?: string | null; assetMin?: number | null; assetMax?: number | null; share?: boolean; add?: string | null; series?: string[] }
 	interface Props {
 		launch: Launch;
 		/** Persisted boards share the browser draft; shells (a bank page) start fresh each visit. */
@@ -56,6 +56,7 @@
 		if (!persist) board.overrides = {};
 		const l = launch;
 		if (!l.share) {
+			if (l.fresh) board.resetResearchBoard();
 			const template = templateById(l.template);
 			const certs = l.certs ?? [];
 			const explicitCohort = Boolean(l.states?.length || l.assetMin != null || l.assetMax != null);
@@ -89,7 +90,7 @@
 					if (!store.state.question && template?.id === 'one_bank') store.execute(workspaceCommands.setQuestion(`How does ${inst.name.replace(/,?\s+National Association$/i, '')} compare with other U.S. banks in the same asset group?`));
 				});
 			}
-			if (cleanUrl && (l.template || l.question || certs.length || l.states?.length || l.add)) setTimeout(() => replaceState(cleanUrl, {}), 0);
+			if (cleanUrl && (l.fresh || l.template || l.question || certs.length || l.states?.length || l.add)) setTimeout(() => replaceState(cleanUrl, {}), 0);
 		}
 		mounted = true;
 		return () => agentPresence.detach();

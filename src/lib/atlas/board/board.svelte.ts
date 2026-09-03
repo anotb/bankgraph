@@ -1,7 +1,7 @@
 import { getContext, setContext } from 'svelte';
 import type { WorkspaceStore } from '$lib/workspace/workspace.svelte';
 import { createDefaultWorkspaceState, workspaceCommands } from '$lib/workspace/state';
-import type { ChartSpec, ResearchBoardBlock, WorkspaceState } from '$lib/workspace/types';
+import { WORKSPACE_LIMITS, type ChartSpec, type ResearchBoardBlock, type WorkspaceState } from '$lib/workspace/types';
 import { DEFAULT_WORKSPACE_METRICS, type ResearchMetric } from '$lib/research-metrics';
 import { BoardData } from '$lib/atlas/engine/board-data.svelte';
 import { metricChange, metricValue, previousQuarter, quartersBetween, isQuarterEnd, yearAgo } from '$lib/atlas/engine/metrics';
@@ -149,7 +149,7 @@ export class Board {
 	}
 	setActiveMetric(metric: ResearchMetric) { this.store.execute(workspaceCommands.setActiveMetric(metric)); }
 	setSelectedCerts(certs: number[]) {
-		const unique = [...new Set(certs)].slice(0, 10);
+		const unique = [...new Set(certs)].slice(0, WORKSPACE_LIMITS.selectedBanks);
 		const cmds = [workspaceCommands.setSelectedCerts(unique)];
 		if (this.state.activeBank && !unique.includes(this.state.activeBank)) cmds.push(workspaceCommands.setActiveBank(unique[0] ?? null));
 		if (!this.state.activeBank && unique.length) cmds.push(workspaceCommands.setActiveBank(unique[0]));

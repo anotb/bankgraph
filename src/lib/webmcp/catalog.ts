@@ -28,6 +28,7 @@ import {
   type ResearchAnalysisView,
   type ResearchBoardSpan,
   createAnalysisResultRef,
+  WORKSPACE_LIMITS,
 } from "$lib/workspace/index.js";
 import {
   BANK_SCREEN_METRICS,
@@ -2461,7 +2462,7 @@ export function createWorkspaceWebMcpToolCatalog(
       "Change only the requested part of the live comparison and preserve everything else. Use bankMode add or remove for spoken follow-ups such as ‘add Citi’; replace is the default when certs are supplied. Metrics, dates, chart style, and focus are independently optional. Read bankgraph.get_context once after a person changes the board, then pass its revision.",
     inputSchema: {
       ...OBJECT({
-        certs: ARRAY(CERT_SCHEMA, 10, 1),
+        certs: ARRAY(CERT_SCHEMA, WORKSPACE_LIMITS.selectedBanks, 1),
         bankMode: ENUM(
           ["keep", "replace", "add", "remove"],
           "How certs change the current banks. When omitted, supplied certs replace the selection; omitted certs keep it.",
@@ -2515,7 +2516,7 @@ export function createWorkspaceWebMcpToolCatalog(
       const currentChart = current.charts.find((chart) => chart.id === "linked-analysis");
       const requestedCerts = source.certs === undefined
         ? null
-        : parseCerts(source.certs, "certs", 10, 1);
+        : parseCerts(source.certs, "certs", WORKSPACE_LIMITS.selectedBanks, 1);
       const bankMode = source.bankMode === undefined
         ? (requestedCerts ? "replace" : "keep")
         : enumValue(source.bankMode, "bankMode", ["keep", "replace", "add", "remove"] as const);
@@ -2530,8 +2531,13 @@ export function createWorkspaceWebMcpToolCatalog(
         : bankMode === "replace"
           ? [...requestedCerts!]
           : bankMode === "add"
-            ? [...new Set([...current.selectedCerts, ...requestedCerts!])].slice(0, 10)
+            ? [...new Set([...current.selectedCerts, ...requestedCerts!])]
             : current.selectedCerts.filter((item) => !requestedCerts!.includes(item));
+      if (certs.length > WORKSPACE_LIMITS.selectedBanks) {
+        throw new WebMcpInputError(
+          `A comparison supports ${WORKSPACE_LIMITS.selectedBanks} selected banks. Remove a bank before adding another.`,
+        );
+      }
       if (!certs.length) {
         throw new WebMcpInputError(
           "A comparison must contain at least one bank; use bankgraph.reset_research_board to start over",
@@ -4258,7 +4264,7 @@ export function createWorkspaceWebMcpToolCatalog(
     name: "bankgraph.read_current_comparison",
     title: "Read the current bank comparison",
     description:
-      "Read the selected banks and visible measures at the workspace period. Returns at most 10 banks and six measures, with reported nulls preserved and the elected data release attached.",
+      `Read the selected banks and visible measures at the workspace period. Returns at most ${WORKSPACE_LIMITS.selectedBanks} banks and six measures, with reported nulls preserved and the elected data release attached.`,
     maxResultChars: MAX_WEBMCP_EXTENDED_ENVELOPE_CHARS,
     inputSchema: OBJECT({}),
     controller: async (input, context) => {
@@ -4279,8 +4285,8 @@ export function createWorkspaceWebMcpToolCatalog(
           "Current comparison metrics do not match the visible workspace measures.",
         );
       }
-      if (!Array.isArray(result.banks) || result.banks.length > 10) {
-        throw adapterContractViolation("Current comparison must return at most 10 banks.");
+      if (!Array.isArray(result.banks) || result.banks.length > WORKSPACE_LIMITS.selectedBanks) {
+        throw adapterContractViolation(`Current comparison must return at most ${WORKSPACE_LIMITS.selectedBanks} banks.`);
       }
       const selected = new Set(deps.workspace.state.selectedCerts);
       const seen = new Set<number>();

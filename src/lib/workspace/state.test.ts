@@ -310,11 +310,11 @@ describe('workspace command reducer', () => {
 });
 
 describe('workspace invariants and bounds', () => {
-	it('limits selected banks to 10', () => {
+	it('limits selected banks to the working comparison capacity', () => {
 		expect(() => applyWorkspaceCommand(
 			createDefaultWorkspaceState(),
-			workspaceCommands.setSelectedCerts(Array.from({ length: 11 }, (_, index) => index + 1))
-		)).toThrowError(/at most 10/);
+			workspaceCommands.setSelectedCerts(Array.from({ length: 26 }, (_, index) => index + 1))
+		)).toThrowError(/at most 25/);
 	});
 
 	it('limits distinct metrics across visible chart specs to 6', () => {
