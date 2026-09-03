@@ -80,13 +80,24 @@
 				if (l.series?.length) board.setOverride(id, { series: l.series });
 			}
 			if (certs.length) {
-				void boardData.ensureInstitutions(certs).then(() => {
+				void boardData.ensureInstitutions(certs).then(async () => {
 					const inst = boardData.institutions[certs[0]];
 					if (!inst) return;
 					const r = store.state.peerRecipe;
 					const untouched = r.basis === 'screen' && !r.states.length && !r.metricConditions.length && r.assetRange.min == null && r.assetRange.max == null;
 					const band = inst.asset_tier ? TIERS[inst.asset_tier] : null;
-					if (untouched && band) store.execute(workspaceCommands.setPeerRecipe({ ...r, basis: 'asset-range', name: 'Same asset group', active: 'active', assetRange: { min: band[0], max: band[1] }, maximumPeers: 100 }));
+					if (untouched && band) {
+						store.execute(workspaceCommands.setPeerRecipe({ ...r, basis: 'asset-range', name: 'Same asset group', active: 'active', assetRange: { min: band[0], max: band[1] }, maximumPeers: 100 }));
+						if (template?.id === 'one_bank' && certs.length === 1) {
+							const peers = await boardData.nearestSizePeers(certs[0], 8);
+							const current = store.state.selectedCerts;
+							// Do not overwrite a person or agent that edited the selection while peers loaded.
+							if (current.length === 1 && current[0] === certs[0] && peers.length > 1) {
+								board.setSelectedCerts(peers);
+								board.setActiveBank(certs[0]);
+							}
+						}
+					}
 					if (!store.state.question && template?.id === 'one_bank') store.execute(workspaceCommands.setQuestion(`How does ${inst.name.replace(/,?\s+National Association$/i, '')} compare with other U.S. banks in the same asset group?`));
 				});
 			}

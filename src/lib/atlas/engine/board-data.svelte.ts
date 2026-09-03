@@ -1,6 +1,17 @@
 import type { Financial, Institution } from '$lib/types';
 import type { BankScreenFilters, PeerRecipe, WorkspaceState } from '$lib/workspace/types';
 import { RESEARCH_RAW_FIELDS, previousQuarter } from './metrics';
+import { nearestSizePeerCerts } from './peer-selection';
+
+const ASSET_TIER_BOUNDS: Record<number, [number | null, number | null]> = {
+	1: [null, 100_000],
+	2: [100_000, 300_000],
+	3: [300_000, 1_000_000],
+	4: [1_000_000, 10_000_000],
+	5: [10_000_000, 50_000_000],
+	6: [50_000_000, 250_000_000],
+	7: [250_000_000, null]
+};
 
 /**
  * Everything a board needs in the browser: institution records, quarterly rows
@@ -97,6 +108,43 @@ export class BoardData {
 		})());
 	}
 
+	/**
+	 * Find a small named comparison set around one bank without turning every
+	 * institution in its FDIC asset tier into a chart series. The full tier can
+	 * still remain loaded separately as the statistical benchmark.
+	 */
+	async nearestSizePeers(cert: number, limit = 8, signal?: AbortSignal): Promise<number[]> {
+		await this.ensureInstitutions([cert], signal);
+		const subject = this.institutions[cert];
+		const band = subject?.asset_tier ? ASSET_TIER_BOUNDS[subject.asset_tier] : null;
+		if (!subject || !subject.total_assets || !band) return [cert];
+
+		const pageSize = Math.min(50, Math.max(10, limit * 2));
+		const common = { active: subject.active ? 'active' : 'any', sort: 'assets', limit: String(pageSize) };
+		const query = async (order: 'asc' | 'desc', min: number | null, max: number | null) => {
+			const params = new URLSearchParams({ ...common, order });
+			if (min != null) params.set('asset_min', String(min));
+			if (max != null) params.set('asset_max', String(max));
+			const response = await this.#fetch(`/api/v2/banks/screen?${params}`, { signal });
+			if (!response.ok) return [];
+			return ((await response.json()) as { data?: Institution[] }).data ?? [];
+		};
+
+		return this.#track((async () => {
+			const [below, above] = await Promise.all([
+				query('desc', band[0], subject.total_assets),
+				query('asc', subject.total_assets, band[1])
+			]);
+			const candidates = [...below, ...above];
+			if (candidates.length) {
+				const next = { ...this.institutions };
+				for (const bank of candidates) next[bank.cert] = { ...bank, ...(next[bank.cert] ?? {}) };
+				this.institutions = next;
+			}
+			return nearestSizePeerCerts(subject, candidates, limit);
+		})());
+	}
+
 	/** Resolve the cohort from the workspace's peer recipe (or screen) via the deterministic screen API. */
 	async loadCohort(state: WorkspaceState, signal?: AbortSignal): Promise<void> {
 		const recipe = state.peerRecipe;
@@ -122,7 +170,7 @@ export class BoardData {
 				const excluded = new Set(state.excludedCerts);
 				const members = body.data.filter((b) => !excluded.has(b.cert)).slice(0, limit);
 				const next = { ...this.institutions };
-				for (const b of body.data) next[b.cert] = b;
+				for (const b of body.data) next[b.cert] = { ...b, ...(next[b.cert] ?? {}) };
 				this.institutions = next;
 				this.cohort = members.map((b) => b.cert);
 				this.cohortTotal = body.total;

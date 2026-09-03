@@ -192,6 +192,14 @@ export interface MacroRouteData {
     method: string;
     computed_at: string;
   }>;
+  view?: {
+    range: string;
+    from: string;
+    to: string;
+    mode: "level" | "yoy";
+    eventsVisible: boolean;
+    focusedGroup: string;
+  };
 }
 
 export interface BankSystemContextData {
@@ -1538,7 +1546,7 @@ export function createMacroRouteTools(
         });
         return {
           summary: `${result.filter((item) => item.available).length} macro series from the active page.`,
-          data: { series: result },
+          data: { view: data.view ?? null, series: result },
         };
       },
     },

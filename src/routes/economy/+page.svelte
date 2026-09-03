@@ -4,6 +4,8 @@
 	import LineChart from '$lib/atlas/charts/LineChart.svelte';
 	import { viewport } from '$lib/atlas/viewport.svelte';
 	import type { MacroSeriesMeta } from './+page.server';
+	import { EconomyWebMcp } from '$lib/components/webmcp';
+	import type { MacroRouteData } from '$lib/webmcp';
 
 	let { data } = $props();
 
@@ -131,7 +133,22 @@
 	function chg(def: Def, cur: number | null | undefined, prev: number | null | undefined) { if (cur == null || prev == null) return { text: '—', cls: 'flat' }; const d = cur - prev; if (def.unit === 'usd_m') { const p = prev ? (d / prev) * 100 : 0; return { text: `${p >= 0 ? '+' : '−'}${Math.abs(p).toFixed(1)}%`, cls: p > 0 ? 'up' : p < 0 ? 'down' : 'flat' }; } return { text: `${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(2)} pp`, cls: d > 0 ? 'up' : d < 0 ? 'down' : 'flat' }; }
 	let visibleGroups = $derived(viewport.narrow ? GROUPS.filter((g) => g.id === focusGroup) : GROUPS);
 	function boardHref(g: Group) { return `/b?add=economy&series=${g.series.map((s) => s.id).join(',')}`; }
+	let economy = $derived({
+		series: Object.fromEntries(data.catalog.map((meta: MacroSeriesMeta) => {
+			const observations = raw[`${meta.series_id}:${fetchFrom}`];
+			return [meta.series_id, observations ? {
+				...meta,
+				frequency: meta.cadence,
+				query: { from: fetchFrom, to, limit: 5_000, default_window_years: 10 as const },
+				data: observations
+			} : null];
+		})),
+		correlations: [],
+		view: { range: range.label, from, to, mode, eventsVisible: showEvents, focusedGroup: focusGroup }
+	} satisfies MacroRouteData);
 </script>
+
+<EconomyWebMcp {economy} />
 
 <svelte:head><title>Economy · Bankgraph</title><meta name="description" content="Follow interest rates, the yield curve, bank credit, deposits, lending, inflation, and employment across the same period." /></svelte:head>
 

@@ -285,7 +285,7 @@ test('native WebMCP reads the same chart data and controls the visible board lif
 	const reconnectedRead = await invoke(page, 'bankgraph.read_board_block', { blockId: history!.id, pageSize: 100 });
 	expect(reconnectedRead).toMatchObject({
 		ok: true,
-		data: { numerical: { metadata: { anchors: { certs: [900001] } } } }
+		data: { numerical: { metadata: { anchors: { certs: [900001, 900002] } } } }
 	});
 
 	const appearance = await invoke(page, 'bankgraph.set_appearance', { theme: 'dark' });

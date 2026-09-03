@@ -434,7 +434,11 @@ describe("workspace WebMCP catalog", () => {
     expect(schemas["bankgraph.read_result_set"].inputSchema.properties.pageSize)
       .toMatchObject({ minimum: 1, maximum: 100 });
     expect(schemas["bankgraph.read_metric_history"].inputSchema.properties.pageSize)
-      .toMatchObject({ minimum: 1, maximum: 5 });
+      .toMatchObject({ minimum: 1, maximum: 10 });
+    expect(schemas["bankgraph.read_metric_history"].inputSchema.properties.certs)
+      .toMatchObject({ minItems: 1, maxItems: 10 });
+    expect(schemas["bankgraph.read_metric_history"].inputSchema.properties.periods)
+      .toMatchObject({ minimum: 1, maximum: 40 });
     expect(schemas["bankgraph.analyze_metric_relationship"].inputSchema.properties.maxPoints)
       .toMatchObject({ minimum: 1, maximum: 100 });
     expect(schemas["bankgraph.read_geography_summary"].inputSchema.properties.maxStates)

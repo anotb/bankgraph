@@ -4854,15 +4854,15 @@ export function createWorkspaceWebMcpToolCatalog(
     name: "bankgraph.read_metric_history",
     title: "Read bank metric history",
     description:
-      "Read exact quarterly values for up to five requested banks. Returns all requested bank series by default with aligned periods, missing values, raw units, and source field; an explicitly smaller page can continue with nextCursor.",
+      "Read exact quarterly values for up to ten requested banks and forty reporting periods. Returns all requested bank series by default with aligned periods, missing values, raw units, and source field; an explicitly smaller page can continue with nextCursor.",
     maxResultChars: MAX_WEBMCP_EXTENDED_ENVELOPE_CHARS,
     inputSchema: OBJECT(
       {
         metric: VISIBLE_METRIC_SCHEMA,
-        certs: ARRAY(CERT_SCHEMA, 5, 1),
-        periods: NUMBER(1, 12, true),
+        certs: ARRAY(CERT_SCHEMA, 10, 1),
+        periods: NUMBER(1, 40, true),
         endingAt: PERIOD_SCHEMA,
-        pageSize: NUMBER(1, 5, true, "Complete bank series requested; defaults to every requested bank."),
+        pageSize: NUMBER(1, 10, true, "Complete bank series requested; defaults to every requested bank."),
         cursor: STRING(128, "Opaque nextCursor from the previous page."),
       },
       ["metric", "certs", "periods"],
@@ -4888,8 +4888,8 @@ export function createWorkspaceWebMcpToolCatalog(
           "metric",
           WORKSPACE_VISIBLE_METRICS,
         ),
-        certs: parseCerts(source.certs, "certs", 5, 1),
-        periods: integer(source.periods, "periods", 1, 12),
+        certs: parseCerts(source.certs, "certs", 10, 1),
+        periods: integer(source.periods, "periods", 1, 40),
         endingAt:
           source.endingAt === undefined
             ? null
@@ -4898,7 +4898,7 @@ export function createWorkspaceWebMcpToolCatalog(
       const pageSize =
         source.pageSize === undefined
           ? request.certs.length
-          : integer(source.pageSize, "pageSize", 1, 5);
+          : integer(source.pageSize, "pageSize", 1, 10);
       const key = paginationKey(request);
       const offset = decodeCursor(source.cursor, "metric_history", key, request.certs.length);
       const result = await deps.readMetricHistory(request, context);

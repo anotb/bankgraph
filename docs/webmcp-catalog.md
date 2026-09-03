@@ -88,7 +88,7 @@ on the page as a live chart, exact table, comparison, or takeaway that a person 
 | `bankgraph.analyze_metric_relationship` | Calculates a bounded cross-sectional relationship with exact bank points and sample counts. |
 | `bankgraph.read_geography_summary` | Summarizes the current cohort by headquarters state. |
 | `bankgraph.read_workspace_macro_context` | Reads the direct-agency economic series shown beside the bank analysis. |
-| `bankgraph.read_metric_history` | Reads aligned quarterly values for one measure and up to five banks over 12 periods. |
+| `bankgraph.read_metric_history` | Reads aligned quarterly values for one measure and up to ten banks over 40 periods. |
 | `bankgraph.get_metric_method` | Reads the published source field, unit, formula, frequency, and limitations for a measure. |
 | `bankgraph.inspect_change` | Attributes a reported change to available components and peer-relative movement. |
 | `bankgraph.investigate_bank` | Opens the one-bank board and returns linked history, components, peer movement, structural context, and optional economic context. |
@@ -263,11 +263,11 @@ results.
 required for both live and recorded adapters so an agent can verify why each bank matched and which
 value determined its rank. Missing reported observations use `null`.
 
-The metric-history adapter receives one allowlisted metric, one to five FDIC certificates, a count
-from 1 to 12, and an optional normalized quarter-end `endingAt`. It returns ascending quarter-end
+The metric-history adapter receives one allowlisted metric, one to ten FDIC certificates, a count
+from 1 to 40, and an optional normalized quarter-end `endingAt`. It returns ascending quarter-end
 periods and one aligned value array per requested bank, using `null` for missing observations. It
 also returns `sourceMode` and source freshness; it reads the same live or recorded workspace rows
-shown in the interface. The tool returns all five requested bank series by default; callers can still
+shown in the interface. The tool returns all requested bank series by default; callers can still
 request a smaller cursor page explicitly.
 
 Relationship reads accept up to 100 exact bank points, geography reads accept all 56 supported state
@@ -282,40 +282,21 @@ short `nextAction` or retry interval.
 
 ## Contextual research routes
 
-Bankgraph also registers tools for the research page that is open. These tools read the same
-server-loaded rows and client selections as the visible charts and tables. Moving to another route
-removes the old route scope, so an agent does not see a bank-risk tool while it is working on an
-industry page.
+Bankgraph also registers tools for the specialized page that is open. These tools read the same
+server-loaded rows and client selections as the visible charts and tables. Moving to another page
+removes the old page scope.
 
-| Route                   | Contextual tools                                                                                          |
-| ----------------------- | --------------------------------------------------------------------------------------------------------- |
-| Bank profile            | `bankgraph.read_bank_profile`, `bankgraph.open_bank_in_workspace`                                         |
-| Bank financials         | `bankgraph.read_bank_financial_history`, `bankgraph.open_financials_in_workspace`                         |
-| Bank peers              | `bankgraph.read_bank_peer_position`, `bankgraph.open_peers_in_workspace`                                  |
-| Bank risk               | `bankgraph.read_bank_risk_evidence`, `bankgraph.open_risk_in_workspace`                                   |
-| Industry                | `bankgraph.read_industry_evidence`, `bankgraph.open_in_workspace`                                         |
-| Failures and assistance | `bankgraph.read_failure_evidence`, `bankgraph.open_in_workspace`                                          |
-| Macro                   | `bankgraph.read_macro_evidence`, `bankgraph.read_macro_bank_relationships`, `bankgraph.open_in_workspace` |
-| Compare                 | `bankgraph.read_current_comparison`, `bankgraph.open_in_workspace`                                        |
-| Workspace bank context  | `bankgraph.read_bank_system_context`                                                                      |
+| Page | Contextual tools |
+| --- | --- |
+| Institutions | `bankgraph.read_bank_directory`, `bankgraph.open_directory_bank`, `bankgraph.open_directory_screen` |
+| Economy | `bankgraph.read_macro_evidence`, `bankgraph.read_macro_bank_relationships`, `bankgraph.open_in_workspace` |
+| Research board and bank profile | The full workspace and board catalog listed above. |
 
-Route reads require a metric, section, segment, or series only when it narrows a potentially large
-result. Limits stay between 8 and 12 observations, depending on the page. Responses include the
-reporting period, units or method when they affect interpretation, and the responsible public-data
-publisher. Bank names, anomaly descriptions, failure records, and third-party source metadata are
-marked as untrusted content.
-
-On the Banking system route, `bankgraph.read_industry_evidence` accepts
-`section: "change_radar"` with `radarMetric: "total_assets"`, `"total_deposits"`, or
-`"net_loans"`. It returns the same exact-quarter matched population, increasing/decreasing breadth,
-median bank movement, matched totals, named additive contributors, source method, and workspace path
-shown in the visible quarterly change radar.
-
-`read_bank_system_context` covers the selected bank's annual branch footprint, largest county
-deposit markets, mapped structural events, and long-run U.S. banking totals. The result includes
-the person's current slider and market selections, the requested bounded rows, dataset coverage,
-and FDIC provenance. Structural events mark changes in the institution perimeter; they are not
-treated as explanations on their own.
+Page reads require a series only when it narrows a potentially large result. Responses include the
+active filters or chart window, reporting period, units, and responsible public-data publisher.
+Bank names and public-source metadata are marked as untrusted content. The Data and methods page is
+static reference material rather than mutable analytical state, so it does not register a duplicate
+page catalog; the research board exposes `bankgraph.get_metric_method` for computational definitions.
 
 The open-in-workspace tools are local browser mutations. They use `workspaceCommands` and the
 persisted `createWorkspaceStore()` state, then navigate to `/b`. A bank, comparison, metric,

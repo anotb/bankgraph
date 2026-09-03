@@ -10,7 +10,17 @@
 	let cert = $derived(board.state.activeBank && e.certs.includes(board.state.activeBank) ? board.state.activeBank : e.certs[0] ?? null);
 	let inst = $derived(cert ? board.data.institutions[cert] : null);
 	const TIER: Record<number, string> = { 1: 'Under $100M', 2: '$100M – $300M', 3: '$300M – $1B', 4: '$1B – $10B', 5: '$10B – $50B', 6: '$50B – $250B', 7: 'Over $250B' };
-	function date(d: string | null | undefined) { if (!d) return '—'; const s = String(d).replace(/-/g, ''); return `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(s.slice(4, 6)) - 1] ?? ''} ${s.slice(0, 4)}`; }
+	function date(d: string | null | undefined) {
+		if (!d) return '—';
+		const value = String(d);
+		const us = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value);
+		const iso = /^(\d{4})-?(\d{2})-?(\d{2})/.exec(value);
+		const year = us?.[3] ?? iso?.[1];
+		const month = Number(us?.[1] ?? iso?.[2]);
+		return year && month >= 1 && month <= 12
+			? `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][month - 1]} ${year}`
+			: value;
+	}
 </script>
 
 {#if !inst}

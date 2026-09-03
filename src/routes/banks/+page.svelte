@@ -3,6 +3,8 @@
 	import { page } from '$app/state';
 	import { US_STATES } from '$lib/atlas/states';
 	import { usdThousands, pct, count, quarterLabel, shortBankName } from '$lib/atlas/format';
+	import { BankDirectoryWebMcp } from '$lib/components/webmcp';
+	import type { Institution } from '$lib/types';
 
 	let { data } = $props();
 	let q = $state('');
@@ -28,9 +30,40 @@
 		if (data.assetMax) p.set('asset_max', data.assetMax);
 		return `/b?${p}`;
 	});
+	let directory = $derived({
+		banks: data.rows.map((row: typeof data.rows[number]) => ({
+			...row,
+			rssd_id: null,
+			zip: null,
+			county: null,
+			charter_class: null,
+			regulator: null,
+			established_date: null,
+			insured_date: null,
+			holding_company: null,
+			hc_rssd_id: null,
+			asset_tier: null
+		})) as Institution[],
+		total: data.total,
+		page: data.page,
+		limit: data.limit,
+		release: data.asOf,
+		releaseGeneration: null,
+		params: {
+			q: data.q,
+			state: data.state,
+			asset_min: data.assetMin ?? '',
+			asset_max: data.assetMax ?? '',
+			active: data.active,
+			sort: data.sort,
+			order: data.order
+		}
+	});
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 	function onSearch(value: string) { q = value; clearTimeout(searchTimer); searchTimer = setTimeout(() => nav({ q: value }), 250); }
 </script>
+
+<BankDirectoryWebMcp {directory} />
 
 <svelte:head><title>Institutions · Bankgraph</title><meta name="description" content="Every FDIC-insured institution with its latest reported assets, deposits, earnings, credit quality, and capital. Filter by state and size, then open a bank or start a cohort." /></svelte:head>
 
