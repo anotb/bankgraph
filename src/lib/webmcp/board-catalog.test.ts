@@ -8,10 +8,14 @@ import {
 	type WorkspaceCommandOptions,
 	type WorkspaceState,
 } from '$lib/workspace';
-import { createResearchBoardWebMcpToolCatalog } from './board-catalog';
+import {
+	createResearchBoardWebMcpToolCatalog,
+	type ResearchBoardWebMcpDependencies,
+} from './board-catalog';
 import { MAX_WEBMCP_EXTENDED_ENVELOPE_CHARS } from './envelope';
+import { validateToolDefinition } from './schema';
 
-function harness() {
+function harness(extra: Partial<Omit<ResearchBoardWebMcpDependencies, 'workspace'>> = {}) {
 	let state: WorkspaceState = createDefaultWorkspaceState();
 	const workspace = {
 		get state() { return state; },
@@ -28,7 +32,7 @@ function harness() {
 	};
 	const prepareBoardHistory = vi.fn(async () => undefined);
 	const prepareBoardTable = vi.fn(async () => undefined);
-	const tools = createResearchBoardWebMcpToolCatalog({ workspace, prepareBoardHistory, prepareBoardTable });
+	const tools = createResearchBoardWebMcpToolCatalog({ workspace, prepareBoardHistory, prepareBoardTable, ...extra });
 	return { workspace, tools, prepareBoardHistory, prepareBoardTable };
 }
 
@@ -38,6 +42,9 @@ const context = (toolName: string) => ({ signal, scope: 'test', toolName });
 describe('research board WebMCP catalog', () => {
 	it('registers the compact semantic surface with safe annotations and revisions', () => {
 		const { tools } = harness();
+		expect(Object.values(tools).flatMap((tool) =>
+			validateToolDefinition(tool).map((issue) => `${tool.name}: ${issue}`)
+		)).toEqual([]);
 		expect(Object.keys(tools)).toEqual(expect.arrayContaining([
 			'bankgraph.read_research_board',
 			'bankgraph.read_board_block',
@@ -50,6 +57,7 @@ describe('research board WebMCP catalog', () => {
 			'bankgraph.upsert_takeaway',
 			'bankgraph.update_board_block',
 			'bankgraph.arrange_research_board',
+			'bankgraph.configure_board_view',
 			'bankgraph.remove_board_blocks',
 			'bankgraph.focus_board_block',
 		]));
@@ -60,7 +68,9 @@ describe('research board WebMCP catalog', () => {
 		expect(tools['bankgraph.list_board_templates'].maxResultChars).toBe(MAX_WEBMCP_EXTENDED_ENVELOPE_CHARS);
 		expect(tools['bankgraph.upsert_takeaway'].annotations).toMatchObject({ readOnlyHint: false, untrustedContentHint: true });
 		for (const tool of Object.values(tools).filter((item) => item.annotations.readOnlyHint === false)) {
-			if (tool.name !== 'bankgraph.set_appearance') expect(tool.inputSchema.required).toContain('ifRevision');
+			if (!['bankgraph.set_appearance', 'bankgraph.configure_board_view'].includes(tool.name)) {
+				expect(tool.inputSchema.required).toContain('ifRevision');
+			}
 		}
 		for (const name of [
 			'bankgraph.add_workspace_view',
@@ -79,6 +89,18 @@ describe('research board WebMCP catalog', () => {
 				'comparison_matrix', 'metric_history', 'peer_distribution', 'change_attribution',
 				'metric_relationship', 'headquarters_geography', 'economic_context', 'bank_context',
 			]);
+		const edit = tools['bankgraph.configure_board_view'];
+		expect(edit.title).toBe('Edit a board view');
+		expect(edit.inputSchema.required).toEqual(['blockId']);
+		expect(edit.inputSchema.properties).toMatchObject({
+			historyFrom: expect.any(Object),
+			historyTo: expect.any(Object),
+			chartKind: { enum: ['line', 'area'] },
+			scale: { enum: ['value', 'index'] },
+			sortMetric: expect.any(Object),
+			sortBasis: { enum: ['level', 'change'] },
+			sortDirection: { enum: ['asc', 'desc'] },
+		});
 	});
 
 	it('lists and applies the same curated templates through shared workspace state', async () => {
@@ -105,6 +127,47 @@ describe('research board WebMCP catalog', () => {
 		expect((tools['bankgraph.apply_board_template'].inputSchema.properties.templateId as unknown as { enum: string[] }).enum)
 			.not.toContain('bank_comparison');
 		expect(prepareBoardHistory).not.toHaveBeenCalled();
+	});
+
+	it('edits and sorts an existing view with one partial idempotent request', async () => {
+		const configureBoardView = vi.fn(() => ({ changed: true }));
+		const { workspace, tools } = harness({
+			configureBoardView,
+			getBoardPresentation: () => ({
+				presentationRevision: 3,
+				theme: 'dark',
+				timeAxis: 'auto',
+				pinnedTimebar: false,
+				pendingViewCount: 0,
+				overrides: {},
+				strips: [],
+			}),
+		});
+		workspace.execute(workspaceCommands.upsertBoardBlock({
+			id: 'exact-values',
+			title: 'Exact values',
+			kind: 'exact_table',
+			span: 'full',
+			binding: { certs: [1, 2], metrics: ['asset', 'nclnlsr'], from: null, to: null, followCurrent: true },
+		}));
+
+		const result = await tools['bankgraph.configure_board_view'].controller({
+			blockId: 'exact-values',
+			title: 'Credit quality, worst first',
+			sortMetric: 'nclnlsr',
+			sortBasis: 'level',
+			sortDirection: 'desc',
+			width: 'full',
+		}, context('bankgraph.configure_board_view'));
+
+		expect(configureBoardView).toHaveBeenCalledWith('exact-values', {
+			title: 'Credit quality, worst first',
+			width: 'full',
+			sortMetric: 'nclnlsr',
+			sortBasis: 'level',
+			sortDirection: 'desc',
+		});
+		expect(result).toMatchObject({ data: { changed: true, blockIds: ['exact-values'] } });
 	});
 
 	it('adds and replaces a live workspace view without persisting snapshot rows', async () => {
@@ -155,7 +218,16 @@ describe('research board WebMCP catalog', () => {
 	});
 
 	it('reflects human edits in the next board read and pages view data without rerunning analysis', async () => {
-		const { workspace, tools } = harness();
+		const readBoardBlockData = vi.fn(async (block: { id: string }, request: { pageSize: number }) => ({
+			section: 'series',
+			items: [{ cert: 1, quarter: '20260331', value: 123 }],
+			total: 1,
+			offset: 0,
+			pageSize: request.pageSize,
+			nextCursor: null,
+			metadata: { unit: 'usd_thousands' },
+		}));
+		const { workspace, tools } = harness({ readBoardBlockData });
 		await tools['bankgraph.plot_metric_history'].controller({
 			blockId: 'history', title: 'Deposit history', certs: [1], metrics: ['dep'],
 			from: '20250331', to: '20260331', chartKind: 'line', scale: 'value', span: 'half', focus: true, ifRevision: 0,
@@ -166,5 +238,21 @@ describe('research board WebMCP catalog', () => {
 		const read = await tools['bankgraph.read_research_board'].controller({}, context('bankgraph.read_research_board'));
 		expect(read.data).toMatchObject({ workspaceRevision: 2, focusedBlockId: 'history' });
 		expect((read.data as { blocks: Array<{ title: string; span: string }> }).blocks[0]).toMatchObject({ title: 'Deposit path', span: 'full' });
+		expect(readBoardBlockData).not.toHaveBeenCalled();
+
+		const withData = await tools['bankgraph.read_research_board'].controller(
+			{ includeData: 'all', pageSize: 3 },
+			context('bankgraph.read_research_board'),
+		);
+		expect(readBoardBlockData).toHaveBeenCalledOnce();
+		expect(withData.data).toMatchObject({
+			viewData: [{
+				blockId: 'history',
+				title: 'Deposit path',
+				kind: 'history',
+				section: 'series',
+				numerical: { items: [{ cert: 1, quarter: '20260331', value: 123 }], pageSize: 3 },
+			}],
+		});
 	});
 });

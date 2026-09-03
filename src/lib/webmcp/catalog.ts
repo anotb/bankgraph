@@ -2456,13 +2456,21 @@ export function createWorkspaceWebMcpToolCatalog(
 
   const configureComparison = mutationTool({
     name: "bankgraph.configure_comparison",
-    title: "Configure a bank comparison",
+    title: "Edit the bank comparison",
     description:
-      "Choose up to 10 banks and six measures, then set the analysis quarter and comparison basis. Chart history stays unchanged unless historyMode sets or clears it. You can keep, set, or clear the focused bank. Read bankgraph.get_context first and pass its revision as ifRevision.",
-    inputSchema: OBJECT(
-      {
+      "Change only the requested part of the live comparison and preserve everything else. Use bankMode add or remove for spoken follow-ups such as ‘add Citi’; replace is the default when certs are supplied. Metrics, dates, chart style, and focus are independently optional. Read bankgraph.get_context once after a person changes the board, then pass its revision.",
+    inputSchema: {
+      ...OBJECT({
         certs: ARRAY(CERT_SCHEMA, 10, 1),
+        bankMode: ENUM(
+          ["keep", "replace", "add", "remove"],
+          "How certs change the current banks. When omitted, supplied certs replace the selection; omitted certs keep it.",
+        ),
         metrics: ARRAY(VISIBLE_METRIC_SCHEMA, 6, 1),
+        metricMode: ENUM(
+          ["keep", "replace", "add", "remove"],
+          "How metrics change the current measures. When omitted, supplied metrics replace them; omitted metrics keep them.",
+        ),
         asOfQuarter: PERIOD_SCHEMA,
         comparisonMode: ENUM(
           ["prior-quarter", "year-ago", "range-start", "custom"],
@@ -2481,22 +2489,15 @@ export function createWorkspaceWebMcpToolCatalog(
         chartKind: ENUM(LINKED_CHART_KINDS),
         chartScale: ENUM(LINKED_CHART_SCALES),
         ifRevision: REVISION_SCHEMA,
-      },
-      [
-        "certs",
-        "metrics",
-        "asOfQuarter",
-        "comparisonMode",
-        "focusMode",
-        "chartKind",
-        "chartScale",
-        "ifRevision",
-      ],
-    ),
+      }, ["ifRevision"]),
+      minProperties: 2,
+    },
     controller: async (input, context) => {
       const source = inputObject(input, [
         "certs",
+        "bankMode",
         "metrics",
+        "metricMode",
         "asOfQuarter",
         "comparisonMode",
         "rangeStartQuarter",
@@ -2510,9 +2511,69 @@ export function createWorkspaceWebMcpToolCatalog(
         "chartScale",
         "ifRevision",
       ]);
-      const certs = parseCerts(source.certs, "certs", 10, 1);
-      const metrics = parseMetrics(source.metrics, "metrics", 6, 1);
-      const focusMode = enumValue(source.focusMode, "focusMode", FOCUS_MODES);
+      const current = deps.workspace.state;
+      const currentChart = current.charts.find((chart) => chart.id === "linked-analysis");
+      const requestedCerts = source.certs === undefined
+        ? null
+        : parseCerts(source.certs, "certs", 10, 1);
+      const bankMode = source.bankMode === undefined
+        ? (requestedCerts ? "replace" : "keep")
+        : enumValue(source.bankMode, "bankMode", ["keep", "replace", "add", "remove"] as const);
+      if (bankMode === "keep" && requestedCerts) {
+        throw new WebMcpInputError("certs must be omitted when bankMode is keep");
+      }
+      if (bankMode !== "keep" && !requestedCerts) {
+        throw new WebMcpInputError(`certs are required when bankMode is ${bankMode}`);
+      }
+      const certs = bankMode === "keep"
+        ? [...current.selectedCerts]
+        : bankMode === "replace"
+          ? [...requestedCerts!]
+          : bankMode === "add"
+            ? [...new Set([...current.selectedCerts, ...requestedCerts!])].slice(0, 10)
+            : current.selectedCerts.filter((item) => !requestedCerts!.includes(item));
+      if (!certs.length) {
+        throw new WebMcpInputError(
+          "A comparison must contain at least one bank; use bankgraph.reset_research_board to start over",
+        );
+      }
+
+      const requestedMetrics = source.metrics === undefined
+        ? null
+        : parseMetrics(source.metrics, "metrics", 6, 1);
+      const metricMode = source.metricMode === undefined
+        ? (requestedMetrics ? "replace" : "keep")
+        : enumValue(source.metricMode, "metricMode", ["keep", "replace", "add", "remove"] as const);
+      if (metricMode === "keep" && requestedMetrics) {
+        throw new WebMcpInputError("metrics must be omitted when metricMode is keep");
+      }
+      if (metricMode !== "keep" && !requestedMetrics) {
+        throw new WebMcpInputError(`metrics are required when metricMode is ${metricMode}`);
+      }
+      const currentMetrics = parseMetrics(
+        currentChart?.metrics?.length
+          ? currentChart.metrics
+          : current.activeMetric
+            ? [current.activeMetric]
+            : ["asset"],
+        "currentMetrics",
+        6,
+        1,
+      );
+      const metrics = metricMode === "keep"
+        ? currentMetrics
+        : metricMode === "replace"
+          ? [...requestedMetrics!]
+          : metricMode === "add"
+            ? [...new Set([...currentMetrics, ...requestedMetrics!])].slice(0, 6)
+            : currentMetrics.filter((item) => !requestedMetrics!.includes(item));
+      if (!metrics.length) {
+        throw new WebMcpInputError("A comparison must contain at least one measure");
+      }
+
+      const focusMode = source.focusMode === undefined
+        ? (source.activeCert === undefined ? "keep" : "set")
+        : enumValue(source.focusMode, "focusMode", FOCUS_MODES);
       if (focusMode === "set" && source.activeCert === undefined)
         throw new WebMcpInputError(
           "activeCert is required when focusMode is set",
@@ -2525,22 +2586,48 @@ export function createWorkspaceWebMcpToolCatalog(
         focusMode === "set" ? cert(source.activeCert, "activeCert") : null;
       if (activeCert !== null && !certs.includes(activeCert))
         throw new WebMcpInputError("activeCert must appear in certs");
-      const periodInput = comparisonPeriodFromInput(source);
+
+      const asOfQuarter = source.asOfQuarter ?? current.asOfQuarter ?? dataContext(deps).sourceAsOf;
+      if (asOfQuarter == null) {
+        throw new WebMcpInputError(
+          "asOfQuarter is required because this page has no published reporting period",
+        );
+      }
+      const comparisonMode = source.comparisonMode === undefined
+        ? current.comparison.mode
+        : enumValue(source.comparisonMode, "comparisonMode", ["prior-quarter", "year-ago", "range-start", "custom"] as const);
+      const rangeStartQuarter = source.rangeStartQuarter ?? (comparisonMode === "range-start"
+        ? current.comparison.rangeStartQuarter ?? current.chartHistory.from ?? current.comparison.resolvedQuarter
+        : undefined);
+      const customQuarter = source.customQuarter ?? (comparisonMode === "custom"
+        ? current.comparison.customQuarter ?? current.comparison.resolvedQuarter
+        : undefined);
+      const periodInput = comparisonPeriodFromInput({
+        asOfQuarter,
+        comparisonMode,
+        ...(rangeStartQuarter == null ? {} : { rangeStartQuarter }),
+        ...(customQuarter == null ? {} : { customQuarter }),
+        ...(source.historyMode === undefined ? {} : { historyMode: source.historyMode }),
+        ...(source.historyFrom === undefined ? {} : { historyFrom: source.historyFrom }),
+        ...(source.historyTo === undefined ? {} : { historyTo: source.historyTo }),
+      });
+      const currentKind = currentChart?.kind;
+      const currentScale = currentChart?.scale;
       const chart = {
         id: "linked-analysis",
-        title: "Linked bank analysis",
-        kind: enumValue(
-          source.chartKind,
-          "chartKind",
-          LINKED_CHART_KINDS,
-        ),
+        title: currentChart?.title ?? "Linked bank analysis",
+        kind: source.chartKind === undefined && currentKind && LINKED_CHART_KINDS.includes(currentKind as (typeof LINKED_CHART_KINDS)[number])
+          ? currentKind as (typeof LINKED_CHART_KINDS)[number]
+          : source.chartKind === undefined
+            ? "line" as const
+            : enumValue(source.chartKind, "chartKind", LINKED_CHART_KINDS),
         metrics,
         certs,
-        scale: enumValue(
-          source.chartScale,
-          "chartScale",
-          LINKED_CHART_SCALES,
-        ),
+        scale: source.chartScale === undefined && currentScale && LINKED_CHART_SCALES.includes(currentScale as (typeof LINKED_CHART_SCALES)[number])
+          ? currentScale as (typeof LINKED_CHART_SCALES)[number]
+          : source.chartScale === undefined
+            ? "value" as const
+            : enumValue(source.chartScale, "chartScale", LINKED_CHART_SCALES),
         stacked: false,
         visible: true,
       };
@@ -2568,8 +2655,11 @@ export function createWorkspaceWebMcpToolCatalog(
           : [workspaceCommands.setChartHistory(periodInput.chartHistory)]),
         workspaceCommands.upsertChart(chart),
       ];
-      if (focusMode !== "keep")
+      if (focusMode !== "keep") {
         commands.push(workspaceCommands.setActiveBank(activeCert));
+      } else if (current.activeBank !== null && !certs.includes(current.activeBank)) {
+        commands.push(workspaceCommands.setActiveBank(certs[0] ?? null));
+      }
       const result = executeSeries(
         deps.workspace,
         commands,
@@ -2587,6 +2677,10 @@ export function createWorkspaceWebMcpToolCatalog(
           comparisonMode: result.state.comparison.mode,
           comparisonPair: getWorkspaceComparisonPair(result.state),
           chartHistory: { ...result.state.chartHistory },
+          selectedCerts: [...result.state.selectedCerts],
+          metrics: [...metrics],
+          bankMode,
+          metricMode,
         },
       };
     },
@@ -5782,7 +5876,6 @@ export function createWorkspaceWebMcpTools(
     "bankgraph.publish_exact_table",
     ...(hasAnalysisResult ? ["bankgraph.publish_result_view"] : []),
     "bankgraph.upsert_takeaway",
-    "bankgraph.update_board_block",
     "bankgraph.arrange_research_board",
 		...(deps.configureBoardView ? ["bankgraph.configure_board_view"] : []),
     "bankgraph.remove_board_blocks",

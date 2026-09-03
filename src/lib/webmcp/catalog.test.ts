@@ -346,7 +346,7 @@ describe("workspace WebMCP catalog", () => {
   it("exposes every connected workspace operation without panel-dependent hiding", () => {
     const { deps, workspace } = dependencies();
     const tools = createWorkspaceWebMcpTools(deps, { page: "workspace" });
-		expect(tools).toHaveLength(33);
+		expect(tools).toHaveLength(32);
     expect(tools.map((item) => item.name)).not.toEqual(
       expect.arrayContaining([
         expect.stringMatching(/sync|pipeline|admin|secret/i),
@@ -370,7 +370,6 @@ describe("workspace WebMCP catalog", () => {
       "bankgraph.plot_metric_history",
       "bankgraph.publish_exact_table",
       "bankgraph.upsert_takeaway",
-      "bankgraph.update_board_block",
       "bankgraph.arrange_research_board",
       "bankgraph.remove_board_blocks",
       "bankgraph.focus_board_block",
@@ -858,15 +857,13 @@ describe("workspace WebMCP catalog", () => {
     }
   });
 
-  it("publishes an explicit analytical pair and independent chart-history schema", () => {
+  it("exposes a patch-style comparison schema with independent chart history", () => {
     const { deps } = dependencies();
     const comparison = tool(deps, "bankgraph.configure_comparison");
-    expect(comparison.inputSchema.required).toEqual(expect.arrayContaining([
-      "asOfQuarter",
-      "comparisonMode",
-      "ifRevision",
-    ]));
+    expect(comparison.inputSchema.required).toEqual(["ifRevision"]);
     expect(comparison.inputSchema.properties).toMatchObject({
+      bankMode: { enum: ["keep", "replace", "add", "remove"] },
+      metricMode: { enum: ["keep", "replace", "add", "remove"] },
       comparisonMode: {
         enum: ["prior-quarter", "year-ago", "range-start", "custom"],
       },
@@ -878,6 +875,76 @@ describe("workspace WebMCP catalog", () => {
     });
     expect(comparison.inputSchema.properties).not.toHaveProperty("periodKind");
     expect(comparison.inputSchema.properties).not.toHaveProperty("quarter");
+  });
+
+  it("adds banks and measures without making an agent restate the comparison", async () => {
+    const { deps, workspace } = dependencies();
+    const comparison = tool(deps, "bankgraph.configure_comparison");
+    await comparison.controller({
+      certs: [628, 3510],
+      metrics: ["asset", "dep"],
+      asOfQuarter: "2025Q4",
+      comparisonMode: "year-ago",
+      focusMode: "set",
+      activeCert: 628,
+      chartKind: "line",
+      chartScale: "value",
+      ifRevision: workspace.state.revision,
+    }, { signal, scope: "test", toolName: comparison.name });
+
+    const addedBank = await comparison.controller({
+      bankMode: "add",
+      certs: [7213],
+      ifRevision: workspace.state.revision,
+    }, { signal, scope: "test", toolName: comparison.name });
+    expect(addedBank.data).toMatchObject({
+      selectedCerts: [628, 3510, 7213],
+      metrics: ["asset", "dep"],
+      bankMode: "add",
+      metricMode: "keep",
+    });
+
+    const addedMeasure = await comparison.controller({
+      metricMode: "add",
+      metrics: ["nclnlsr"],
+      chartScale: "index",
+      ifRevision: workspace.state.revision,
+    }, { signal, scope: "test", toolName: comparison.name });
+    expect(addedMeasure.data).toMatchObject({
+      selectedCerts: [628, 3510, 7213],
+      metrics: ["asset", "dep", "nclnlsr"],
+      bankMode: "keep",
+      metricMode: "add",
+    });
+  });
+
+  it("inherits the published reporting period for a first incremental comparison edit", async () => {
+    const { deps, workspace } = dependencies();
+    workspace.executeBatch([
+      workspaceCommands.setSelectedCerts([628, 3510]),
+      workspaceCommands.setCharts([{
+        id: "linked-analysis",
+        title: "Linked bank analysis",
+        kind: "line",
+        metrics: ["asset"],
+        certs: [628, 3510],
+        scale: "value",
+        stacked: false,
+        visible: true,
+      }]),
+    ]);
+    const comparison = tool(deps, "bankgraph.configure_comparison");
+    const result = await comparison.controller({
+      metricMode: "add",
+      metrics: ["dep"],
+      ifRevision: workspace.state.revision,
+    }, { signal, scope: "test", toolName: comparison.name });
+
+    expect(result.data).toMatchObject({
+      asOfQuarter: "20251231",
+      selectedCerts: [628, 3510],
+      metrics: ["asset", "dep"],
+    });
   });
 
   it("keeps chart history when omitted from the requested comparison and returns the exact pair", async () => {
@@ -2338,7 +2405,7 @@ describe("workspace WebMCP catalog", () => {
     });
     const sync = await host.syncScope("workspace", tools);
     expect(sync.failed).toEqual({});
-		expect(sync.registered).toHaveLength(34);
+		expect(sync.registered).toHaveLength(33);
     const output = await modelContext.active
       .get("bankgraph.get_context")!
       .execute({}, { signal });

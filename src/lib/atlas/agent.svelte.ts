@@ -40,6 +40,7 @@ const LABELS: Record<string, string> = {
 	'bankgraph.add_workspace_view': 'Adding a view',
 	'bankgraph.apply_board_template': 'Applying a layout',
 	'bankgraph.upsert_takeaway': 'Writing a note',
+	'bankgraph.configure_board_view': 'Editing a view',
 	'bankgraph.update_board_block': 'Adjusting a view',
 	'bankgraph.arrange_research_board': 'Arranging the board',
 	'bankgraph.remove_board_blocks': 'Removing views',

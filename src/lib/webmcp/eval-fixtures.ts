@@ -73,6 +73,17 @@ export const WEBMCP_NATURAL_LANGUAGE_FIXTURES: readonly WebMcpNaturalLanguageFix
       note: "Omitting chart boundaries preserves the visible history while changing the exact analytical pair.",
     },
     {
+      id: "add-comparison-banks",
+      prompt: "Actually, add Citi and Goldman Sachs to this comparison too.",
+      expectedTool: "bankgraph.configure_comparison",
+      expectedInput: {
+        bankMode: "add",
+        certs: [7213, 33124],
+      },
+      expectedSequence: ["bankgraph.get_context", "bankgraph.configure_comparison"],
+      note: "The incremental edit preserves every existing bank, measure, date, and chart setting.",
+    },
+    {
       id: "watchlist-idempotency",
       prompt: "Put SoFi Bank on my watchlist.",
       expectedTool: "bankgraph.update_research",

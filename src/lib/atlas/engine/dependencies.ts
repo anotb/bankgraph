@@ -51,6 +51,7 @@ import {
 	type ResearchMetric
 } from './metrics';
 import { effective } from '$lib/atlas/board/views/util';
+import type { BlockLayoutOverride } from '$lib/atlas/board/layout';
 import { readAtlasStructuredView, AtlasStructuredReadError } from './structured-view-data';
 import { BOARD_TEMPLATES, templateById } from '$lib/atlas/templates';
 import { getTheme, setTheme } from '$lib/stores/theme.svelte';
@@ -737,26 +738,72 @@ export function createBoardDependencies(options: {
 		} : undefined,
 		resetResearchBoard: options.board ? () => ({ changed: options.board!.resetResearchBoard() }) : undefined,
 		configureBoardView: options.board ? (blockId, configuration) => {
-			const width = { auto: undefined, quarter: 3, half: 6, three_quarter: 9, full: 12 }[configuration.width];
-			const next = {
-				role: configuration.role === 'auto' ? undefined : configuration.role,
-				span: width,
-				tall: configuration.height === 'tall',
-				presentation: configuration.presentation === 'auto' ? undefined : configuration.presentation,
-				followWorkspace: configuration.followWorkspace,
-				pins: configuration.followWorkspace ? undefined : {
-					...(configuration.certs ? { certs: configuration.certs } : {}),
-					...(configuration.metrics ? { metrics: configuration.metrics } : {}),
-					...(configuration.asOf ? { asOf: configuration.asOf } : {}),
-					...(configuration.compareWith ? { compareWith: configuration.compareWith } : {})
-				},
-				series: configuration.series,
-				xMetric: configuration.xMetric,
-				yMetric: configuration.yMetric,
-				geographyMode: configuration.geographyMode,
-				attributionMode: configuration.attributionMode
-			};
-			return { changed: options.board!.setOverride(blockId, next) };
+			const board = options.board!;
+			const block = board.blocks.find((item) => item.id === blockId);
+			if (!block) return { changed: false };
+
+			let nextBlock = block;
+			if (configuration.title !== undefined && configuration.title !== block.title) {
+				nextBlock = { ...nextBlock, title: configuration.title };
+			}
+			if (nextBlock.kind === 'history' && (
+				configuration.historyFrom !== undefined || configuration.historyTo !== undefined ||
+				configuration.chartKind !== undefined || configuration.scale !== undefined
+			)) {
+				nextBlock = {
+					...nextBlock,
+					binding: {
+						...nextBlock.binding,
+						from: configuration.historyFrom ?? nextBlock.binding.from,
+						to: configuration.historyTo ?? nextBlock.binding.to,
+						chartKind: configuration.chartKind ?? nextBlock.binding.chartKind,
+						scale: configuration.scale ?? nextBlock.binding.scale,
+					},
+				};
+			}
+			if (nextBlock.kind === 'analysis' && configuration.view !== undefined) {
+				nextBlock = { ...nextBlock, binding: { ...nextBlock.binding, view: configuration.view } };
+			}
+			const blockChanged = JSON.stringify(nextBlock) !== JSON.stringify(block);
+			if (blockChanged) board.upsertBlock(nextBlock);
+
+			const patch: BlockLayoutOverride = {};
+			if (configuration.width !== undefined) {
+				patch.span = { auto: undefined, quarter: 3, half: 6, three_quarter: 9, full: 12 }[configuration.width];
+			}
+			if (configuration.height !== undefined) patch.tall = configuration.height === 'tall' ? true : undefined;
+			if (configuration.role !== undefined) patch.role = configuration.role === 'auto' ? undefined : configuration.role;
+			if (configuration.presentation !== undefined) patch.presentation = configuration.presentation === 'auto' ? undefined : configuration.presentation;
+
+			const pinEdit = configuration.certs !== undefined || configuration.metrics !== undefined || configuration.asOf !== undefined || configuration.compareWith !== undefined;
+			if (configuration.followWorkspace === true) {
+				patch.followWorkspace = true;
+				patch.pins = undefined;
+			} else if (pinEdit) {
+				patch.followWorkspace = false;
+				patch.pins = {
+					...(board.overrides[blockId]?.pins ?? {}),
+					...(configuration.certs === undefined ? {} : { certs: configuration.certs }),
+					...(configuration.metrics === undefined ? {} : { metrics: configuration.metrics }),
+					...(configuration.asOf === undefined ? {} : { asOf: configuration.asOf }),
+					...(configuration.compareWith === undefined ? {} : { compareWith: configuration.compareWith }),
+				};
+			} else if (configuration.followWorkspace === false) {
+				patch.followWorkspace = false;
+			}
+			if ((configuration.historyFrom !== undefined || configuration.historyTo !== undefined) && configuration.followWorkspace === undefined) {
+				patch.followWorkspace = false;
+			}
+			if (configuration.series !== undefined) patch.series = configuration.series;
+			if (configuration.xMetric !== undefined) patch.xMetric = configuration.xMetric;
+			if (configuration.yMetric !== undefined) patch.yMetric = configuration.yMetric;
+			if (configuration.geographyMode !== undefined) patch.geographyMode = configuration.geographyMode;
+			if (configuration.attributionMode !== undefined) patch.attributionMode = configuration.attributionMode;
+			if (configuration.sortMetric !== undefined) patch.sortMetric = configuration.sortMetric;
+			if (configuration.sortBasis !== undefined) patch.sortBasis = configuration.sortBasis;
+			if (configuration.sortDirection !== undefined) patch.sortDirection = configuration.sortDirection;
+			const presentationChanged = Object.keys(patch).length > 0 && board.setOverride(blockId, patch);
+			return { changed: blockChanged || presentationChanged };
 		} : undefined,
 
 		prepareBoardHistory: async (binding: ResearchHistoryBinding, context) => { await hydrate(binding.certs, context, previousQuarter(binding.from, 4)); },

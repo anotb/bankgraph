@@ -156,15 +156,24 @@ export interface ResearchBoardTemplateSummary {
 }
 
 export interface ResearchBoardViewConfiguration {
-	width: 'auto' | 'quarter' | 'half' | 'three_quarter' | 'full';
-	height: 'standard' | 'tall';
-	role: 'auto' | 'lead' | 'support' | 'contrast' | 'reference' | 'multiples' | 'context' | 'investigation';
-	presentation: 'auto' | 'primary' | 'multiples';
-	followWorkspace: boolean;
+	title?: string;
+	width?: 'auto' | 'quarter' | 'half' | 'three_quarter' | 'full';
+	height?: 'standard' | 'tall';
+	role?: 'auto' | 'lead' | 'support' | 'contrast' | 'reference' | 'multiples' | 'context' | 'investigation';
+	presentation?: 'auto' | 'primary' | 'multiples';
+	followWorkspace?: boolean;
 	certs?: number[];
 	metrics?: ResearchMetric[];
 	asOf?: string;
 	compareWith?: string;
+	historyFrom?: string;
+	historyTo?: string;
+	chartKind?: ResearchHistoryChartKind;
+	scale?: ResearchHistoryScale;
+	view?: ResearchAnalysisView;
+	sortMetric?: ResearchMetric;
+	sortBasis?: 'level' | 'change';
+	sortDirection?: 'asc' | 'desc';
 	series?: string[];
 	xMetric?: ResearchMetric;
 	yMetric?: ResearchMetric;
@@ -379,23 +388,85 @@ function currentTemplatePeriods(state: WorkspaceState): { from: string; to: stri
 export function createResearchBoardWebMcpToolCatalog(
 	deps: ResearchBoardWebMcpDependencies,
 ): Record<string, WebMcpToolDefinition> {
+	const readNumericalBlockData = async (
+		block: ResearchBoardBlock,
+		request: { section?: string; cursor?: string; pageSize: number },
+		context: WebMcpControllerContext,
+	): Promise<ResearchBoardBlockReadResult | AnalysisResultPage | null> => {
+		const analysisRead = block.kind === 'analysis' ? analysisSections(block) : null;
+		const section = request.section ?? analysisRead?.defaultSection;
+		if (block.kind === 'analysis' && deps.readAnalysisResultPage && section && RESULT_SECTIONS.includes(section as AnalysisResultSection)) {
+			return deps.readAnalysisResultPage(
+				block.binding.resultRef,
+				section as AnalysisResultSection,
+				{ ...(request.cursor ? { cursor: request.cursor } : {}), pageSize: request.pageSize },
+				context,
+			);
+		}
+		if (!deps.readBoardBlockData) return null;
+		return deps.readBoardBlockData(block, {
+			...(section ? { section } : {}),
+			...(request.cursor ? { cursor: request.cursor } : {}),
+			pageSize: request.pageSize,
+		}, context);
+	};
+
 	const readBoard = readOnly({
 		name: 'bankgraph.read_research_board',
 		title: 'Read the research board',
-		description: 'Read the exact visible answer order, focus, titles, spans, and semantic bindings on the current Bankgraph research board.',
+		description: 'Read the exact visible answer order, focus, titles, spans, and semantic bindings on the current Bankgraph research board. Set includeData to focused or all to include a compact page of the exact values behind visible views in the same call; the default remains a fast structure-only read. Use bankgraph.read_board_block for larger pages or continuation cursors. No screenshot or DOM reading is needed.',
 		maxResultChars: MAX_WEBMCP_EXTENDED_ENVELOPE_CHARS,
-		inputSchema: OBJECT({}),
-		controller: (input) => {
-			inputObject(input, []);
+		inputSchema: OBJECT({
+			includeData: ENUM(
+				['none', 'focused', 'all'] as const,
+				'Optional exact-data overview. none reads structure only; focused reads the focused view; all reads every visible view in parallel.',
+			),
+			pageSize: INTEGER(1, 10, 'Values per visible view for this compact overview. Use bankgraph.read_board_block for up to 100 rows and continuation cursors.'),
+		}),
+		controller: async (input, context) => {
+			const source = inputObject(input, ['includeData', 'pageSize']);
+			const includeData = source.includeData === undefined
+				? 'none'
+				: enumValue(source.includeData, 'includeData', ['none', 'focused', 'all'] as const);
+			const pageSize = source.pageSize === undefined ? 5 : integer(source.pageSize, 'pageSize', 1, 10);
 			const state = deps.workspace.state;
 			const presentation = deps.getBoardPresentation?.() ?? null;
+			const targetBlocks = includeData === 'all'
+				? state.board.blocks
+				: includeData === 'focused'
+					? [state.board.blocks.find((block) => block.id === state.board.focusedBlockId) ?? state.board.blocks[0]].filter((block): block is ResearchBoardBlock => Boolean(block))
+					: [];
+			const viewData = await Promise.all(targetBlocks.map(async (block) => {
+				const analysisRead = block.kind === 'analysis' ? analysisSections(block) : null;
+				const section = analysisRead?.defaultSection;
+				const effectivePageSize = section === 'analogue_details' ? Math.min(pageSize, 10) : pageSize;
+				try {
+					const numerical = await readNumericalBlockData(block, { ...(section ? { section } : {}), pageSize: effectivePageSize }, context);
+					return {
+						blockId: block.id,
+						title: block.title,
+						kind: block.kind,
+						section: numerical?.section ?? section ?? null,
+						numerical,
+					};
+				} catch (error) {
+					return {
+						blockId: block.id,
+						title: block.title,
+						kind: block.kind,
+						section: section ?? null,
+						error: error instanceof Error ? error.message : 'This view could not be read.',
+					};
+				}
+			}));
 			return {
-				summary: `${state.board.blocks.length} ${state.board.blocks.length === 1 ? 'view' : 'views'} on the research board; workspace revision ${state.revision}.`,
+				summary: `${state.board.blocks.length} ${state.board.blocks.length === 1 ? 'view' : 'views'} on the research board; workspace revision ${state.revision}.${viewData.length ? ` Exact data included for ${viewData.length} ${viewData.length === 1 ? 'view' : 'views'}.` : ''}`,
 				data: {
 					workspaceRevision: state.revision,
 					focusedBlockId: state.board.focusedBlockId,
 					blocks: state.board.blocks,
 					presentation,
+					...(viewData.length ? { viewData } : {}),
 					counts: { blocks: state.board.blocks.length, maximum: WORKSPACE_LIMITS.boardBlocks },
 				},
 			};
@@ -429,21 +500,11 @@ export function createResearchBoardWebMcpToolCatalog(
 				throw new WebMcpInputError('pageSize must not exceed 10 for analogue_details; use the returned cursor for additional complete bank trajectories');
 			}
 			const pageSize = requestedPageSize;
-			let numerical: ResearchBoardBlockReadResult | AnalysisResultPage | null = null;
-			if (block.kind === 'analysis' && deps.readAnalysisResultPage && section && RESULT_SECTIONS.includes(section as AnalysisResultSection)) {
-				numerical = await deps.readAnalysisResultPage(
-					block.binding.resultRef,
-					section as AnalysisResultSection,
-					{ ...(source.cursor === undefined ? {} : { cursor: stringValue(source.cursor, 'cursor', { max: 160 }) }), pageSize },
-					context,
-				);
-			} else if (deps.readBoardBlockData) {
-				numerical = await deps.readBoardBlockData(block, {
-					...(section ? { section } : {}),
-					...(source.cursor === undefined ? {} : { cursor: stringValue(source.cursor, 'cursor', { max: 160 }) }),
-					pageSize,
-				}, context);
-			}
+			const numerical = await readNumericalBlockData(block, {
+				...(section ? { section } : {}),
+				...(source.cursor === undefined ? {} : { cursor: stringValue(source.cursor, 'cursor', { max: 160 }) }),
+				pageSize,
+			}, context);
 			return {
 				summary: `${block.title} is view ${deps.workspace.state.board.blocks.findIndex((item) => item.id === id) + 1} of ${deps.workspace.state.board.blocks.length}.`,
 				data: {
@@ -815,11 +876,13 @@ export function createResearchBoardWebMcpToolCatalog(
 
 	const configureBoardView = mutation({
 		name: 'bankgraph.configure_board_view',
-		title: 'Configure a board view',
-		description: 'Retarget and configure any visible view after it is created: its analytical role, width, height, presentation, and whether it follows the board or uses its own banks, measures, and comparison dates. A curated layout is only a starting point. Send the complete desired presentation so retries are exact.',
+		title: 'Edit a board view',
+		description: 'Change only the requested part of an existing view and preserve everything else. In one call you can rename or resize it, change its banks, measures, dates, chart style or scale, sort an exact table, or switch a compatible analysis view. Supplying banks, measures, or history dates makes that view independent; followWorkspace reconnects it to the board. Revision guards are optional because every field is an exact, idempotent setting.',
 		maxResultChars: MAX_WEBMCP_EXTENDED_ENVELOPE_CHARS,
-		inputSchema: OBJECT({
+		inputSchema: {
+			...OBJECT({
 			blockId: ID_SCHEMA,
+			title: TITLE_SCHEMA,
 			width: ENUM(BOARD_WIDTHS),
 			height: ENUM(BOARD_HEIGHTS),
 			role: ENUM(BOARD_ROLES),
@@ -829,6 +892,14 @@ export function createResearchBoardWebMcpToolCatalog(
 			metrics: ARRAY(ENUM(RESEARCH_METRIC_IDS), WORKSPACE_LIMITS.visibleMetrics),
 			asOf: STRING(8),
 			compareWith: STRING(8),
+			historyFrom: STRING(8),
+			historyTo: STRING(8),
+			chartKind: ENUM(['line', 'area']),
+			scale: ENUM(['value', 'index']),
+			view: ENUM(ANALYSIS_VIEWS),
+			sortMetric: ENUM(RESEARCH_METRIC_IDS),
+			sortBasis: ENUM(['level', 'change']),
+			sortDirection: ENUM(['asc', 'desc']),
 			series: ARRAY(ENUM(ECONOMY_SERIES), 3, 1),
 			xMetric: ENUM(RESEARCH_METRIC_IDS),
 			yMetric: ENUM(RESEARCH_METRIC_IDS),
@@ -836,47 +907,88 @@ export function createResearchBoardWebMcpToolCatalog(
 			attributionMode: ENUM(ATTRIBUTION_MODES),
 			ifRevision: REVISION_SCHEMA,
 			ifPresentationRevision: PRESENTATION_REVISION_SCHEMA,
-		}, ['blockId', 'width', 'height', 'role', 'presentation', 'followWorkspace', 'ifRevision', 'ifPresentationRevision']),
+			}, ['blockId']),
+			minProperties: 2,
+		},
 		controller: (input) => {
-			const source = inputObject(input, ['blockId', 'width', 'height', 'role', 'presentation', 'followWorkspace', 'certs', 'metrics', 'asOf', 'compareWith', 'series', 'xMetric', 'yMetric', 'geographyMode', 'attributionMode', 'ifRevision', 'ifPresentationRevision']);
+			const source = inputObject(input, [
+				'blockId', 'title', 'width', 'height', 'role', 'presentation', 'followWorkspace',
+				'certs', 'metrics', 'asOf', 'compareWith', 'historyFrom', 'historyTo',
+				'chartKind', 'scale', 'view', 'sortMetric', 'sortBasis', 'sortDirection',
+				'series', 'xMetric', 'yMetric', 'geographyMode', 'attributionMode',
+				'ifRevision', 'ifPresentationRevision',
+			]);
 			if (!deps.configureBoardView) throw new WebMcpToolError('capability_unavailable', 'Board presentation control is unavailable on this page.', {});
-			const expected = revision(source.ifRevision);
-			if (deps.workspace.state.revision !== expected) throw stale(expected, deps.workspace.state.revision);
+			const editFields = [
+				'title', 'width', 'height', 'role', 'presentation', 'followWorkspace', 'certs', 'metrics',
+				'asOf', 'compareWith', 'historyFrom', 'historyTo', 'chartKind', 'scale', 'view',
+				'sortMetric', 'sortBasis', 'sortDirection', 'series', 'xMetric', 'yMetric',
+				'geographyMode', 'attributionMode',
+			];
+			if (!editFields.some((field) => source[field] !== undefined)) {
+				throw new WebMcpInputError('Provide at least one view change');
+			}
+			if (source.ifRevision !== undefined) {
+				const expected = revision(source.ifRevision);
+				if (deps.workspace.state.revision !== expected) throw stale(expected, deps.workspace.state.revision);
+			}
 			const currentPresentation = deps.getBoardPresentation?.().presentationRevision ?? 0;
-			const expectedPresentation = integer(source.ifPresentationRevision, 'ifPresentationRevision', 0, Number.MAX_SAFE_INTEGER);
-			if (currentPresentation !== expectedPresentation) throw stalePresentation(expectedPresentation, currentPresentation);
+			if (source.ifPresentationRevision !== undefined) {
+				const expectedPresentation = integer(source.ifPresentationRevision, 'ifPresentationRevision', 0, Number.MAX_SAFE_INTEGER);
+				if (currentPresentation !== expectedPresentation) throw stalePresentation(expectedPresentation, currentPresentation);
+			}
 			const id = blockId(source.blockId);
 			const block = deps.workspace.state.board.blocks.find((block) => block.id === id);
 			if (!block) throw new WebMcpToolError('board_block_not_found', `Board view ${id} is not visible.`, { blockId: id });
-			if (typeof source.followWorkspace !== 'boolean') throw new WebMcpInputError('followWorkspace must be a boolean');
-			if (source.followWorkspace && (source.certs !== undefined || source.metrics !== undefined || source.asOf !== undefined || source.compareWith !== undefined)) {
-				throw new WebMcpInputError('Pinned certs, metrics, asOf, and compareWith are accepted only when followWorkspace is false');
+			if (source.followWorkspace !== undefined && typeof source.followWorkspace !== 'boolean') throw new WebMcpInputError('followWorkspace must be a boolean');
+			const historyRequested = source.historyFrom !== undefined || source.historyTo !== undefined;
+			const pinsRequested = source.certs !== undefined || source.metrics !== undefined || source.asOf !== undefined || source.compareWith !== undefined;
+			if (source.followWorkspace === true && (pinsRequested || historyRequested)) {
+				throw new WebMcpInputError('Banks, measures, or dates cannot be pinned while followWorkspace is true');
 			}
+			if (historyRequested && block.kind !== 'history') throw new WebMcpInputError('historyFrom and historyTo are accepted only for a history view');
+			if ((source.chartKind !== undefined || source.scale !== undefined) && block.kind !== 'history') throw new WebMcpInputError('chartKind and scale are accepted only for a history view');
+			if (source.view !== undefined && block.kind !== 'analysis') throw new WebMcpInputError('view is accepted only for a stored analysis result');
+			const sortRequested = source.sortMetric !== undefined || source.sortBasis !== undefined || source.sortDirection !== undefined;
+			if (sortRequested && block.kind !== 'exact_table') throw new WebMcpInputError('sortMetric, sortBasis, and sortDirection are accepted only for an exact table');
 			const view = block.kind === 'workspace_view' ? block.binding.view : null;
 			if (source.series !== undefined && view !== 'economic_context') throw new WebMcpInputError('series is accepted only for an economic_context view');
 			if ((source.xMetric !== undefined || source.yMetric !== undefined) && view !== 'metric_relationship') throw new WebMcpInputError('xMetric and yMetric are accepted only for a metric_relationship view');
 			if (source.geographyMode !== undefined && view !== 'headquarters_geography') throw new WebMcpInputError('geographyMode is accepted only for a headquarters_geography view');
 			if (source.attributionMode !== undefined && view !== 'change_attribution') throw new WebMcpInputError('attributionMode is accepted only for a change_attribution view');
 			const configuration: ResearchBoardViewConfiguration = {
-				width: enumValue(source.width, 'width', BOARD_WIDTHS),
-				height: enumValue(source.height, 'height', BOARD_HEIGHTS),
-				role: enumValue(source.role, 'role', BOARD_ROLES),
-				presentation: enumValue(source.presentation, 'presentation', BOARD_PRESENTATIONS),
-				followWorkspace: source.followWorkspace,
+				...(source.title === undefined ? {} : { title: stringValue(source.title, 'title', { min: 1, max: 160 }) }),
+				...(source.width === undefined ? {} : { width: enumValue(source.width, 'width', BOARD_WIDTHS) }),
+				...(source.height === undefined ? {} : { height: enumValue(source.height, 'height', BOARD_HEIGHTS) }),
+				...(source.role === undefined ? {} : { role: enumValue(source.role, 'role', BOARD_ROLES) }),
+				...(source.presentation === undefined ? {} : { presentation: enumValue(source.presentation, 'presentation', BOARD_PRESENTATIONS) }),
+				...(source.followWorkspace === undefined ? {} : { followWorkspace: source.followWorkspace }),
 				...(source.certs === undefined ? {} : { certs: certs(source.certs) }),
 				...(source.metrics === undefined ? {} : { metrics: metrics(source.metrics) }),
 				...(source.asOf === undefined ? {} : { asOf: reportingPeriod(source.asOf, 'asOf') }),
 				...(source.compareWith === undefined ? {} : { compareWith: reportingPeriod(source.compareWith, 'compareWith') }),
+				...(source.historyFrom === undefined ? {} : { historyFrom: reportingPeriod(source.historyFrom, 'historyFrom') }),
+				...(source.historyTo === undefined ? {} : { historyTo: reportingPeriod(source.historyTo, 'historyTo') }),
+				...(source.chartKind === undefined ? {} : { chartKind: enumValue(source.chartKind, 'chartKind', ['line', 'area'] as const) }),
+				...(source.scale === undefined ? {} : { scale: enumValue(source.scale, 'scale', ['value', 'index'] as const) }),
+				...(source.view === undefined ? {} : { view: enumValue(source.view, 'view', ANALYSIS_VIEWS) }),
+				...(source.sortMetric === undefined ? {} : { sortMetric: enumValue(source.sortMetric, 'sortMetric', RESEARCH_METRIC_IDS) }),
+				...(source.sortBasis === undefined ? {} : { sortBasis: enumValue(source.sortBasis, 'sortBasis', ['level', 'change'] as const) }),
+				...(source.sortDirection === undefined ? {} : { sortDirection: enumValue(source.sortDirection, 'sortDirection', ['asc', 'desc'] as const) }),
 				...(source.series === undefined ? {} : { series: unique(arrayValue(source.series, 'series', { min: 1, max: 3, map: (item, index) => enumValue(item, `series[${index}]`, ECONOMY_SERIES) }), 'series') }),
 				...(source.xMetric === undefined ? {} : { xMetric: enumValue(source.xMetric, 'xMetric', RESEARCH_METRIC_IDS) }),
 				...(source.yMetric === undefined ? {} : { yMetric: enumValue(source.yMetric, 'yMetric', RESEARCH_METRIC_IDS) }),
 				...(source.geographyMode === undefined ? {} : { geographyMode: enumValue(source.geographyMode, 'geographyMode', GEOGRAPHY_MODES) }),
 				...(source.attributionMode === undefined ? {} : { attributionMode: enumValue(source.attributionMode, 'attributionMode', ATTRIBUTION_MODES) }),
 			};
+			if (configuration.historyFrom && configuration.historyTo && configuration.historyFrom > configuration.historyTo) {
+				throw new WebMcpInputError('historyFrom must not be after historyTo');
+			}
 			const result = deps.configureBoardView(id, configuration);
+			const updated = deps.workspace.state.board.blocks.find((item) => item.id === id) ?? block;
 			return {
-				summary: `${id} now uses the requested board presentation.`,
-				data: { ...result, workspaceRevision: deps.workspace.state.revision, blockIds: [id], presentation: deps.getBoardPresentation?.() ?? null },
+				summary: `${updated.title} now reflects the requested changes.`,
+				data: { ...result, workspaceRevision: deps.workspace.state.revision, blockIds: [id], block: updated, presentation: deps.getBoardPresentation?.() ?? null },
 			};
 		},
 	});

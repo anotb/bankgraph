@@ -6,7 +6,10 @@ import {
 
 const TOOL_NAME = /^[A-Za-z0-9_.-]{1,128}$/;
 const MAX_SCHEMA_DEPTH = 5;
-const MAX_PROPERTIES = 20;
+// A single semantic editor is easier for an agent to discover and invoke than a
+// family of narrowly overlapping tools. Keep the schema bounded, but allow the
+// complete board-view editor to describe every supported exact setting.
+const MAX_PROPERTIES = 32;
 const MAX_SCHEMA_CHARS = 8_000;
 const MAX_STRING_LENGTH = 4_096;
 const MAX_ARRAY_ITEMS = 250;

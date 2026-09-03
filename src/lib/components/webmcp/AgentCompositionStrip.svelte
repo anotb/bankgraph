@@ -22,6 +22,7 @@
 		'bankgraph.publish_exact_table': { active: 'Adding exact values', complete: 'Added exact values' },
 		'bankgraph.publish_result_view': { active: 'Adding another analysis view', complete: 'Added another analysis view' },
 		'bankgraph.upsert_takeaway': { active: 'Writing a linked takeaway', complete: 'Added a linked takeaway' },
+		'bankgraph.configure_board_view': { active: 'Editing a board view', complete: 'Edited a board view' },
 		'bankgraph.update_board_block': { active: 'Refining a board view', complete: 'Refined a board view' },
 		'bankgraph.arrange_research_board': { active: 'Arranging the research board', complete: 'Arranged the research board' },
 		'bankgraph.remove_board_blocks': { active: 'Removing board views', complete: 'Removed board views' },

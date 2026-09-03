@@ -198,6 +198,23 @@ test('native WebMCP reads the same chart data and controls the visible board lif
 	let board = await readBoard(page);
 	const history = board.blocks.find((block) => block.kind === 'history');
 	expect(history).toBeTruthy();
+	const boardWithData = await invoke(page, 'bankgraph.read_research_board', {
+		includeData: 'all',
+		pageSize: 2
+	});
+	expect(boardWithData).toMatchObject({
+		ok: true,
+		data: {
+			blocks: expect.any(Array),
+			viewData: expect.arrayContaining([
+				expect.objectContaining({
+					blockId: history!.id,
+					kind: 'history',
+					numerical: expect.objectContaining({ items: expect.any(Array) })
+				})
+			])
+		}
+	});
 	const chartRead = await invoke(page, 'bankgraph.read_board_block', {
 		blockId: history!.id,
 		pageSize: 100
@@ -406,6 +423,19 @@ test('adding peers through WebMCP refreshes curated tables and charts on the vis
 		data: {
 			numerical: { items: expect.arrayContaining([expect.objectContaining({ cert: 900002 })]) }
 		}
+	});
+
+	const sorted = await invoke(page, 'bankgraph.configure_board_view', {
+		blockId: 'peer_comparison-1',
+		sortMetric: 'roa',
+		sortBasis: 'level',
+		sortDirection: 'asc'
+	});
+	expect(sorted).toMatchObject({ ok: true, data: { changed: true } });
+	await expect(page.locator('article[data-block="peer_comparison-1"] thead')).toContainText('ROA ↑');
+	const sortedBoard = await readBoard(page);
+	expect(sortedBoard.presentation.overrides['peer_comparison-1']).toMatchObject({
+		sortMetric: 'roa', sortBasis: 'level', sortDirection: 'asc'
 	});
 });
 

@@ -14,9 +14,21 @@
 	let sortBasis = $state<'level' | 'change'>('level');
 	let sortDir = $state<'asc' | 'desc'>('desc');
 	let userSorted = $state(false);
+	let configuredSort = $state('');
 	$effect(() => {
-		if (userSorted) return;
 		const configured = board.overrides[block.id];
+		const nextConfiguredSort = JSON.stringify([
+			configured?.sortMetric ?? null,
+			configured?.sortBasis ?? null,
+			configured?.sortDirection ?? null,
+		]);
+		// A person can sort locally by clicking a header. A later board/agent setting is
+		// explicit shared state, so it takes over immediately and remains visible.
+		if (configuredSort !== nextConfiguredSort) {
+			configuredSort = nextConfiguredSort;
+			userSorted = false;
+		}
+		if (userSorted) return;
 		sortKey = configured?.sortMetric ?? board.activeMetric;
 		sortBasis = configured?.sortBasis ?? 'level';
 		sortDir = configured?.sortDirection ?? 'desc';
