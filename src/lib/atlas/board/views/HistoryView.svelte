@@ -15,6 +15,14 @@
 	let multiples = $derived(!viewport.narrow && board.overrides[block.id]?.presentation === 'multiples' && e.metrics.length > 1);
 	let metric = $derived(e.metrics.includes(board.activeMetric) ? board.activeMetric : e.metrics[0]);
 	let hover = $state<number | null>(null);
+	let hoverMetric = $state<typeof e.metrics[number] | null>(null);
+	let readMetric = $derived(hoverMetric ?? metric);
+	let multipleColumns = $derived(span >= 9 ? Math.min(3, e.metrics.length) : Math.min(2, e.metrics.length));
+	let multipleRemainder = $derived(e.metrics.length % multipleColumns);
+	let multipleRows = $derived(Math.ceil(e.metrics.length / multipleColumns));
+	// Standard plates show complete rows before scrolling; 86px let the second row's axis
+	// straddle the viewport edge once the fixed readout was present.
+	let multipleChartHeight = $derived(tall ? (multipleRows === 1 ? 430 : multipleRows === 2 ? 200 : 120) : multipleRows === 1 ? 190 : 80);
 	let labels = $derived(e.quarters.map((q, i) => (i === 0 || i === e.quarters.length - 1 || i % (e.quarters.length > 24 ? 8 : 4) === 0 ? quarterLabel(q) : '')));
 	let asOfIndex = $derived(e.quarters.indexOf(e.asOf));
 	let cmpIndex = $derived(e.quarters.indexOf(e.compareWith));
@@ -40,6 +48,7 @@
 {#if !e.certs.length}
 	<div class="empty">Add a bank to draw its history.</div>
 {:else}
+	<div class="history-view">
 	<div class="ctl">
 		{#if !multiples}
 			<div class="chips" role="tablist" aria-label="Measure">
@@ -52,39 +61,52 @@
 		</div>
 	</div>
 
+	<div class="chart-scroll">
 	{#if multiples}
-		<div class="sm" style="grid-template-columns: repeat({span >= 9 ? Math.min(3, e.metrics.length) : 2}, minmax(0, 1fr))">
+		<div class="sm cols-{multipleColumns}" class:remainder-one={multipleRemainder === 1} class:remainder-two={multipleRemainder === 2}>
 			{#each e.metrics as m}
 				{@const med = medianSeries(m)}
-				<div class="cell" class:on={m === metric}>
+				<div class="cell" class:on={m === metric} class:hovered={m === hoverMetric}>
 					<button type="button" class="ct" onclick={() => board.setActiveMetric(m)}><span>{researchMetricDefinition(m).label}</span><span class="mono">{formatMetric(m, metricValue(m, board.data.rows[e.certs[0]], readQuarter, board.data.institutions[e.certs[0]]))}</span></button>
-					<LineChart series={med ? [...series(m), med] : series(m)} {labels} band={band(m)} marker={asOfIndex} marker2={cmpIndex >= 0 ? cmpIndex : null} format={(v) => (scale === 'index' ? v.toFixed(0) : formatMetric(m, v, { compact: true }))} height={tall ? (span >= 9 ? 210 : 180) : span >= 9 ? 132 : 118} direct={false} {area} bind:hover onselect={(i, shift) => { const q = e.quarters[i]; if (!q) return; if (shift) board.setComparison('custom', q); else board.setAsOf(q); }} />
+					<LineChart series={med ? [...series(m), med] : series(m)} {labels} band={band(m)} marker={asOfIndex} marker2={cmpIndex >= 0 ? cmpIndex : null} format={(v) => (scale === 'index' ? v.toFixed(0) : formatMetric(m, v, { compact: true }))} height={multipleChartHeight} direct={false} {area} bind:hover onhover={(index) => (hoverMetric = index == null ? null : m)} onselect={(i, shift) => { const q = e.quarters[i]; if (!q) return; if (shift) board.setComparison('custom', q); else board.setAsOf(q); }} />
 				</div>
 			{/each}
 		</div>
 	{:else}
 		<LineChart series={primary} {labels} band={band(metric)} marker={asOfIndex} marker2={cmpIndex >= 0 ? cmpIndex : null} format={(v) => (scale === 'index' ? v.toFixed(0) : formatMetric(metric, v, { compact: true }))} height={tall ? (span >= 8 ? 480 : 450) : span >= 8 ? 230 : 210} direct={true} {area} bind:hover onselect={(i, shift) => { const q = e.quarters[i]; if (!q) return; if (shift) board.setComparison('custom', q); else board.setAsOf(q); }} />
 	{/if}
+	</div>
 
 	<div class="readout">
-		<span class:live={hoverQuarter}>{quarterLabel(readQuarter, 'long')}</span>
-		{#each e.certs.slice(0, 5) as cert, i}<b style="color:{seriesColor(i)}">{e.certs.length > 1 ? tinyBankName(board.data.institutions[cert]?.name ?? String(cert)) + ' ' : ''}{formatMetric(metric, metricValue(metric, board.data.rows[cert], readQuarter, board.data.institutions[cert]))}</b>{/each}
-		{#if hasBand}{@const b = cohortBand(board, metric, e.quarters)}{@const i = e.quarters.indexOf(readQuarter)}{#if b && i >= 0 && b.median[i] != null}<span>peer median {formatMetric(metric, b.median[i])} · middle half {formatMetric(metric, b.lo[i], { compact: true })} – {formatMetric(metric, b.hi[i], { compact: true })}</span>{/if}{/if}
+		<span class:live={hoverQuarter}>{quarterLabel(readQuarter, 'long')} · {researchMetricDefinition(readMetric).shortLabel}</span>
+		{#each e.certs.slice(0, 5) as cert, i}<b style="color:{seriesColor(i)}">{e.certs.length > 1 ? tinyBankName(board.data.institutions[cert]?.name ?? String(cert)) + ' ' : ''}{formatMetric(readMetric, metricValue(readMetric, board.data.rows[cert], readQuarter, board.data.institutions[cert]))}</b>{/each}
+		{#if hasBand}{@const b = cohortBand(board, readMetric, e.quarters)}{@const i = e.quarters.indexOf(readQuarter)}{#if b && i >= 0 && b.median[i] != null}<span>peer median {formatMetric(readMetric, b.median[i])} · middle half {formatMetric(readMetric, b.lo[i], { compact: true })} – {formatMetric(readMetric, b.hi[i], { compact: true })}</span>{/if}{/if}
 		<span class="hint">{hoverQuarter ? 'click to set the period' : 'hover for a quarter'}</span>
+	</div>
 	</div>
 {/if}
 
 <style>
+	.history-view { min-height: 0; height: 100%; display: flex; flex-direction: column; }
 	.ctl { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+	.chart-scroll { min-height: 0; flex: 1; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; padding-right: 2px; }
 	.chips { display: flex; flex-wrap: wrap; gap: 6px; }
 	.chips .chip { height: 24px; font-size: 11.5px; padding: 0 8px; }
 	.right { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
 	.sm { display: grid; gap: 10px 20px; }
+	.sm.cols-1 { grid-template-columns: minmax(0, 1fr); }
+	.sm.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	.sm.cols-3 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+	.sm.cols-3 .cell { grid-column: span 2; }
+	.sm.cols-2.remainder-one .cell:last-child,
+	.sm.cols-3.remainder-one .cell:last-child { grid-column: 1 / -1; }
+	.sm.cols-3.remainder-two .cell:nth-last-child(-n + 2) { grid-column: span 3; }
 	.cell { min-width: 0; padding: 4px 6px 2px; border-radius: 4px; }
-	.cell.on { background: var(--surface-2); }
+	.cell.on, .cell.hovered { background: var(--surface-2); }
 	.ct { width: 100%; display: flex; justify-content: space-between; gap: 8px; border: 0; background: none; padding: 0 0 4px; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink); cursor: pointer; text-align: left; }
 	.ct .mono { color: var(--ink-2); font-weight: 500; font-size: 12px; }
 	.readout .live { color: var(--accent); }
 	.readout .hint { margin-left: auto; color: var(--ink-3); }
+	.history-view > .readout { flex: none; flex-wrap: nowrap; align-items: center; min-height: 26px; padding-top: 7px; margin-top: 0; border-top: 1px solid var(--rule-2); overflow-x: auto; white-space: nowrap; scrollbar-width: thin; }
 	@media (max-width: 640px) { .right .seg:last-child { display: none; } }
 </style>

@@ -5,15 +5,15 @@
 	let { onclose }: { onclose: () => void } = $props();
 	const board = Board.use();
 	const VIEWS: Array<{ kind: ViewKind; label: string; hint: string; role: ViewRole; needs?: 'banks' | 'cohort' }> = [
-		{ kind: 'statements', label: 'Position', hint: 'Value, change, peer median, percentile, rank', role: 'lead', needs: 'banks' },
-		{ kind: 'history', label: 'History', hint: 'One measure over time against the cohort', role: 'lead', needs: 'banks' },
-		{ kind: 'exact_table', label: 'Exact table', hint: 'Banks by measure, sortable', role: 'reference', needs: 'banks' },
-		{ kind: 'distribution', label: 'Distribution', hint: 'Where each bank sits in the cohort', role: 'support', needs: 'cohort' },
+		{ kind: 'statements', label: 'Bank overview', hint: 'Levels, changes, peer medians, and ranks', role: 'lead', needs: 'banks' },
+		{ kind: 'history', label: 'Quarterly trends', hint: 'Follow one or more measures over time', role: 'lead', needs: 'banks' },
+		{ kind: 'exact_table', label: 'Bank comparison', hint: 'Compare and sort selected banks by measure', role: 'reference', needs: 'banks' },
+		{ kind: 'distribution', label: 'Peer position', hint: 'See where selected banks sit in the cohort', role: 'support', needs: 'cohort' },
 		{ kind: 'attribution', label: 'What moved', hint: 'The components behind the change', role: 'lead', needs: 'banks' },
-		{ kind: 'relationship', label: 'Relationship', hint: 'Two measures across the cohort', role: 'contrast', needs: 'cohort' },
-		{ kind: 'geography', label: 'Geography', hint: 'The cohort by headquarters state', role: 'support', needs: 'cohort' },
-		{ kind: 'economy', label: 'The economy', hint: 'Rates, unemployment, and bank credit', role: 'context' },
-		{ kind: 'record', label: 'Institution record', hint: 'Identity, charter, ownership, scale', role: 'reference', needs: 'banks' }
+		{ kind: 'relationship', label: 'Compare two measures', hint: 'Plot the cohort on two measures', role: 'contrast', needs: 'cohort' },
+		{ kind: 'geography', label: 'Headquarters', hint: 'Map the cohort by headquarters state', role: 'support', needs: 'cohort' },
+		{ kind: 'economy', label: 'Economic context', hint: 'Rates, prices, jobs, and bank credit', role: 'context' },
+		{ kind: 'record', label: 'Bank details', hint: 'Identity, charter, ownership, and scale', role: 'reference', needs: 'banks' }
 	];
 	async function runFailureAnalysis() { try { await board.runFailureAnalysis(); onclose(); } catch { /* the plate menu stays open so the person can retry */ } }
 	function add(v: (typeof VIEWS)[number]) {

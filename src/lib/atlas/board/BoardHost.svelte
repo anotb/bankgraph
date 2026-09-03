@@ -76,7 +76,7 @@
 			}
 			if (l.add === 'economy') {
 				const id = `econ-${Date.now().toString(36)}`;
-				board.upsertBlock({ id, kind: 'workspace_view', title: 'The economy alongside', span: 'full', binding: { view: 'economic_context' } }, { role: 'context' });
+				board.upsertBlock({ id, kind: 'workspace_view', title: 'Economic context', span: 'full', binding: { view: 'economic_context' } }, { role: 'context' });
 				if (l.series?.length) board.setOverride(id, { series: l.series });
 			}
 			if (certs.length) {

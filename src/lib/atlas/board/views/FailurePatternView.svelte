@@ -52,6 +52,8 @@
 {:else if !result}
 	<div class="empty">Loading the analysis…</div>
 {:else if view === 'event_study' || view === 'small_multiples' || view === 'timeline'}
+	<div class="chart-view">
+	<div class="plot">
 	<div class="ctl">
 		{#if viewport.narrow}
 			<select class="in" value={feature ?? ranked[0]?.s.metric} onchange={(e) => (feature = e.currentTarget.value)}>{#each ranked as r}<option value={r.s.metric}>{r.s.label}</option>{/each}</select>
@@ -70,8 +72,11 @@
 			</div>
 		{/each}
 	</div>
+	</div>
 	<div class="readout">{#if hover != null}<span class="live">{labels[hover]}</span><span>{Math.abs(relQ[hover] ?? 0)} quarter{Math.abs(relQ[hover] ?? 0) === 1 ? '' : 's'} before the last filing · each header shows the failed median and its middle half at this point</span>{:else}<span>Median of {count(result.historicalCohort.withExactQuarterHistory)} institutions that failed {result.request.startYear}–{result.request.endYear} · band: middle half · t−1: last filing before failure</span>{/if}</div>
+	</div>
 {:else if view === 'analogue_table' || view === 'analogues' || view === 'matched_banks'}
+	<div class="table-view">
 	<div class="scroll">
 		<table class="atlas">
 			<thead><tr><th></th><th>Institution</th><th></th><th>HQ</th><th title="Coverage-adjusted distance from the failed cohort's path; lower is closer">Distance</th>{#each KEY as k}<th>{features.find((f) => f.metric === k)?.label.replace(' ratio', '').replace('Total risk-based capital', 'Total capital').replace('Return on assets', 'ROA') ?? k}</th>{/each}<th title="Noncurrent loan ratio over the bank's last eight quarters, with the change in percentage points">Noncurrent, 8Q</th></tr></thead>
@@ -93,11 +98,13 @@
 		</table>
 	</div>
 	<div class="readout"><span>Ranked by distance from the failed cohort's eight-quarter path across eleven reported ratios{board.state.excludedCerts.length ? ` · ${board.state.excludedCerts.length} excluded` : ''}</span></div>
+	</div>
 {:else if view === 'event_trajectories'}
-	<div class="hd"><select class="in" value={F} onchange={(e) => (feature = e.currentTarget.value)}>{#each features as s}<option value={s.metric}>{s.label}</option>{/each}</select></div>
 	{@const fs = features.find((s) => s.metric === F)}
+	<div class="chart-view">
+	<div class="hd"><select class="in" value={F} onchange={(e) => (feature = e.currentTarget.value)}>{#each features as s}<option value={s.metric}>{s.label}</option>{/each}</select></div>
 	{#if fs}
-		<LineChart series={[{ id: 'median', label: 'failed median', values: fs.points.map((p) => p.median), color: 'var(--ink-3)', width: 1.25 }, ...topThree.map((a, i) => ({ id: String(a.cert), label: shortBankName(a.name).split(' ')[0], values: path(a, F), color: seriesColor(Math.max(0, board.selectedCerts.indexOf(a.cert)) || i) }))]} {labels} band={{ lo: fs.points.map((p) => p.q25), hi: fs.points.map((p) => p.q75) }} format={fmtPct} height={tall ? 480 : span >= 8 ? 220 : 200} zero={F === 'roa'} bind:hover />
+		<div class="plot"><LineChart series={[{ id: 'median', label: 'failed median', values: fs.points.map((p) => p.median), color: 'var(--ink-3)', width: 1.25 }, ...topThree.map((a, i) => ({ id: String(a.cert), label: shortBankName(a.name).split(' ')[0], values: path(a, F), color: seriesColor(Math.max(0, board.selectedCerts.indexOf(a.cert)) || i) }))]} {labels} band={{ lo: fs.points.map((p) => p.q25), hi: fs.points.map((p) => p.q75) }} format={fmtPct} height={tall ? 480 : span >= 8 ? 220 : 200} zero={F === 'roa'} bind:hover /></div>
 		<div class="readout">
 			{#if hover != null}
 				<span class="live">{labels[hover]}</span><b>failed median {fs.points[hover]?.median != null ? fmtPct(fs.points[hover].median!) : '—'}</b>
@@ -107,7 +114,9 @@
 			{/if}
 		</div>
 	{/if}
+	</div>
 {:else if view === 'distribution' || view === 'summary' || view === 'breadth'}
+	<div class="table-view">
 	<div class="scroll"><table class="atlas drivers">
 		<thead><tr><th>Measure</th><th title="Failed-cohort median, t−8 to t−1">t−8 → t−1</th><th title="Mean share of standardized distance">Share</th></tr></thead>
 		<tbody>
@@ -118,6 +127,7 @@
 		</tbody>
 	</table></div>
 	<div class="readout"><span>Mean share of standardized distance across the {analogues.length} closest analogues</span></div>
+	</div>
 {:else}
 	<div class="scroll">
 		<table class="atlas">
@@ -129,6 +139,11 @@
 {/if}
 
 <style>
+	.chart-view { min-height: 0; height: 100%; display: flex; flex-direction: column; }
+	.chart-view > .plot { min-height: 0; flex: 1; overflow: auto; }
+	.table-view { min-height: 0; height: 100%; display: flex; flex-direction: column; }
+	.table-view > .scroll { min-height: 0; max-height: none; flex: 1; }
+	.chart-view > .readout, .table-view > .readout { flex: none; flex-wrap: nowrap; align-items: center; min-height: 26px; padding-top: 7px; margin-top: 0; border-top: 1px solid var(--rule-2); overflow-x: auto; white-space: nowrap; scrollbar-width: thin; }
 	.sm { display: grid; gap: 10px 18px; }
 	.cell { min-width: 0; }
 	.cell h4 { margin: 0 0 4px; font-size: 12.5px; font-weight: 600; display: flex; justify-content: space-between; gap: 8px; min-width: 0; }

@@ -26,6 +26,12 @@
 	/** Half-width plates drop the middle-half column; the expanded strip above still shows it for the selected measure. */
 	let compact = $derived(span < 8);
 	let pts = $derived(cohortValues(board, metric, e.asOf));
+	let hoverPoint = $derived(pts.find((point) => point.cert === board.hoverCert) ?? null);
+	let hoverPercentile = $derived.by(() => {
+		if (!hoverPoint) return null;
+		const values = pts.map((point) => point.value).sort((a, b) => a - b);
+		return values.length >= 5 ? percentileOf(values, hoverPoint.value, focusRow?.def.direction !== 'lower') : null;
+	});
 	let focusPoints = $derived(e.certs.map((cert, i) => ({ cert, i, value: metricValue(metric, board.data.rows[cert], e.asOf, board.data.institutions[cert]) })).filter((f) => f.value != null).map((f) => ({ cert: f.cert, value: f.value as number, label: tinyBankName(board.data.institutions[f.cert]?.name ?? String(f.cert)), color: seriesColor(f.i), showLabel: board.state.activeBank === f.cert || board.hoverCert === f.cert })));
 	const cls = (ch: { favorable: boolean | null }) => (ch.favorable === true ? 'up' : ch.favorable === false ? 'down' : 'flat');
 </script>
@@ -33,9 +39,10 @@
 {#if board.data.cohort.length < 5}
 	<div class="empty">{board.data.pending ? 'Loading the cohort…' : 'Define a cohort of five or more to see where the banks sit.'}</div>
 {:else}
-	<div class="focus-strip">
-		<div class="fh"><b>{focusRow?.def.label}</b><span class="dim">{#if focusCert != null}{shortBankName(board.data.institutions[focusCert]?.name ?? String(focusCert))} among {/if}{count(pts.length)} {focusCert != null ? 'peers' : 'institutions'}{#if focusRow?.p25 != null} · middle half {formatMetric(metric, focusRow.p25, { compact: true })} – {formatMetric(metric, focusRow.p75, { compact: true })}{/if} · {quarterLabel(e.asOf)}{focusRow?.def.direction !== 'neutral' ? ` · ${focusRow?.def.direction === 'higher' ? 'higher' : 'lower'} is better` : ''}</span></div>
-		<Strip points={pts.map((p) => ({ cert: p.cert, value: p.value, label: shortBankName(board.data.institutions[p.cert]?.name ?? String(p.cert)) }))} focus={focusPoints} format={(v) => formatMetric(metric, v, { compact: true })} height={span >= 8 ? 72 : 64} onselect={(cert) => board.addCert(cert)} />
+	<div class="distribution-view">
+		<div class="focus-strip">
+		<div class="fh"><b>{focusRow?.def.label}</b><span class="dim">{focusCert != null ? `${shortBankName(board.data.institutions[focusCert]?.name ?? String(focusCert))} among ${count(pts.length)} peers` : `${count(pts.length)} institutions`}{#if focusRow?.p25 != null} · middle half {formatMetric(metric, focusRow.p25, { compact: true })} – {formatMetric(metric, focusRow.p75, { compact: true })}{/if} · {quarterLabel(e.asOf)}{focusRow?.def.direction !== 'neutral' ? ` · ${focusRow?.def.direction === 'higher' ? 'higher' : 'lower'} is better` : ''}</span></div>
+		<Strip points={pts.map((p) => ({ cert: p.cert, value: p.value, label: shortBankName(board.data.institutions[p.cert]?.name ?? String(p.cert)) }))} focus={focusPoints} format={(v) => formatMetric(metric, v, { compact: true })} height={span >= 8 ? 72 : 64} onselect={(cert) => board.addCert(cert)} onhover={(cert) => (board.hoverCert = cert)} />
 	</div>
 	<div class="scroll">
 		<table class="atlas matrix">
@@ -64,9 +71,18 @@
 			</tbody>
 		</table>
 	</div>
+	<div class="readout">
+		{#if hoverPoint}<span class="live">{shortBankName(board.data.institutions[hoverPoint.cert]?.name ?? String(hoverPoint.cert))}</span><b>{formatMetric(metric, hoverPoint.value)}</b>{#if hoverPercentile != null}<span>P{hoverPercentile} in this cohort</span>{/if}
+		{:else}<span>{quarterLabel(e.asOf)} · hover a bank for its value and peer position</span>{/if}
+	</div>
+	</div>
 {/if}
 
 <style>
+	.distribution-view { min-height: 0; height: 100%; display: flex; flex-direction: column; }
+	.distribution-view > .scroll { min-height: 0; max-height: none; flex: 1; }
+	.distribution-view > .readout { flex: none; flex-wrap: nowrap; align-items: center; min-height: 26px; padding-top: 7px; margin-top: 0; border-top: 1px solid var(--rule-2); overflow-x: auto; white-space: nowrap; scrollbar-width: thin; }
+	.readout .live { color: var(--accent); }
 	.focus-strip { background: var(--surface-2); border-radius: 4px; padding: 8px 10px 4px; margin-bottom: 10px; }
 	.fh { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; font-size: 12.5px; margin-bottom: 14px; }
 	.fh b { font-weight: 600; }

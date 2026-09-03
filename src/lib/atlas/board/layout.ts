@@ -78,18 +78,18 @@ export function inferRole(block: ResearchBoardBlock): ViewRole {
 export function defaultStripTitle(block: ResearchBoardBlock, role: ViewRole): string {
 	if (block.kind === 'workspace_view') {
 		switch (block.binding.view) {
-			case 'comparison_matrix': return 'Position';
-			case 'metric_history': return 'Over time';
-			case 'peer_distribution': return 'Among peers';
+			case 'comparison_matrix': return 'Bank overview';
+			case 'metric_history': return 'Quarterly trends';
+			case 'peer_distribution': return 'Peer position';
 			case 'change_attribution': return 'What moved';
-			case 'metric_relationship': return 'Relationship';
-			case 'headquarters_geography': return 'Where';
-			case 'economic_context': return 'Context';
-			case 'bank_context': return 'Institution';
+			case 'metric_relationship': return 'Compare two measures';
+			case 'headquarters_geography': return 'Headquarters';
+			case 'economic_context': return 'Economic context';
+			case 'bank_context': return 'Bank details';
 		}
 	}
-	if (block.kind === 'history') return 'Over time';
-	if (block.kind === 'exact_table') return 'Exact values';
+	if (block.kind === 'history') return 'Quarterly trends';
+	if (block.kind === 'exact_table') return 'Bank comparison';
 	if (block.kind === 'analysis') return block.title || 'Analysis';
 	return role === 'context' ? 'Context' : block.title || 'Views';
 }

@@ -38,9 +38,11 @@
 {#if !board.data.cohort.length}
 	<div class="empty">{board.data.pending ? 'Loading the cohort…' : 'Define a cohort to map it.'}</div>
 {:else}
+	<div class="chart-view">
 	<div class="hd"><div class="seg"><button type="button" aria-pressed={mode === 'count'} onclick={() => board.setOverride(block.id, { geographyMode: 'count' })}>Institutions</button><button type="button" aria-pressed={mode === 'assets'} onclick={() => board.setOverride(block.id, { geographyMode: 'assets' })}>Assets</button><button type="button" aria-pressed={mode === 'median'} onclick={() => board.setOverride(block.id, { geographyMode: 'median' })}>Median {researchMetricDefinition(metric).shortLabel}</button></div><span class="dim">Click a state to narrow the cohort · shift-click to add</span></div>
+	<div class="plot">
 	<div class="row" style="grid-template-columns: {span >= 8 ? '3fr 2fr' : '1fr'}">
-		<TileMap {values} focus={[]} selected={selectedStates} format={fmt} gamma={mode === 'assets' ? 0.35 : 0.6} onhover={(s) => (hovered = s)} onselect={toggleState} />
+		<TileMap {values} focus={[]} selected={selectedStates} format={fmt} gamma={mode === 'assets' ? 0.35 : 0.6} onhover={(s) => (hovered = s)} onselect={toggleState} fit />
 		{#if span >= 8}
 			<table class="atlas">
 				<thead><tr><th>State</th><th>Banks</th><th>Assets</th><th>Median {researchMetricDefinition(metric).shortLabel}</th></tr></thead>
@@ -48,12 +50,17 @@
 			</table>
 		{/if}
 	</div>
+	</div>
 	<div class="readout">{#if hovered && byState[hovered]}<span>{US_STATES[hovered]}</span><b>{byState[hovered].count} institutions</b><b>{usdThousands(byState[hovered].assets)}</b><b>median {formatMetric(metric, median(byState[hovered].values))}</b>{:else}<span>Headquarters state, not branch deposits</span>{/if}</div>
+	</div>
 {/if}
 
 <style>
+	.chart-view { min-height: 0; height: 100%; display: flex; flex-direction: column; }
+	.plot { min-height: 0; flex: 1; overflow: auto; }
+	.chart-view > .readout { flex: none; flex-wrap: nowrap; align-items: center; min-height: 26px; padding-top: 7px; margin-top: 0; border-top: 1px solid var(--rule-2); overflow-x: auto; white-space: nowrap; scrollbar-width: thin; }
 	.hd { display: flex; gap: 12px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
 	.dim { color: var(--ink-3); font-size: 12px; }
-	.row { display: grid; gap: 20px; align-items: start; }
+	.row { display: grid; gap: 20px; align-items: start; height: 100%; min-height: 0; }
 	@media (max-width: 640px) { .row { grid-template-columns: 1fr !important; } }
 </style>

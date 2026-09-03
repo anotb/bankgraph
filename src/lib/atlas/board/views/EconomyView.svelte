@@ -57,6 +57,7 @@
 	let events = $derived(board.eventTime ? [{ from: 7, to: 13, label: 'recession' }] : quarters.indexOf('20200331') >= 0 ? [{ from: quarters.indexOf('20200331'), to: Math.max(quarters.indexOf('20200331'), quarters.indexOf('20200630')), label: 'pandemic' }] : []);
 </script>
 
+<div class="chart-view">
 <div class="hd">
 	{#each picked as id, i}<span class="tag on" style="--c:{['var(--s1)', 'var(--ink)', 'var(--s2)'][i]}"><i></i>{CHOICES.find((c) => c.id === id)?.label ?? id}{#if picked.length > 1}<button type="button" class="x" onclick={() => setPicked(picked.filter((x) => x !== id))} aria-label="Remove series">×</button>{/if}</span>{/each}
 	{#if picked.length < 3}
@@ -66,13 +67,16 @@
 		</select>
 	{/if}
 </div>
-<LineChart series={picked.map((id, i) => ({ id, label: CHOICES.find((c) => c.id === id)?.label ?? id, values: aligned(id), color: ['var(--s1)', 'var(--ink)', 'var(--s2)'][i] }))} {labels} marker={asOfIndex >= 0 ? asOfIndex : null} format={(v) => (isPct ? pct(v, 1) : `$${v.toFixed(1)}T`)} height={tall ? 490 : span >= 8 ? 200 : 180} {events} zero={isPct} bind:hover />
+<div class="plot"><LineChart series={picked.map((id, i) => ({ id, label: CHOICES.find((c) => c.id === id)?.label ?? id, values: aligned(id), color: ['var(--s1)', 'var(--ink)', 'var(--s2)'][i] }))} {labels} marker={asOfIndex >= 0 ? asOfIndex : null} format={(v) => (isPct ? pct(v, 1) : `$${v.toFixed(1)}T`)} height={tall ? 490 : span >= 8 ? 200 : 180} {events} zero={isPct} bind:hover /></div>
 <div class="readout">
 	{#if hover != null}<span>{quarterLabel(quarters[hover])}</span>{#each picked as id}<b>{CHOICES.find((c) => c.id === id)?.label} {isPct ? pct(aligned(id)[hover], 2) : `$${(aligned(id)[hover] ?? 0).toFixed(2)}T`}</b>{/each}{:else}<span>Quarterly averages · <a href="/economy">the economy in full</a></span>{/if}
-	
+</div>
 </div>
 
 <style>
+	.chart-view { min-height: 0; height: 100%; display: flex; flex-direction: column; }
+	.plot { min-height: 0; flex: 1; overflow: auto; }
+	.chart-view > .readout { flex: none; flex-wrap: nowrap; align-items: center; min-height: 26px; padding-top: 7px; margin-top: 0; border-top: 1px solid var(--rule-2); overflow-x: auto; white-space: nowrap; scrollbar-width: thin; }
 	.hd { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
 	.tag { height: 24px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--rule); border-radius: 4px; background: var(--surface-2); color: var(--ink); font-size: 11.5px; font-weight: 500; padding: 0 0 0 8px; }
 	.tag i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); display: inline-block; }

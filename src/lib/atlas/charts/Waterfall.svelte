@@ -1,8 +1,8 @@
 <script lang="ts">
 	/** A true waterfall: start total, signed steps, end total. Only used when the steps reconcile to the end. */
 	interface Step { label: string; code?: string; value: number }
-	interface Props { start: { label: string; value: number }; end: { label: string; value: number }; steps: Step[]; format: (v: number) => string; formatDelta: (v: number) => string; height?: number }
-	let { start, end, steps, format, formatDelta, height = 240 }: Props = $props();
+	interface Props { start: { label: string; value: number }; end: { label: string; value: number }; steps: Step[]; format: (v: number) => string; formatDelta: (v: number) => string; height?: number; onhover?: (index: number | null) => void }
+	let { start, end, steps, format, formatDelta, height = 240, onhover }: Props = $props();
 	let width = $state(600);
 	let el: HTMLDivElement | undefined = $state();
 	$effect(() => { if (!el) return; const ro = new ResizeObserver(([e]) => { width = Math.max(320, e.contentRect.width); }); ro.observe(el); return () => ro.disconnect(); });
@@ -36,7 +36,7 @@
 			{@const h = Math.max(1.5, Math.abs(y(b.y0) - y(b.y1)))}
 			{#if !b.total && i < bars.length - 1}<line x1={x(i) + bw} x2={x(i + 1)} y1={y(b.y1)} y2={y(b.y1)} stroke="var(--ink-4)" stroke-dasharray="2 3" />{/if}
 			{#if b.total && i === 0}<line x1={x(0) + bw} x2={x(1)} y1={y(b.y1)} y2={y(b.y1)} stroke="var(--ink-4)" stroke-dasharray="2 3" />{/if}
-			<rect x={x(i)} y={b.total ? y(b.y1) : top} width={bw} height={b.total ? height - pad.b - y(b.y1) : h} rx="2" fill={b.total ? 'var(--ink-2)' : (b.delta ?? 0) >= 0 ? 'var(--accent)' : 'var(--adverse)'} opacity={b.total ? 0.85 : 0.95} />
+			<rect x={x(i)} y={b.total ? y(b.y1) : top} width={bw} height={b.total ? height - pad.b - y(b.y1) : h} rx="2" fill={b.total ? 'var(--ink-2)' : (b.delta ?? 0) >= 0 ? 'var(--accent)' : 'var(--adverse)'} opacity={b.total ? 0.85 : 0.95} role="img" aria-label={b.total ? `${b.label}: ${format(b.y1)}` : `${b.label}: ${formatDelta(b.delta ?? 0)}`} onpointerenter={() => onhover?.(i)} onpointerleave={() => onhover?.(null)}><title>{b.total ? `${b.label}: ${format(b.y1)}` : `${b.label}: ${formatDelta(b.delta ?? 0)}`}</title></rect>
 			<text x={x(i) + bw / 2} y={(b.total ? y(b.y1) : top) - 6} text-anchor="middle" class="val" style="fill:{b.total ? 'var(--ink)' : (b.delta ?? 0) >= 0 ? 'var(--accent)' : 'var(--adverse)'}">{b.total ? format(b.y1) : formatDelta(b.delta ?? 0)}</text>
 			{#each wrap(b.label) as line, k}<text x={x(i) + bw / 2} y={height - pad.b + 14 + k * 12} text-anchor="middle" class="lbl">{line}</text>{/each}
 			{#if b.code}<text x={x(i) + bw / 2} y={height - 6} text-anchor="middle" class="code">{b.code}</text>{/if}

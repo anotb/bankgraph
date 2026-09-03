@@ -48,42 +48,47 @@
 
 {#if !e.certs.length}
 	<div class="empty">Add banks to fill the table.</div>
-{:else if oneBank}
-	<div class="scroll">
-		<table class="atlas">
-			<thead><tr><th>Quarter</th>{#each e.metrics as m}<th>{researchMetricDefinition(m).shortLabel}</th>{/each}</tr></thead>
-			<tbody>
-				{#each [...e.quarters].reverse() as q}
-					<tr class:focus={q === e.asOf} onclick={() => board.setAsOf(q)}>
-						<td class="n mono">{quarterLabel(q, 'long')}</td>
-						{#each e.metrics as m}<td>{formatMetric(m, metricValue(m, board.data.rows[e.certs[0]], q, board.data.institutions[e.certs[0]]))}</td>{/each}
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</div>
 {:else}
-	<div class="scroll">
-		<table class="atlas">
-			<thead><tr><th>Institution</th><th>HQ</th>{#each e.metrics as m}<th><button type="button" class="sort" onclick={() => sortBy(m)}>{researchMetricDefinition(m).shortLabel}{sortKey === m ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}</button></th>{/each}</tr></thead>
-			<tbody>
-				{#each rows as r}
-					<tr class:focus={board.state.activeBank === r.cert} onclick={() => board.setActiveBank(r.cert)} onmouseenter={() => (board.hoverCert = r.cert)} onmouseleave={() => (board.hoverCert = null)}>
-						<td class="n"><i class="dot" style="background:{seriesColor(r.i)}"></i><a href="/bank/{r.cert}" onclick={(ev) => ev.stopPropagation()}>{r.name}</a><span class="sub">{r.cert}</span></td>
-						<td class="mono">{r.state}</td>
-						{#each e.metrics as m}
-							{@const ch = metricChange(m, r.values[m], metricValue(m, board.data.rows[r.cert], e.compareWith, board.data.institutions[r.cert]))}
-							<td>{formatMetric(m, r.values[m])}<span class="chg {ch.favorable === true ? 'up' : ch.favorable === false ? 'down' : ''}">{ch.text}</span></td>
+	<div class="table-view">
+		<div class="scroll">
+			{#if oneBank}
+				<table class="atlas">
+					<thead><tr><th>Quarter</th>{#each e.metrics as m}<th>{researchMetricDefinition(m).shortLabel}</th>{/each}</tr></thead>
+					<tbody>
+						{#each [...e.quarters].reverse() as q}
+							<tr class:focus={q === e.asOf} onclick={() => board.setAsOf(q)}>
+								<td class="n mono">{quarterLabel(q, 'long')}</td>
+								{#each e.metrics as m}<td>{formatMetric(m, metricValue(m, board.data.rows[e.certs[0]], q, board.data.institutions[e.certs[0]]))}</td>{/each}
+							</tr>
 						{/each}
-					</tr>
-				{/each}
-			</tbody>
-		</table>
+					</tbody>
+				</table>
+			{:else}
+				<table class="atlas">
+					<thead><tr><th>Institution</th><th>HQ</th>{#each e.metrics as m}<th><button type="button" class="sort" onclick={() => sortBy(m)}>{researchMetricDefinition(m).shortLabel}{sortKey === m ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}</button></th>{/each}</tr></thead>
+					<tbody>
+						{#each rows as r}
+							<tr class:focus={board.state.activeBank === r.cert} onclick={() => board.setActiveBank(r.cert)} onmouseenter={() => (board.hoverCert = r.cert)} onmouseleave={() => (board.hoverCert = null)}>
+								<td class="n"><i class="dot" style="background:{seriesColor(r.i)}"></i><a href="/bank/{r.cert}" onclick={(ev) => ev.stopPropagation()}>{r.name}</a><span class="sub">{r.cert}</span></td>
+								<td class="mono">{r.state}</td>
+								{#each e.metrics as m}
+									{@const ch = metricChange(m, r.values[m], metricValue(m, board.data.rows[r.cert], e.compareWith, board.data.institutions[r.cert]))}
+									<td>{formatMetric(m, r.values[m])}<span class="chg {ch.favorable === true ? 'up' : ch.favorable === false ? 'down' : ''}">{ch.text}</span></td>
+								{/each}
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			{/if}
+		</div>
+		{#if !oneBank}<div class="readout"><span>{quarterLabel(e.asOf)} with change vs {quarterLabel(e.compareWith)}</span></div>{/if}
 	</div>
 {/if}
-{#if !oneBank}<div class="readout"><span>{quarterLabel(e.asOf)} with change vs {quarterLabel(e.compareWith)}</span></div>{/if}
 
 <style>
+	.table-view { min-height: 0; display: flex; flex: 1; flex-direction: column; }
+	.table-view .scroll { min-height: 0; max-height: none; flex: 1; }
+	.table-view .readout { flex: none; }
 	.sort { border: 0; background: none; color: inherit; font: inherit; cursor: pointer; padding: 0; }
 	.sort:hover { color: var(--ink); }
 	.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }

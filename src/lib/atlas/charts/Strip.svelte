@@ -7,8 +7,9 @@
 		format?: (v: number) => string;
 		height?: number;
 		onselect?: (cert: number) => void;
+		onhover?: (cert: number | null) => void;
 	}
-	let { points, focus = [], format = (v: number) => v.toFixed(2), height = 58, onselect }: Props = $props();
+	let { points, focus = [], format = (v: number) => v.toFixed(2), height = 58, onselect, onhover }: Props = $props();
 	let width = $state(320);
 	let el: HTMLDivElement | undefined = $state();
 	$effect(() => {
@@ -35,12 +36,12 @@
 		<rect x={x(q1)} y={cy - 9} width={Math.max(1, x(q3) - x(q1))} height="18" fill="var(--band)" />
 		<line x1={pad} x2={width - pad} y1={cy} y2={cy} stroke="var(--rule)" />
 		{#each points as p, i}
-			<circle cx={x(p.value)} cy={cy + jitter(i)} r="1.8" fill="var(--ink-3)" opacity="0.7" role="button" tabindex="0" aria-label={`${p.label ?? p.cert}: ${format(p.value)}`} onclick={() => onselect?.(p.cert)} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && onselect?.(p.cert)} style="cursor:pointer"><title>{p.label ?? p.cert}: {format(p.value)}</title></circle>
+			<circle cx={x(p.value)} cy={cy + jitter(i)} r="1.8" fill="var(--ink-3)" opacity="0.7" role="button" tabindex="0" aria-label={`${p.label ?? p.cert}: ${format(p.value)}`} onclick={() => onselect?.(p.cert)} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && onselect?.(p.cert)} onfocus={() => onhover?.(p.cert)} onblur={() => onhover?.(null)} onpointerenter={() => onhover?.(p.cert)} onpointerleave={() => onhover?.(null)} style="cursor:pointer"><title>{p.label ?? p.cert}: {format(p.value)}</title></circle>
 		{/each}
 		<line x1={x(med)} x2={x(med)} y1={cy - 12} y2={cy + 12} stroke="var(--ink)" stroke-width="1.25" />
 		<text x={x(med)} y={cy + 21} text-anchor="middle">median {format(med)}</text>
 		{#each focus as f}
-			<circle cx={x(f.value)} cy={cy} r="5" fill={f.color ?? 'var(--accent)'} role="button" tabindex="0" aria-label={`${f.label ?? f.cert}: ${format(f.value)}`} onclick={() => onselect?.(f.cert)} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && onselect?.(f.cert)} style="cursor:pointer"><title>{f.label ?? f.cert}: {format(f.value)}</title></circle>
+			<circle cx={x(f.value)} cy={cy} r="5" fill={f.color ?? 'var(--accent)'} role="button" tabindex="0" aria-label={`${f.label ?? f.cert}: ${format(f.value)}`} onclick={() => onselect?.(f.cert)} onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && onselect?.(f.cert)} onfocus={() => onhover?.(f.cert)} onblur={() => onhover?.(null)} onpointerenter={() => onhover?.(f.cert)} onpointerleave={() => onhover?.(null)} style="cursor:pointer"><title>{f.label ?? f.cert}: {format(f.value)}</title></circle>
 		{/each}
 		{#each labeledFocus as f, i}<text x={x(f.value)} y={cy - 14 - i * 12} text-anchor="middle" class="fl" style="fill:{f.color ?? 'var(--accent)'}">{f.label ? f.label + ' ' : ''}{format(f.value)}</text>{/each}
 		<text x={pad - 6} y={cy + 4} text-anchor="end">{format(lo)}</text>

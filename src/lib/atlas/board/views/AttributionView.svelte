@@ -16,6 +16,7 @@
 	let brief = $state<Brief | null>(null);
 	let loading = $state(false);
 	let error = $state<string | null>(null);
+	let hover = $state<number | null>(null);
 	const cache = new Map<string, Brief>();
 
 	$effect(() => {
@@ -43,6 +44,7 @@
 {#if !cert}
 	<div class="empty">Add a bank to see what moved.</div>
 {:else}
+	<div class="attribution-view">
 	<div class="hd">
 		<div class="seg">{#each Object.entries(LABELS) as [k, l]}{#if brief?.bridges?.[k] || k === 'assets'}<button type="button" aria-pressed={which === k} onclick={() => board.setOverride(block.id, { attributionMode: k as typeof which })}>{l}</button>{/if}{/each}</div>
 		<span class="dim">{shortBankName(board.data.institutions[cert]?.name ?? String(cert))} · {quarterLabel(e.compareWith)} → {quarterLabel(e.asOf)}</span>
@@ -53,10 +55,11 @@
 		<div class="empty">{error}</div>
 	{:else if bridge}
 		<div class="total"><span class="mono">{usdThousands(bridge.from.value)} → {usdThousands(bridge.to.value)}</span><b class="mono {bridge.totalChange >= 0 ? 'up' : 'down'}">{fmt(bridge.totalChange)}</b>{#if reconciled}<span class="dim">reconciles to the reported total</span>{:else}<span class="dim">coverage {Math.round(bridge.dataCoverage * 100)}% · residual {fmt(bridge.residual)}</span>{/if}</div>
+		<div class="plot">
 		{#if !reported.length}
 			<div class="empty">No component bridge is reported for this measure{bridge.method ? ` (${bridge.method.replace(/_/g, ' ')})` : ''}.</div>
 		{:else if reconciled}
-			<Waterfall start={{ label: quarterLabel(bridge.from.repdte), value: bridge.from.value }} end={{ label: quarterLabel(bridge.to.repdte), value: bridge.to.value }} steps={reported.map((c) => ({ label: c.label, code: c.key.toUpperCase(), value: c.change }))} format={(v) => usdThousands(v, 3)} formatDelta={fmt} height={tall ? 470 : span >= 8 ? 220 : 200} />
+			<Waterfall start={{ label: quarterLabel(bridge.from.repdte), value: bridge.from.value }} end={{ label: quarterLabel(bridge.to.repdte), value: bridge.to.value }} steps={reported.map((c) => ({ label: c.label, code: c.key.toUpperCase(), value: c.change }))} format={(v) => usdThousands(v, 3)} formatDelta={fmt} height={tall ? 470 : span >= 8 ? 220 : 200} onhover={(index) => (hover = index)} />
 		{:else}
 			<div class="scroll">
 				<table class="atlas contrib">
@@ -72,13 +75,26 @@
 				</table>
 			</div>
 		{/if}
-		{#if brief && !brief.comparison.isConsecutiveQuarter}<div class="readout"><span class="warn">These quarters are not consecutive; the bridge spans more than one filing.</span></div>{/if}
+		</div>
+		<div class="readout">
+			{#if hover === 0}<span>{quarterLabel(bridge.from.repdte)}</span><b>{usdThousands(bridge.from.value)}</b>
+			{:else if hover === reported.length + 1}<span>{quarterLabel(bridge.to.repdte)}</span><b>{usdThousands(bridge.to.value)}</b>
+			{:else if hover != null && reported[hover - 1]}<span class="live">{reported[hover - 1].label}</span><b>{fmt(reported[hover - 1].change)}</b>
+			{:else if brief && !brief.comparison.isConsecutiveQuarter}<span class="warn">These quarters are not consecutive; the bridge spans more than one filing.</span>
+			{:else if reconciled}<span>Hover a bar to read its contribution</span>
+			{:else}<span>{reported.length} reported components · residual {fmt(bridge.residual)}</span>{/if}
+		</div>
 	{:else}
 		<div class="empty">{brief?.comparison.message ?? 'No bridge is reported for this measure.'}</div>
 	{/if}
+	</div>
 {/if}
 
 <style>
+	.attribution-view { min-height: 0; height: 100%; display: flex; flex-direction: column; }
+	.plot { min-height: 0; flex: 1; overflow: auto; }
+	.attribution-view > .readout { flex: none; flex-wrap: nowrap; align-items: center; min-height: 26px; padding-top: 7px; margin-top: 0; border-top: 1px solid var(--rule-2); overflow-x: auto; white-space: nowrap; scrollbar-width: thin; }
+	.readout .live { color: var(--accent); }
 	.hd { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
 	.dim { color: var(--ink-3); font-size: 12px; }
 	.total { display: flex; align-items: baseline; gap: 12px; font-size: 12.5px; color: var(--ink-2); margin-bottom: 8px; flex-wrap: wrap; }

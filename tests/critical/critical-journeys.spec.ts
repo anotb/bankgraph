@@ -62,7 +62,7 @@ test('a person can add, rearrange, clear, and restore live board views', async (
 	const originalIds = await views.evaluateAll((items) => items.map((item) => item.getAttribute('data-block')));
 
 	await page.getByRole('button', { name: 'Add view', exact: true }).click();
-	await page.getByRole('menuitem', { name: /The economy/ }).click();
+	await page.getByRole('menuitem', { name: /Economic context/ }).click();
 	await expect(views).toHaveCount(6);
 
 	// Reorder within a populated strip so the workspace order and visible row both change.
@@ -80,7 +80,7 @@ test('a person can add, rearrange, clear, and restore live board views', async (
 	const undoNotice = page.getByRole('status').filter({ hasText: /Cleared 6 views/ });
 	await undoNotice.getByRole('button', { name: 'Undo' }).click();
 	await expect(views).toHaveCount(6);
-	await expect(views).toContainText(['The economy']);
+	await expect(views).toContainText(['Economic context']);
 });
 
 test('a board gutter resizes a paired row one column at a time', async ({ page }) => {

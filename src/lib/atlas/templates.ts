@@ -70,7 +70,7 @@ export const BOARD_TEMPLATES: BoardTemplate[] = [
 		needs: ['banks'],
 		timeForm: 'standard',
 		strips: [
-			{ title: 'Position', views: [{ kind: 'statements', role: 'lead', options: { columns: 8 } }, { kind: 'record', role: 'reference', options: { columns: 4 } }] },
+			{ title: 'Bank overview', views: [{ kind: 'statements', role: 'lead', options: { columns: 8 } }, { kind: 'record', role: 'reference', options: { columns: 4 } }] },
 			{ title: 'Eight quarters', views: [{ kind: 'history', role: 'lead', options: { layout: 'multiples', columns: 8 } }, { kind: 'distribution', role: 'support', options: { columns: 4 } }] },
 			{ title: 'What moved last quarter', views: [{ kind: 'attribution', role: 'lead', options: { columns: 12 } }] }
 		],
@@ -86,9 +86,9 @@ export const BOARD_TEMPLATES: BoardTemplate[] = [
 			question: 'How do the selected banks differ across size, funding, credit, profitability, and capital?'
 		},
 		strips: [
-			{ title: 'Side by side', views: [{ kind: 'exact_table', role: 'lead', options: { columns: 12 } }] },
-			{ title: 'Over time', views: [{ kind: 'history', role: 'multiples', options: { layout: 'multiples', columns: 12 } }] },
-			{ title: 'Among peers', views: [{ kind: 'distribution', role: 'lead', options: { columns: 6 } }, { kind: 'relationship', role: 'contrast', options: { columns: 6 } }] }
+			{ title: 'Bank comparison', views: [{ kind: 'exact_table', role: 'lead', options: { columns: 12 } }] },
+			{ title: 'Quarterly trends', views: [{ kind: 'history', role: 'multiples', options: { layout: 'multiples', columns: 12 } }] },
+			{ title: 'Peer context', views: [{ kind: 'distribution', role: 'lead', options: { columns: 6 } }, { kind: 'relationship', role: 'contrast', options: { columns: 6 } }] }
 		],
 		thumb: [[12], [12], [6, 6]]
 	},

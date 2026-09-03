@@ -42,6 +42,8 @@
 			<g role="button" tabindex="0" aria-label="{US_STATES[st]}: {v == null ? 'no data' : format(v)}"
 				onclick={(e) => onselect?.(st, e.shiftKey)}
 				onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && onselect?.(st, e.shiftKey)}
+				onfocus={() => { hovered = st; onhover?.(st); }}
+				onblur={() => { hovered = null; onhover?.(null); }}
 				onpointerenter={() => { hovered = st; onhover?.(st); }}
 				onpointerleave={() => { hovered = null; onhover?.(null); }}
 				class:sel={selected.includes(st)} class:hov={hovered === st} style="cursor:{onselect ? 'pointer' : 'default'}">

@@ -14,6 +14,25 @@ const LINKED_CHART_ID = 'linked-analysis';
 /** Template block ids end in their declaration index (`one_bank-3`); anything else sorts after them in place. */
 function templateIndex(id: string): number { const m = /^[a-z_]+-(\d+)$/.exec(id); return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER; }
 
+/** Retire the generic Atlas-era labels without touching titles a person or analysis chose. */
+function refreshedDefaultTitle(block: ResearchBoardBlock): string | null {
+	if (block.kind === 'history' && block.title === 'Over time') return 'Quarterly trends';
+	if (block.kind === 'exact_table' && block.title === 'Exact values') return 'Bank comparison';
+	if (block.kind !== 'workspace_view') return null;
+	if (block.binding.view === 'metric_relationship' && block.title === 'Measure relationship') return 'Compare two measures';
+	const replacements: Partial<Record<typeof block.binding.view, [string, string]>> = {
+		comparison_matrix: ['Position', 'Bank overview'],
+		metric_history: ['Over time', 'Quarterly trends'],
+		peer_distribution: ['Among peers', 'Peer position'],
+		metric_relationship: ['Relationship', 'Compare two measures'],
+		headquarters_geography: ['Where', 'Headquarters'],
+		economic_context: ['The economy alongside', 'Economic context'],
+		bank_context: ['Institution record', 'Bank details']
+	};
+	const replacement = replacements[block.binding.view];
+	return replacement && block.title === replacement[0] ? replacement[1] : null;
+}
+
 export type TimeForm = 'compact' | 'standard' | 'event';
 
 export interface EventTime {
@@ -56,6 +75,11 @@ export class Board {
 		if (typeof localStorage !== 'undefined') {
 			try { this.overrides = JSON.parse(localStorage.getItem(overridesKey) ?? '{}'); } catch { this.overrides = {}; }
 		}
+		const renamed = this.blocks.flatMap((block) => {
+			const title = refreshedDefaultTitle(block);
+			return title ? [workspaceCommands.upsertBoardBlock({ ...block, title })] : [];
+		});
+		if (renamed.length) this.store.executeBatch(renamed);
 	}
 
 	get state(): WorkspaceState { return this.store.state; }
@@ -537,15 +561,15 @@ export class Board {
 			...(view.options?.metrics ? { metrics } : {})
 		};
 		switch (view.kind) {
-			case 'statements': return { id, kind: 'workspace_view', title: title || 'Position', span: configuredSpan ?? 'full', binding: { view: 'comparison_matrix' }, anchorConfig };
-			case 'history': return { id, kind: 'history', title: title || 'Over time', span: configuredSpan ?? 'full', binding: { certs: this.selectedCerts.length ? this.selectedCerts : [], metrics, from: this.historyFrom, to: this.historyTo, chartKind: 'line', scale: 'value' }, anchorConfig };
-			case 'exact_table': return { id, kind: 'exact_table', title: title || 'Exact values', span: configuredSpan ?? 'full', binding: { certs: this.selectedCerts, metrics, from: null, to: null, followCurrent: true }, anchorConfig };
-			case 'distribution': return { id, kind: 'workspace_view', title: title || 'Among peers', span: configuredSpan ?? 'half', binding: { view: 'peer_distribution' }, anchorConfig };
+			case 'statements': return { id, kind: 'workspace_view', title: title || 'Bank overview', span: configuredSpan ?? 'full', binding: { view: 'comparison_matrix' }, anchorConfig };
+			case 'history': return { id, kind: 'history', title: title || 'Quarterly trends', span: configuredSpan ?? 'full', binding: { certs: this.selectedCerts.length ? this.selectedCerts : [], metrics, from: this.historyFrom, to: this.historyTo, chartKind: 'line', scale: 'value' }, anchorConfig };
+			case 'exact_table': return { id, kind: 'exact_table', title: title || 'Bank comparison', span: configuredSpan ?? 'full', binding: { certs: this.selectedCerts, metrics, from: null, to: null, followCurrent: true }, anchorConfig };
+			case 'distribution': return { id, kind: 'workspace_view', title: title || 'Peer position', span: configuredSpan ?? 'half', binding: { view: 'peer_distribution' }, anchorConfig };
 			case 'attribution': return { id, kind: 'workspace_view', title: title || 'What moved', span: configuredSpan ?? 'half', binding: { view: 'change_attribution' }, anchorConfig };
-			case 'relationship': return { id, kind: 'workspace_view', title: title || 'Relationship', span: configuredSpan ?? 'half', binding: { view: 'metric_relationship' }, anchorConfig };
-			case 'geography': return { id, kind: 'workspace_view', title: title || 'Where', span: configuredSpan ?? 'half', binding: { view: 'headquarters_geography' }, anchorConfig };
-			case 'economy': return { id, kind: 'workspace_view', title: title || 'The economy alongside', span: configuredSpan ?? 'full', binding: { view: 'economic_context' }, anchorConfig };
-			case 'record': return { id, kind: 'workspace_view', title: title || 'Institution record', span: configuredSpan ?? 'quarter', binding: { view: 'bank_context' }, anchorConfig };
+			case 'relationship': return { id, kind: 'workspace_view', title: title || 'Compare two measures', span: configuredSpan ?? 'half', binding: { view: 'metric_relationship' }, anchorConfig };
+			case 'geography': return { id, kind: 'workspace_view', title: title || 'Headquarters', span: configuredSpan ?? 'half', binding: { view: 'headquarters_geography' }, anchorConfig };
+			case 'economy': return { id, kind: 'workspace_view', title: title || 'Economic context', span: configuredSpan ?? 'full', binding: { view: 'economic_context' }, anchorConfig };
+			case 'record': return { id, kind: 'workspace_view', title: title || 'Bank details', span: configuredSpan ?? 'quarter', binding: { view: 'bank_context' }, anchorConfig };
 			default: return null; // analysis-backed views are created by running the analysis
 		}
 	}
