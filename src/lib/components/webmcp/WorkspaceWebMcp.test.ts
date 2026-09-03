@@ -20,7 +20,8 @@ describe('WorkspaceWebMcp', () => {
 			'prepareBoardTable',
 			'resolveAnalysisResultRef',
 			'readAnalysisResultPage',
-			'readBoardBlockData'
+			'readBoardBlockData',
+			'resolveBoardBlock'
 		]) {
 			expect(source).toContain(`${capability}:`);
 			expect(source).toContain(`latestDependencies.${capability}`);

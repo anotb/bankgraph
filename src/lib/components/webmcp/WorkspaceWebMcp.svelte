@@ -50,6 +50,7 @@
 	const hasAnalysisRefResolution = $derived(Boolean(dependencies.resolveAnalysisResultRef));
 	const hasAnalysisPageRead = $derived(Boolean(dependencies.readAnalysisResultPage));
 	const hasBoardBlockDataRead = $derived(Boolean(dependencies.readBoardBlockData));
+	const hasBoardBlockResolver = $derived(Boolean(dependencies.resolveBoardBlock));
 	const hasBoardTemplates = $derived(Boolean(dependencies.listBoardTemplates));
 	const hasBoardPresentation = $derived(Boolean(dependencies.getBoardPresentation));
 	const hasBoardTemplateApplication = $derived(Boolean(dependencies.applyBoardTemplate));
@@ -198,6 +199,9 @@
 					if (!read) throw new Error('Board-block data is no longer available on this page.');
 					return read(block, request, context);
 				}
+			: undefined,
+		resolveBoardBlock: hasBoardBlockResolver
+			? (block) => latestDependencies.resolveBoardBlock?.(block) ?? block
 			: undefined,
 		listBoardTemplates: hasBoardTemplates
 			? () => latestDependencies.listBoardTemplates?.() ?? []
