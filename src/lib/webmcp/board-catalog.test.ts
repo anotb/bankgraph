@@ -12,7 +12,7 @@ import {
 	createResearchBoardWebMcpToolCatalog,
 	type ResearchBoardWebMcpDependencies,
 } from './board-catalog';
-import { MAX_WEBMCP_EXTENDED_ENVELOPE_CHARS } from './envelope';
+import { createResultEnvelope, MAX_WEBMCP_EXTENDED_ENVELOPE_CHARS } from './envelope';
 import { validateToolDefinition } from './schema';
 
 function harness(extra: Partial<Omit<ResearchBoardWebMcpDependencies, 'workspace'>> = {}) {
@@ -93,14 +93,17 @@ describe('research board WebMCP catalog', () => {
 		expect(edit.title).toBe('Edit a board view');
 		expect(edit.inputSchema.required).toEqual(['blockId']);
 		expect(edit.inputSchema.properties).toMatchObject({
-			historyFrom: expect.any(Object),
-			historyTo: expect.any(Object),
-			chartKind: { enum: ['line', 'area'] },
-			scale: { enum: ['value', 'index'] },
-			sortMetric: expect.any(Object),
-			sortBasis: { enum: ['level', 'change'] },
-			sortDirection: { enum: ['asc', 'desc'] },
+			historyFrom: { description: expect.stringContaining('history views only') },
+			historyTo: { description: expect.stringContaining('history views only') },
+			chartKind: { enum: ['line', 'area'], description: expect.stringContaining('history views only') },
+			scale: { enum: ['value', 'index'], description: expect.stringContaining('history views only') },
+			view: { description: expect.stringContaining('configurationAffordances.viewValues') },
+			sortMetric: { description: expect.stringContaining('exact-table views only') },
+			sortBasis: { enum: ['level', 'change'], description: expect.stringContaining('exact-table views only') },
+			sortDirection: { enum: ['asc', 'desc'], description: expect.stringContaining('exact-table views only') },
+			series: { description: expect.stringContaining('economic_context') },
 		});
+		expect(edit.description).toContain('configurationAffordances');
 	});
 
 	it('lists and applies the same curated templates through shared workspace state', async () => {
@@ -183,6 +186,17 @@ describe('research board WebMCP catalog', () => {
 			id: 'live-context', title: 'Current economic context', kind: 'workspace_view',
 			span: 'quarter', binding: { view: 'economic_context' },
 		}]);
+		const boardRead = await tools['bankgraph.read_research_board'].controller({}, context('bankgraph.read_research_board'));
+		expect(boardRead.data).toMatchObject({
+			configurationAffordances: [{
+				blockId: 'live-context',
+				kind: 'workspace_view',
+				view: 'economic_context',
+				fields: expect.arrayContaining(['series']),
+			}],
+		});
+		expect((boardRead.data as { configurationAffordances: Array<{ fields: string[] }> }).configurationAffordances[0].fields)
+			.not.toEqual(expect.arrayContaining(['historyFrom', 'sortMetric', 'view']));
 
 		const replay = await add.controller(input, context('bankgraph.add_workspace_view'));
 		expect(replay.data).toMatchObject({ changed: false, revision: 1, idempotentReplay: true });
@@ -209,6 +223,16 @@ describe('research board WebMCP catalog', () => {
 		expect(prepareBoardTable).toHaveBeenCalledOnce();
 		expect(workspace.state.board).toMatchObject({ focusedBlockId: 'peer-table', blocks: [{ id: 'peer-table', kind: 'exact_table' }] });
 		expect(first.data).toMatchObject({ changed: true, revision: 1, renderStatus: 'visible' });
+		const boardRead = await tools['bankgraph.read_research_board'].controller({}, context('bankgraph.read_research_board'));
+		expect(boardRead.data).toMatchObject({
+			configurationAffordances: [{
+				blockId: 'peer-table',
+				kind: 'exact_table',
+				fields: expect.arrayContaining(['sortMetric', 'sortBasis', 'sortDirection']),
+			}],
+		});
+		expect((boardRead.data as { configurationAffordances: Array<{ fields: string[] }> }).configurationAffordances[0].fields)
+			.not.toEqual(expect.arrayContaining(['historyFrom', 'chartKind', 'view', 'series']));
 
 		const replay = await tools['bankgraph.publish_exact_table'].controller(input, context('bankgraph.publish_exact_table'));
 		expect(replay.data).toMatchObject({ changed: false, revision: 1, idempotentReplay: true });
@@ -246,6 +270,11 @@ describe('research board WebMCP catalog', () => {
 		);
 		expect(readBoardBlockData).toHaveBeenCalledOnce();
 		expect(withData.data).toMatchObject({
+			configurationAffordances: [{
+				blockId: 'history',
+				kind: 'history',
+				fields: expect.arrayContaining(['historyFrom', 'historyTo', 'chartKind', 'scale']),
+			}],
 			viewData: [{
 				blockId: 'history',
 				title: 'Deposit path',
@@ -254,5 +283,44 @@ describe('research board WebMCP catalog', () => {
 				numerical: { items: [{ cert: 1, quarter: '20260331', value: 123 }], pageSize: 3 },
 			}],
 		});
+	});
+
+	it('adapts an all-view overview to the envelope and keeps block reads available', async () => {
+		const readBoardBlockData = vi.fn(async (block: { id: string }, request: { pageSize: number }) => ({
+			section: 'series',
+			items: Array.from({ length: request.pageSize }, (_, index) => ({
+				cert: index + 1,
+				quarter: '20260331',
+				value: index,
+				evidence: `${block.id}:${'x'.repeat(4_000)}`,
+			})),
+			total: 20,
+			offset: 0,
+			pageSize: request.pageSize,
+			nextCursor: 'continue-with-read-board-block',
+		}));
+		const { workspace, tools } = harness({ readBoardBlockData });
+		workspace.executeBatch(['first', 'second'].map((id) => workspaceCommands.upsertBoardBlock({
+			id,
+			title: `${id} history`,
+			kind: 'history',
+			span: 'half',
+			binding: { certs: [1], metrics: ['asset'], from: '20250331', to: '20260331', chartKind: 'line', scale: 'value' },
+		})));
+
+		const result = await tools['bankgraph.read_research_board'].controller(
+			{ includeData: 'all', pageSize: 5 },
+			context('bankgraph.read_research_board'),
+		);
+
+		expect(readBoardBlockData.mock.calls.map(([, request]) => request.pageSize)).toEqual([5, 5, 2, 2]);
+		expect(result.data).toMatchObject({
+			dataOverview: { requestedPageSize: 5, pageSize: 2, reducedToFit: true },
+			viewData: [
+				{ blockId: 'first', numerical: { pageSize: 2, nextCursor: expect.any(String) } },
+				{ blockId: 'second', numerical: { pageSize: 2, nextCursor: expect.any(String) } },
+			],
+		});
+		expect(createResultEnvelope(result, MAX_WEBMCP_EXTENDED_ENVELOPE_CHARS)).toMatchObject({ ok: true });
 	});
 });

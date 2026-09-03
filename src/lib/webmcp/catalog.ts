@@ -1249,6 +1249,11 @@ function boundedWorkspaceContext(
   }
   if (state.analysisResult) {
     const analysis = state.analysisResult;
+    const failureBlock = analysis.kind === "failure_pattern"
+      ? state.board.blocks.find((block) =>
+          block.kind === "analysis" && block.binding.resultRef.resultId === analysis.id
+        )
+      : null;
     addIfFits("analysisResult", {
       id: analysis.id,
       kind: analysis.kind,
@@ -1257,6 +1262,15 @@ function boundedWorkspaceContext(
       analyzedCount: analysis.population.analyzedCount,
       membershipBasis: analysis.population.membershipBasis,
       cohortHash: analysis.population.cohortHash,
+      reader: analysis.kind === "failure_pattern"
+        ? failureBlock
+          ? {
+              tool: "bankgraph.read_board_block",
+              input: { blockId: failureBlock.id },
+              availableSections: ["series", "analogues", "analogue_details", "members"],
+            }
+          : { tool: "bankgraph.read_research_board", input: {} }
+        : { tool: "bankgraph.read_analysis_result", input: { resultId: analysis.id } },
     });
   }
   addIfFits("researchBoard", {
@@ -4182,7 +4196,7 @@ export function createWorkspaceWebMcpToolCatalog(
           workspace: { changed: commit.changed, revision: commit.state.revision },
           lineage: materialized.lineage,
           nextActions: [
-            { tool: "bankgraph.read_board_block", input: { blockId: block.id, section: "series" } },
+            { tool: "bankgraph.read_board_block", purpose: "Read failure-pattern sections from the source-bound board view; read_analysis_result does not accept this result kind.", input: { blockId: block.id, section: "series" } },
             { tool: "bankgraph.publish_result_view", purpose: "Place the event study and analogue ranking as separate views without recomputing.", input: { resultId, view: block.binding.view === "event_study" ? "analogues" : "event_study" } },
           ],
         },
@@ -4192,12 +4206,12 @@ export function createWorkspaceWebMcpToolCatalog(
 
   const readAnalysisResult = readOnlyTool({
     name: "bankgraph.read_analysis_result",
-    title: "Read the visible high-level analysis",
+    title: "Read a non-failure high-level analysis",
     description:
-      "Page through the exact visible cohort-change, temporal-pattern, or financial-composition result without rerunning it. Use the stable resultId returned by the analysis tool. Pages default to 25 complete records and accept up to 50, shrinking only when required by the serialized result budget.",
+      "Page through an exact visible cohort-change, temporal-pattern, or financial-composition result without rerunning it. This tool does not accept failure_pattern result IDs: read those source-bound views with bankgraph.read_board_block and the board.blockId returned by analyze_failure_patterns. Pages default to 25 complete records and accept up to 50, shrinking only when required by the serialized result budget.",
     maxResultChars: MAX_WEBMCP_EXTENDED_ENVELOPE_CHARS,
     inputSchema: OBJECT({
-      resultId: STRING(64, "Stable result ID returned by a high-level analysis.", 1),
+      resultId: STRING(64, "Stable cohort-change, temporal-pattern, or financial-composition result ID. For failure_pattern, use read_board_block with the returned board.blockId.", 1),
       section: ENUM(["metrics", "groups", "movers", "rows", "components"]),
       pageSize: NUMBER(1, MAX_ANALYSIS_PAGE_SIZE, true, "Complete records requested; defaults to 25."),
       cursor: STRING(128, "Opaque cursor from the previous page."),
@@ -4214,7 +4228,20 @@ export function createWorkspaceWebMcpToolCatalog(
         );
       }
       if (result.kind === "failure_pattern") {
-        throw new WebMcpInputError("Read failure-pattern sections through bankgraph.read_board_block.");
+        const block = deps.workspace.state.board.blocks.find((candidate) =>
+          candidate.kind === "analysis" && candidate.binding.resultRef.resultId === resultId
+        );
+        throw new WebMcpToolError(
+          "wrong_result_reader",
+          "Failure-pattern sections belong to their source-bound board view. Read them with bankgraph.read_board_block.",
+          {
+            resultId,
+            resultKind: result.kind,
+            nextTool: block ? "bankgraph.read_board_block" : "bankgraph.read_research_board",
+            nextBlockId: block?.id ?? null,
+          },
+          false,
+        );
       }
       const defaultSection = result.kind === "cohort_change" ? "metrics" : result.kind === "temporal_pattern" ? "rows" : "components";
       const section = source.section === undefined ? defaultSection : enumValue(source.section, "section", ["metrics", "groups", "movers", "rows", "components"] as const);
@@ -5632,12 +5659,12 @@ export function createWorkspaceWebMcpToolCatalog(
     name: "bankgraph.share_or_export",
     title: "Copy a live link or export data",
     description:
-      "Create a live workspace link that replays the current choices against published data, a public workspace-state JSON artifact, or a release-fenced bank-data CSV.",
+      "Create a live workspace link that replays the current choices against published data, a public workspace-state JSON artifact, or a release-fenced bank-data CSV. certs is valid only with bank_csv; share_link and workspace_json always use the current workspace and must omit certs.",
     maxResultChars: MAX_WEBMCP_EXTENDED_ENVELOPE_CHARS,
     inputSchema: OBJECT(
       {
-        format: ENUM(["share_link", "workspace_json", "bank_csv"]),
-        certs: ARRAY(CERT_SCHEMA, 10),
+        format: ENUM(["share_link", "workspace_json", "bank_csv"], "share_link and workspace_json use the current workspace and reject certs; bank_csv accepts optional certs or uses the selected banks."),
+        certs: { ...ARRAY(CERT_SCHEMA, 10), description: "bank_csv only. Omit for share_link and workspace_json." },
         ifRevision: REVISION_SCHEMA,
       },
       ["format"],
@@ -5853,6 +5880,7 @@ export function createWorkspaceWebMcpTools(
   }
 	const hasCohortTrendResult = deps.workspace.state.cohortTrendResult !== null;
 	const hasAnalysisResult = deps.workspace.state.analysisResult !== null;
+	const hasDirectAnalysisResult = hasAnalysisResult && deps.workspace.state.analysisResult?.kind !== "failure_pattern";
 	const collectingAnalysis = !hasCohortTrendResult && !hasAnalysisResult;
   const names = [
     "bankgraph.get_context",
@@ -5870,7 +5898,7 @@ export function createWorkspaceWebMcpTools(
     ...(deps.findTemporalPatterns && collectingAnalysis ? ["bankgraph.find_temporal_patterns"] : []),
     ...(deps.analyzeFinancialComposition && collectingAnalysis ? ["bankgraph.analyze_financial_composition"] : []),
     ...(deps.analyzeFailurePatterns && collectingAnalysis ? ["bankgraph.analyze_failure_patterns"] : []),
-		...(hasAnalysisResult && (deps.analyzeCohortChange || deps.findTemporalPatterns || deps.analyzeFinancialComposition || deps.analyzeFailurePatterns)
+		...(hasDirectAnalysisResult && (deps.analyzeCohortChange || deps.findTemporalPatterns || deps.analyzeFinancialComposition || deps.analyzeFailurePatterns)
       ? ["bankgraph.read_analysis_result"]
       : []),
     "bankgraph.read_research_board",

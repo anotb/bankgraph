@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {

@@ -300,7 +300,6 @@ test('native WebMCP reads the same chart data and controls the visible board lif
 		width: 'full',
 		height: 'tall',
 		role: 'lead',
-		presentation: 'auto',
 		followWorkspace: true,
 		ifRevision: board.workspaceRevision,
 		ifPresentationRevision: board.presentation.presentationRevision

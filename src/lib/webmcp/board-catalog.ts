@@ -37,7 +37,7 @@ import {
 	WebMcpInputError,
 	WebMcpToolError,
 } from './runtime.js';
-import { MAX_WEBMCP_EXTENDED_ENVELOPE_CHARS } from './envelope.js';
+import { createResultEnvelope, MAX_WEBMCP_EXTENDED_ENVELOPE_CHARS } from './envelope.js';
 import type {
 	TightArraySchema,
 	TightJsonSchema,
@@ -57,6 +57,15 @@ const ANALYSIS_VIEWS = [
 	'small_multiples', 'timeline', 'stacked_composition', 'change_waterfall', 'both',
 	'event_study', 'analogues', 'event_trajectories', 'analogue_table', 'exact_table',
 ] as const satisfies readonly ResearchAnalysisView[];
+const ANALYSIS_VIEWS_BY_KIND = {
+	cohort_change: ['summary', 'breadth', 'distribution', 'movers', 'waterfall', 'exact_table'],
+	temporal_pattern: ['summary', 'matched_banks', 'small_multiples', 'timeline', 'exact_table'],
+	financial_composition: ['summary', 'stacked_composition', 'change_waterfall', 'exact_table'],
+	failure_pattern: [
+		'summary', 'both', 'event_study', 'analogues', 'event_trajectories',
+		'small_multiples', 'analogue_table', 'exact_table',
+	],
+} as const satisfies Record<AnalysisResultRef['kind'], readonly ResearchAnalysisView[]>;
 const SPANS = ['quarter', 'half', 'three_quarter', 'full'] as const satisfies readonly ResearchBoardSpan[];
 const WORKSPACE_VIEWS = [
 	'comparison_matrix',
@@ -360,6 +369,51 @@ function analysisSections(block: ResearchAnalysisBlock): { available: AnalysisRe
 	return { available: ['rows'], defaultSection: 'rows' };
 }
 
+function configurationAffordance(block: ResearchBoardBlock) {
+	const commonFields = ['title', 'width', 'height', 'role'] as const;
+	const anchorFields = ['followWorkspace', 'certs', 'metrics', 'asOf', 'compareWith'] as const;
+	if (block.kind === 'history') {
+		return {
+			blockId: block.id,
+			kind: block.kind,
+			fields: [...commonFields, ...anchorFields, 'presentation', 'historyFrom', 'historyTo', 'chartKind', 'scale'],
+		};
+	}
+	if (block.kind === 'exact_table') {
+		return {
+			blockId: block.id,
+			kind: block.kind,
+			fields: [...commonFields, ...anchorFields, 'sortMetric', 'sortBasis', 'sortDirection'],
+		};
+	}
+	if (block.kind === 'analysis') {
+		return {
+			blockId: block.id,
+			kind: block.kind,
+			fields: [...commonFields, ...anchorFields, 'view'],
+			viewValues: ANALYSIS_VIEWS_BY_KIND[block.binding.resultRef.kind],
+		};
+	}
+	if (block.kind === 'workspace_view') {
+		const viewFields = block.binding.view === 'economic_context'
+			? ['series'] as const
+			: block.binding.view === 'metric_relationship'
+				? ['xMetric', 'yMetric'] as const
+				: block.binding.view === 'headquarters_geography'
+					? ['geographyMode'] as const
+					: block.binding.view === 'change_attribution'
+						? ['attributionMode'] as const
+						: [] as const;
+		return {
+			blockId: block.id,
+			kind: block.kind,
+			view: block.binding.view,
+			fields: [...commonFields, ...anchorFields, ...viewFields],
+		};
+	}
+	return { blockId: block.id, kind: block.kind, fields: [...commonFields, ...anchorFields] };
+}
+
 function currentTemplateMetrics(state: WorkspaceState): ResearchMetric[] {
 	const configured = state.charts.find((chart) => chart.id === 'linked-analysis')?.metrics ?? [];
 	const metrics = [...new Set(configured.filter((metric): metric is ResearchMetric =>
@@ -414,21 +468,21 @@ export function createResearchBoardWebMcpToolCatalog(
 	const readBoard = readOnly({
 		name: 'bankgraph.read_research_board',
 		title: 'Read the research board',
-		description: 'Read the exact visible answer order, focus, titles, spans, and semantic bindings on the current Bankgraph research board. Set includeData to focused or all to include a compact page of the exact values behind visible views in the same call; the default remains a fast structure-only read. Use bankgraph.read_board_block for larger pages or continuation cursors. No screenshot or DOM reading is needed.',
+		description: 'Read the exact visible answer order, focus, titles, spans, semantic bindings, and valid configuration fields on the current Bankgraph research board. The default is a fast structure-only read; then use bankgraph.read_board_block for exact data from each needed view. includeData focused or all is an optional bounded overview whose requested page size may be reduced to fit, without limiting continuation through read_board_block. No screenshot or DOM reading is needed.',
 		maxResultChars: MAX_WEBMCP_EXTENDED_ENVELOPE_CHARS,
 		inputSchema: OBJECT({
 			includeData: ENUM(
 				['none', 'focused', 'all'] as const,
-				'Optional exact-data overview. none reads structure only; focused reads the focused view; all reads every visible view in parallel.',
+				'Optional bounded exact-data overview. none (default) reads structure and per-view read affordances; focused reads one view; all samples every visible view. For complete data, follow with read_board_block.',
 			),
-			pageSize: INTEGER(1, 10, 'Values per visible view for this compact overview. Use bankgraph.read_board_block for up to 100 rows and continuation cursors.'),
+			pageSize: INTEGER(1, 10, 'Requested values per visible view for the bounded overview; defaults to 2 and may be reduced to fit. Use bankgraph.read_board_block for up to 100 rows and continuation cursors.'),
 		}),
 		controller: async (input, context) => {
 			const source = inputObject(input, ['includeData', 'pageSize']);
 			const includeData = source.includeData === undefined
 				? 'none'
 				: enumValue(source.includeData, 'includeData', ['none', 'focused', 'all'] as const);
-			const pageSize = source.pageSize === undefined ? 5 : integer(source.pageSize, 'pageSize', 1, 10);
+			const pageSize = source.pageSize === undefined ? 2 : integer(source.pageSize, 'pageSize', 1, 10);
 			const state = deps.workspace.state;
 			const presentation = deps.getBoardPresentation?.() ?? null;
 			const targetBlocks = includeData === 'all'
@@ -436,38 +490,68 @@ export function createResearchBoardWebMcpToolCatalog(
 				: includeData === 'focused'
 					? [state.board.blocks.find((block) => block.id === state.board.focusedBlockId) ?? state.board.blocks[0]].filter((block): block is ResearchBoardBlock => Boolean(block))
 					: [];
-			const viewData = await Promise.all(targetBlocks.map(async (block) => {
-				const analysisRead = block.kind === 'analysis' ? analysisSections(block) : null;
-				const section = analysisRead?.defaultSection;
-				const effectivePageSize = section === 'analogue_details' ? Math.min(pageSize, 10) : pageSize;
-				try {
-					const numerical = await readNumericalBlockData(block, { ...(section ? { section } : {}), pageSize: effectivePageSize }, context);
-					return {
-						blockId: block.id,
-						title: block.title,
-						kind: block.kind,
-						section: numerical?.section ?? section ?? null,
-						numerical,
-					};
-				} catch (error) {
-					return {
-						blockId: block.id,
-						title: block.title,
-						kind: block.kind,
-						section: section ?? null,
-						error: error instanceof Error ? error.message : 'This view could not be read.',
-					};
+			const baseData = {
+				workspaceRevision: state.revision,
+				focusedBlockId: state.board.focusedBlockId,
+				blocks: state.board.blocks,
+				configurationAffordances: state.board.blocks.map(configurationAffordance),
+				presentation,
+				counts: { blocks: state.board.blocks.length, maximum: WORKSPACE_LIMITS.boardBlocks },
+			};
+			const baseSummary = `${state.board.blocks.length} ${state.board.blocks.length === 1 ? 'view' : 'views'} on the research board; workspace revision ${state.revision}.`;
+			if (!targetBlocks.length) return { summary: baseSummary, data: baseData };
+
+			let fittedPageSize = pageSize;
+			while (true) {
+				const viewData = await Promise.all(targetBlocks.map(async (block) => {
+					const analysisRead = block.kind === 'analysis' ? analysisSections(block) : null;
+					const section = analysisRead?.defaultSection;
+					const effectivePageSize = section === 'analogue_details' ? Math.min(fittedPageSize, 10) : fittedPageSize;
+					try {
+						const numerical = await readNumericalBlockData(block, { ...(section ? { section } : {}), pageSize: effectivePageSize }, context);
+						return {
+							blockId: block.id,
+							title: block.title,
+							kind: block.kind,
+							section: numerical?.section ?? section ?? null,
+							numerical,
+						};
+					} catch (error) {
+						return {
+							blockId: block.id,
+							title: block.title,
+							kind: block.kind,
+							section: section ?? null,
+							error: error instanceof Error ? error.message : 'This view could not be read.',
+						};
+					}
+				}));
+				const summary = `${baseSummary} Exact data included for ${viewData.length} ${viewData.length === 1 ? 'view' : 'views'}.`;
+				const data = {
+					...baseData,
+					viewData,
+					dataOverview: {
+						requestedPageSize: pageSize,
+						pageSize: fittedPageSize,
+						reducedToFit: fittedPageSize < pageSize,
+					},
+				};
+				if (createResultEnvelope({ summary, data }, MAX_WEBMCP_EXTENDED_ENVELOPE_CHARS).ok) {
+					return { summary, data };
 				}
-			}));
+				if (fittedPageSize === 1) break;
+				fittedPageSize = Math.max(1, Math.floor(fittedPageSize / 2));
+			}
+
 			return {
-				summary: `${state.board.blocks.length} ${state.board.blocks.length === 1 ? 'view' : 'views'} on the research board; workspace revision ${state.revision}.${viewData.length ? ` Exact data included for ${viewData.length} ${viewData.length === 1 ? 'view' : 'views'}.` : ''}`,
+				summary: `${baseSummary} Exact values were omitted from this overview; read the listed views individually.`,
 				data: {
-					workspaceRevision: state.revision,
-					focusedBlockId: state.board.focusedBlockId,
-					blocks: state.board.blocks,
-					presentation,
-					...(viewData.length ? { viewData } : {}),
-					counts: { blocks: state.board.blocks.length, maximum: WORKSPACE_LIMITS.boardBlocks },
+					...baseData,
+					dataOverview: { requestedPageSize: pageSize, omittedToFit: true },
+					dataReadPlan: targetBlocks.map((block) => ({
+						tool: 'bankgraph.read_board_block',
+						input: { blockId: block.id },
+					})),
 				},
 			};
 		},
@@ -877,34 +961,34 @@ export function createResearchBoardWebMcpToolCatalog(
 	const configureBoardView = mutation({
 		name: 'bankgraph.configure_board_view',
 		title: 'Edit a board view',
-		description: 'Change only the requested part of an existing view and preserve everything else. In one call you can rename or resize it, change its banks, measures, dates, chart style or scale, sort an exact table, or switch a compatible analysis view. Supplying banks, measures, or history dates makes that view independent; followWorkspace reconnects it to the board. Revision guards are optional because every field is an exact, idempotent setting.',
+		description: 'Change only the requested part of an existing view and preserve everything else. First read bankgraph.read_research_board and use that block\'s configurationAffordances: live workspace views accept only their listed subtype fields, history views accept history dates and chart style, exact tables accept sorting, and stored analyses accept only the listed compatible view values. Data-anchor fields can pin any data-bearing view; followWorkspace reconnects it to the board. Revision guards are optional because every field is an exact, idempotent setting.',
 		maxResultChars: MAX_WEBMCP_EXTENDED_ENVELOPE_CHARS,
 		inputSchema: {
 			...OBJECT({
-			blockId: ID_SCHEMA,
+			blockId: STRING(64, 'Existing block ID from read_research_board; consult its configurationAffordances entry before choosing fields.', BOARD_BLOCK_ID.source),
 			title: TITLE_SCHEMA,
-			width: ENUM(BOARD_WIDTHS),
-			height: ENUM(BOARD_HEIGHTS),
-			role: ENUM(BOARD_ROLES),
-			presentation: ENUM(BOARD_PRESENTATIONS),
-			followWorkspace: { type: 'boolean' },
-			certs: ARRAY(INTEGER(1, 99_999_999), WORKSPACE_LIMITS.selectedBanks),
-			metrics: ARRAY(ENUM(RESEARCH_METRIC_IDS), WORKSPACE_LIMITS.visibleMetrics),
-			asOf: STRING(8),
-			compareWith: STRING(8),
-			historyFrom: STRING(8),
-			historyTo: STRING(8),
-			chartKind: ENUM(['line', 'area']),
-			scale: ENUM(['value', 'index']),
-			view: ENUM(ANALYSIS_VIEWS),
-			sortMetric: ENUM(RESEARCH_METRIC_IDS),
-			sortBasis: ENUM(['level', 'change']),
-			sortDirection: ENUM(['asc', 'desc']),
-			series: ARRAY(ENUM(ECONOMY_SERIES), 3, 1),
-			xMetric: ENUM(RESEARCH_METRIC_IDS),
-			yMetric: ENUM(RESEARCH_METRIC_IDS),
-			geographyMode: ENUM(GEOGRAPHY_MODES),
-			attributionMode: ENUM(ATTRIBUTION_MODES),
+			width: ENUM(BOARD_WIDTHS, 'Valid for every view.'),
+			height: ENUM(BOARD_HEIGHTS, 'Valid for every view.'),
+			role: ENUM(BOARD_ROLES, 'Valid for every view.'),
+			presentation: ENUM(BOARD_PRESENTATIONS, 'Source-bound history views only; chooses one primary measure or small multiples.'),
+			followWorkspace: { type: 'boolean', description: 'Data-bearing views only. true clears pins and follows board anchors; false keeps a separate selection. Do not combine true with anchor or history-date fields.' },
+			certs: { ...ARRAY(INTEGER(1, 99_999_999), WORKSPACE_LIMITS.selectedBanks), description: 'Data-anchor override for a data-bearing view. Do not send with followWorkspace=true.' },
+			metrics: { ...ARRAY(ENUM(RESEARCH_METRIC_IDS), WORKSPACE_LIMITS.visibleMetrics), description: 'Data-anchor override for a data-bearing view. Do not send with followWorkspace=true.' },
+			asOf: STRING(8, 'Data-anchor reporting period for a data-bearing view. Do not send with followWorkspace=true.'),
+			compareWith: STRING(8, 'Data-anchor comparison period for a data-bearing view. Do not send with followWorkspace=true.'),
+			historyFrom: STRING(8, 'Source-bound history views only.'),
+			historyTo: STRING(8, 'Source-bound history views only.'),
+			chartKind: ENUM(['line', 'area'], 'Source-bound history views only.'),
+			scale: ENUM(['value', 'index'], 'Source-bound history views only.'),
+			view: ENUM(ANALYSIS_VIEWS, 'Stored analysis views only. Use that block\'s configurationAffordances.viewValues; compatible values depend on result kind.'),
+			sortMetric: ENUM(RESEARCH_METRIC_IDS, 'Source-bound exact-table views only.'),
+			sortBasis: ENUM(['level', 'change'], 'Source-bound exact-table views only.'),
+			sortDirection: ENUM(['asc', 'desc'], 'Source-bound exact-table views only.'),
+			series: { ...ARRAY(ENUM(ECONOMY_SERIES), 3, 1), description: 'Live economic_context workspace views only.' },
+			xMetric: ENUM(RESEARCH_METRIC_IDS, 'Live metric_relationship workspace views only.'),
+			yMetric: ENUM(RESEARCH_METRIC_IDS, 'Live metric_relationship workspace views only.'),
+			geographyMode: ENUM(GEOGRAPHY_MODES, 'Live headquarters_geography workspace views only.'),
+			attributionMode: ENUM(ATTRIBUTION_MODES, 'Live change_attribution workspace views only.'),
 			ifRevision: REVISION_SCHEMA,
 			ifPresentationRevision: PRESENTATION_REVISION_SCHEMA,
 			}, ['blockId']),
@@ -948,7 +1032,11 @@ export function createResearchBoardWebMcpToolCatalog(
 			}
 			if (historyRequested && block.kind !== 'history') throw new WebMcpInputError('historyFrom and historyTo are accepted only for a history view');
 			if ((source.chartKind !== undefined || source.scale !== undefined) && block.kind !== 'history') throw new WebMcpInputError('chartKind and scale are accepted only for a history view');
+			if (source.presentation !== undefined && block.kind !== 'history') throw new WebMcpInputError('presentation is accepted only for a history view');
 			if (source.view !== undefined && block.kind !== 'analysis') throw new WebMcpInputError('view is accepted only for a stored analysis result');
+			const compatibleAnalysisViews = block.kind === 'analysis'
+				? ANALYSIS_VIEWS_BY_KIND[block.binding.resultRef.kind]
+				: ANALYSIS_VIEWS;
 			const sortRequested = source.sortMetric !== undefined || source.sortBasis !== undefined || source.sortDirection !== undefined;
 			if (sortRequested && block.kind !== 'exact_table') throw new WebMcpInputError('sortMetric, sortBasis, and sortDirection are accepted only for an exact table');
 			const view = block.kind === 'workspace_view' ? block.binding.view : null;
@@ -971,7 +1059,7 @@ export function createResearchBoardWebMcpToolCatalog(
 				...(source.historyTo === undefined ? {} : { historyTo: reportingPeriod(source.historyTo, 'historyTo') }),
 				...(source.chartKind === undefined ? {} : { chartKind: enumValue(source.chartKind, 'chartKind', ['line', 'area'] as const) }),
 				...(source.scale === undefined ? {} : { scale: enumValue(source.scale, 'scale', ['value', 'index'] as const) }),
-				...(source.view === undefined ? {} : { view: enumValue(source.view, 'view', ANALYSIS_VIEWS) }),
+				...(source.view === undefined ? {} : { view: enumValue(source.view, 'view', compatibleAnalysisViews) }),
 				...(source.sortMetric === undefined ? {} : { sortMetric: enumValue(source.sortMetric, 'sortMetric', RESEARCH_METRIC_IDS) }),
 				...(source.sortBasis === undefined ? {} : { sortBasis: enumValue(source.sortBasis, 'sortBasis', ['level', 'change'] as const) }),
 				...(source.sortDirection === undefined ? {} : { sortDirection: enumValue(source.sortDirection, 'sortDirection', ['asc', 'desc'] as const) }),

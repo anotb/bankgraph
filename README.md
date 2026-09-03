@@ -125,7 +125,11 @@ The repository targets Cloudflare Workers with D1, KV, and R2 bindings. Follow [
 
 ## Release provenance
 
-Commit `b852f9b` records the product immediately before the WebMCP-era extension. The public release keeps that baseline intact and presents the current Bankgraph work as the next reviewable change. Owner-only review notes, recording material, and submission drafts stay outside the public branch.
+Commit [`b852f9b`](https://github.com/anotb/bankgraph/commit/b852f9b) records Bankgraph on August 21, 2026, before the WebMCP Challenge submission period. The public-data pipeline, institution pages, and earlier analytical surfaces predate the challenge.
+
+The reviewable challenge work begins after that baseline. It adds the shared Research board, semantic chart and table composition, measure-led institution screening, deterministic multi-period and failure-pattern analyses, structured reads for every visible view, and the WebMCP adapters that let an agent use the same state transitions as a person. The implementation lives in [`src/lib/atlas`](src/lib/atlas), [`src/lib/webmcp`](src/lib/webmcp), and [`src/lib/components/webmcp`](src/lib/components/webmcp); the native browser checks are in [`tests/critical/webmcp-native.spec.ts`](tests/critical/webmcp-native.spec.ts).
+
+Owner-only review notes, recording material, and submission drafts remain outside the public branch. The repository keeps the dated history intact so the extension can be reviewed against its real starting point.
 
 ## Important limits
 

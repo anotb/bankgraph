@@ -126,6 +126,7 @@ const signal = new AbortController().signal;
 describe('advanced workspace analysis catalog', () => {
 	it('registers the advanced mutations and keeps result readers contextual', () => {
 		const { deps } = harness();
+		const catalog = createWorkspaceWebMcpToolCatalog(deps);
 		const tools = createWorkspaceWebMcpTools(deps, { page: 'workspace' });
 		const names = tools.map((tool) => tool.name);
 		for (const tool of tools) expect(validateToolDefinition(tool), tool.name).toEqual([]);
@@ -136,6 +137,12 @@ describe('advanced workspace analysis catalog', () => {
 			'bankgraph.analyze_failure_patterns'
 		]));
 		expect(tools.find((tool) => tool.name === 'bankgraph.read_analysis_result')).toBeUndefined();
+		expect(catalog['bankgraph.read_analysis_result']).toMatchObject({
+			title: 'Read a non-failure high-level analysis',
+			description: expect.stringContaining('does not accept failure_pattern'),
+		});
+		expect(catalog['bankgraph.read_analysis_result'].inputSchema.properties.resultId)
+			.toMatchObject({ description: expect.stringContaining('For failure_pattern, use read_board_block') });
 		for (const name of names.filter((name) => name.startsWith('bankgraph.analyze_') || name === 'bankgraph.find_temporal_patterns')) {
 			if (!['bankgraph.analyze_cohort_change', 'bankgraph.find_temporal_patterns', 'bankgraph.analyze_financial_composition', 'bankgraph.analyze_failure_patterns'].includes(name)) continue;
 			const definition = tools.find((tool) => tool.name === name)!;
@@ -155,7 +162,39 @@ describe('advanced workspace analysis catalog', () => {
 			boardBlockId: 'failure-event', boardView: 'event_study', ifRevision: 0,
 		}, { signal, scope: 'test', toolName: 'bankgraph.analyze_failure_patterns' });
 		const resultId = (analysis.data as { resultId: string }).resultId;
+		expect(analysis.data).toMatchObject({
+			nextActions: expect.arrayContaining([{
+				tool: 'bankgraph.read_board_block',
+				purpose: expect.stringContaining('read_analysis_result does not accept'),
+				input: { blockId: 'failure-event', section: 'series' },
+			}]),
+		});
 		expect(target.state.board.blocks[0]).toMatchObject({ id: 'failure-event', kind: 'analysis', span: 'half', binding: { view: 'event_study' } });
+		expect(createWorkspaceWebMcpTools(deps, { page: 'workspace' }).map((tool) => tool.name))
+			.not.toContain('bankgraph.read_analysis_result');
+		const workspaceContext = await catalog['bankgraph.get_context'].controller(
+			{},
+			{ signal, scope: 'test', toolName: 'bankgraph.get_context' },
+		);
+		expect(workspaceContext.data).toMatchObject({
+			analysisResult: {
+				id: resultId,
+				kind: 'failure_pattern',
+				reader: {
+					tool: 'bankgraph.read_board_block',
+					input: { blockId: 'failure-event' },
+					availableSections: ['series', 'analogues', 'analogue_details', 'members'],
+				},
+			},
+		});
+		await expect(catalog['bankgraph.read_analysis_result'].controller(
+			{ resultId },
+			{ signal, scope: 'test', toolName: 'bankgraph.read_analysis_result' },
+		)).rejects.toMatchObject({
+			code: 'wrong_result_reader',
+			retryable: false,
+			details: { resultId, resultKind: 'failure_pattern', nextTool: 'bankgraph.read_board_block', nextBlockId: 'failure-event' },
+		});
 		await catalog['bankgraph.publish_result_view'].controller({
 			resultId, blockId: 'failure-analogues', title: 'Active banks with similar trajectories',
 			view: 'analogues', span: 'full', focus: true, ifRevision: 1,
@@ -182,6 +221,8 @@ describe('advanced workspace analysis catalog', () => {
 			analysisResult: { id: resultId, kind: 'cohort_change' },
 			board: { blocks: [{ span: 'three_quarter' }] },
 		});
+		expect(createWorkspaceWebMcpTools(deps, { page: 'workspace' }).map((tool) => tool.name))
+			.toContain('bankgraph.read_analysis_result');
 		await expect(catalog['bankgraph.find_temporal_patterns'].controller({
 			metrics: ['asset'], requiredPeriods: ['20260331', '20260630'], pattern: 'cumulative_change',
 			operator: 'gt', threshold: 0, ifRevision: 0

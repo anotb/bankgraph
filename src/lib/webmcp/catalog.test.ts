@@ -443,6 +443,10 @@ describe("workspace WebMCP catalog", () => {
       .toMatchObject({ minimum: 1, maximum: 100 });
     expect(schemas["bankgraph.read_geography_summary"].inputSchema.properties.maxStates)
       .toMatchObject({ minimum: 1, maximum: 56 });
+    expect(schemas["bankgraph.share_or_export"].inputSchema.properties.format)
+      .toMatchObject({ description: expect.stringContaining("share_link and workspace_json use the current workspace and reject certs") });
+    expect(schemas["bankgraph.share_or_export"].inputSchema.properties.certs)
+      .toMatchObject({ description: "bank_csv only. Omit for share_link and workspace_json." });
 
     await schemas["bankgraph.search_banks"].controller(
       { query: "", states: [], active: "active" },

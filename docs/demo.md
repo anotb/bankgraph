@@ -44,3 +44,16 @@ Run the critical browser suite for the full human workflow:
 ```sh
 npm run test:e2e
 ```
+
+## Try the shared board with ChatGPT
+
+Open the [live Bankgraph site](https://bankgraph.anot-irky.workers.dev/) in ChatGPT's in-app browser, or use Chrome with WebMCP testing enabled. Bankgraph registers its site tools on every primary page, so the first request can begin from the home page, the institution directory, the economy page, or an existing board.
+
+These prompts exercise the shortest complete path:
+
+1. “Open the failure analogues board and show me what it says about active banks that resemble past failures.”
+2. “Read the exact data behind this board. What is the strongest pattern, and what should I be careful not to infer from it?”
+3. “Start a fresh board. Compare JPMorgan Chase with readable peers in its asset group across size, funding, credit quality, profitability, and capital.”
+4. “Add several more peers, change one view to focus on deposits, and place the exact table below the charts.”
+
+The important result is visible in Bankgraph rather than confined to the chat response. The agent should load or compose the views, the person should be able to revise them, and a later structured read should reflect those revisions without reading numbers from a screenshot.
