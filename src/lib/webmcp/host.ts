@@ -394,6 +394,7 @@ export function createWebMcpToolHost(
 			});
 			return result;
 		}
+		const modelContext = detected.modelContext;
 
 		const desired = new Map(tools.map((tool) => [tool.name, tool]));
 		for (const [name, record] of state.records) {
@@ -417,12 +418,12 @@ export function createWebMcpToolHost(
 		}
 
 		const generation = ++state.generation;
-		// Native registration is sequential. Preserve catalog order so essential handoff
-		// tools become available before the route-specific long tail.
-		for (const definition of desired.values()) {
+		const registerDefinition = async (
+			definition: WebMcpToolDefinition
+		): Promise<{ name: string; registered: boolean }> => {
 			if (syncOptions.signal?.aborted || scopes.get(scope) !== state) {
 				result.failed[definition.name] = 'scope was cancelled during registration';
-				break;
+				return { name: definition.name, registered: false };
 			}
 			const registrationController = new AbortController();
 			const record: ToolRecord = {
@@ -451,7 +452,7 @@ export function createWebMcpToolHost(
 				const nativeOptions = definition.exposedTo
 					? { signal: registrationController.signal, exposedTo: definition.exposedTo }
 					: { signal: registrationController.signal };
-				await detected.modelContext.registerTool(nativeTool(record), nativeOptions);
+				await modelContext.registerTool(nativeTool(record), nativeOptions);
 				const durationMs = now() - startedAt;
 				if (
 					registrationController.signal.aborted ||
@@ -459,14 +460,13 @@ export function createWebMcpToolHost(
 					state.records.get(definition.name) !== record
 				) {
 					result.failed[definition.name] = 'registration was cancelled';
-					continue;
+					return { name: definition.name, registered: false };
 				}
 				setRegistration(scope, definition.name, {
 					status: 'registered',
 					registeredAt: now(),
 					registrationMs: durationMs
 				});
-				result.registered.push(definition.name);
 				emit({
 					phase: 'registration',
 					status: 'success',
@@ -475,6 +475,7 @@ export function createWebMcpToolHost(
 					durationMs,
 					message: `Registered ${definition.name}.`
 				});
+				return { name: definition.name, registered: true };
 			} catch (error) {
 				const durationMs = now() - startedAt;
 				if (state.records.get(definition.name) === record) state.records.delete(definition.name);
@@ -496,8 +497,25 @@ export function createWebMcpToolHost(
 					code: cancelled ? 'aborted' : 'registration_failed',
 					message
 				});
+				return { name: definition.name, registered: false };
 			}
+		};
+
+		// Make the catalog's essential handoff tool available first, then register the
+		// independent route tools together. Promise.all preserves catalog order in the
+		// returned result even when native registration completes out of order.
+		const pendingDefinitions = [...desired.values()];
+		const registrationResults: Array<{ name: string; registered: boolean }> = [];
+		const primaryDefinition = pendingDefinitions.shift();
+		if (primaryDefinition) {
+			registrationResults.push(await registerDefinition(primaryDefinition));
 		}
+		registrationResults.push(
+			...(await Promise.all(pendingDefinitions.map(registerDefinition)))
+		);
+		result.registered.push(
+			...registrationResults.filter((item) => item.registered).map((item) => item.name)
+		);
 
 		emit({
 			phase: 'sync',

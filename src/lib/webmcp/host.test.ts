@@ -82,16 +82,19 @@ describe('createWebMcpToolHost', () => {
 	});
 
 	it('preserves catalog priority while the remaining tools register', async () => {
-		let releaseSecond: (() => void) | undefined;
-		const secondGate = new Promise<void>((resolve) => {
-			releaseSecond = resolve;
+		let releaseTail: (() => void) | undefined;
+		const tailGate = new Promise<void>((resolve) => {
+			releaseTail = resolve;
 		});
 		class GatedModelContext extends FakeModelContext {
+			readonly started: string[] = [];
+
 			override async registerTool(
 				registeredTool: NativeModelContextTool,
 				options?: ModelContextRegisterOptions
 			): Promise<void> {
-				if (this.calls.length === 1) await secondGate;
+				this.started.push(registeredTool.name);
+				if (registeredTool.name !== 'bankgraph.get_context') await tailGate;
 				await super.registerTool(registeredTool, options);
 			}
 		}
@@ -106,10 +109,23 @@ describe('createWebMcpToolHost', () => {
 		await vi.waitFor(() => expect(context.calls).toHaveLength(1));
 		expect(context.calls[0].tool.name).toBe('bankgraph.get_context');
 		expect(context.active.has('bankgraph.get_context')).toBe(true);
+		await vi.waitFor(() =>
+			expect(context.started).toEqual([
+				'bankgraph.get_context',
+				'bankgraph.z_last',
+				'bankgraph.a_later'
+			])
+		);
+		expect(context.calls).toHaveLength(1);
 
-		releaseSecond?.();
-		await pending;
+		releaseTail?.();
+		const result = await pending;
 		expect(context.calls.map(({ tool: registeredTool }) => registeredTool.name)).toEqual([
+			'bankgraph.get_context',
+			'bankgraph.z_last',
+			'bankgraph.a_later'
+		]);
+		expect(result.registered).toEqual([
 			'bankgraph.get_context',
 			'bankgraph.z_last',
 			'bankgraph.a_later'
