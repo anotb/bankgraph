@@ -165,6 +165,7 @@ describe('research board WebMCP catalog', () => {
 			sortDirection: 'desc',
 			width: 'full',
 			bankSource: 'workspace',
+			focus: true,
 		}, context('bankgraph.configure_board_view'));
 
 			expect(configureBoardView).toHaveBeenCalledWith('exact-values', {
@@ -176,6 +177,7 @@ describe('research board WebMCP catalog', () => {
 			sortDirection: 'desc',
 		});
 		expect(result).toMatchObject({ data: { changed: true, blockIds: ['exact-values'] } });
+		expect(workspace.state.board.focusedBlockId).toBe('exact-values');
 	});
 
 	it('adds and replaces a live workspace view without persisting snapshot rows', async () => {

@@ -5906,10 +5906,13 @@ export function createWorkspaceWebMcpTools(
     ];
     return names.map((name) => catalog[name]);
   }
-	const hasCohortTrendResult = deps.workspace.state.cohortTrendResult !== null;
-	const hasAnalysisResult = deps.workspace.state.analysisResult !== null;
-	const hasDirectAnalysisResult = hasAnalysisResult && deps.workspace.state.analysisResult?.kind !== "failure_pattern";
-	const collectingAnalysis = !hasCohortTrendResult && !hasAnalysisResult;
+  const hasCohortTrendResult = deps.workspace.state.cohortTrendResult !== null;
+  const hasAnalysisResult = deps.workspace.state.analysisResult !== null;
+  const hasDirectAnalysisResult = hasAnalysisResult && deps.workspace.state.analysisResult?.kind !== "failure_pattern";
+  const collectingAnalysis = !hasCohortTrendResult && !hasAnalysisResult;
+  // The board exposes one composable path for each job. Specialized read aliases stay in
+  // the catalog for legacy hosts, while the current board uses add/read-board operations.
+  const compactBoardSurface = Boolean(deps.getBoardPresentation);
   const names = [
     "bankgraph.get_context",
     "bankgraph.search_banks",
@@ -5919,7 +5922,7 @@ export function createWorkspaceWebMcpTools(
 		...(deps.getBoardPresentation ? [] : ["bankgraph.configure_view"]),
     "bankgraph.set_peer_cohort",
     ...(deps.readCurrentCohort ? ["bankgraph.read_current_cohort"] : []),
-    ...(deps.analyzeCohortTrends && collectingAnalysis ? ["bankgraph.analyze_cohort_trends"] : []),
+    ...(deps.analyzeCohortTrends && collectingAnalysis && !compactBoardSurface ? ["bankgraph.analyze_cohort_trends"] : []),
     ...(hasCohortTrendResult ? ["bankgraph.read_result_set"] : []),
     ...(deps.analyzeCohortTrends && hasCohortTrendResult ? ["bankgraph.build_board_from_result"] : []),
     ...(deps.analyzeCohortChange && collectingAnalysis ? ["bankgraph.analyze_cohort_change"] : []),
@@ -5944,19 +5947,19 @@ export function createWorkspaceWebMcpTools(
 		...(deps.clearResearchBoard ? ["bankgraph.clear_research_board"] : []),
 		...(deps.resetBoardLayout ? ["bankgraph.reset_board_layout"] : []),
 		...(deps.resetResearchBoard ? ["bankgraph.reset_research_board"] : []),
-    "bankgraph.focus_board_block",
+		...(deps.configureBoardView ? [] : ["bankgraph.focus_board_block"]),
 		...(deps.setAppearance ? ["bankgraph.set_appearance"] : []),
-    ...(deps.readCurrentComparison ? ["bankgraph.read_current_comparison"] : []),
-    ...(deps.analyzePeerDistribution ? ["bankgraph.analyze_peer_distribution"] : []),
+    ...(deps.readCurrentComparison && !compactBoardSurface ? ["bankgraph.read_current_comparison"] : []),
+    ...(deps.analyzePeerDistribution && !compactBoardSurface ? ["bankgraph.analyze_peer_distribution"] : []),
     ...(deps.analyzePeerDistribution && collectingAnalysis ? ["bankgraph.rank_cohort_on_board"] : []),
-    ...(deps.analyzeMetricRelationship ? ["bankgraph.analyze_metric_relationship"] : []),
-    ...(deps.readGeographySummary ? ["bankgraph.read_geography_summary"] : []),
-    ...(deps.readWorkspaceMacroContext ? ["bankgraph.read_workspace_macro_context"] : []),
+    ...(deps.analyzeMetricRelationship && !compactBoardSurface ? ["bankgraph.analyze_metric_relationship"] : []),
+    ...(deps.readGeographySummary && !compactBoardSurface ? ["bankgraph.read_geography_summary"] : []),
+    ...(deps.readWorkspaceMacroContext && !compactBoardSurface ? ["bankgraph.read_workspace_macro_context"] : []),
     ...(deps.readMetricHistory ? ["bankgraph.read_metric_history"] : []),
-    "bankgraph.get_metric_method",
+    ...(deps.getBoardPresentation ? [] : ["bankgraph.get_metric_method"]),
     ...(deps.inspectChange ? ["bankgraph.inspect_change"] : []),
     ...(deps.inspectChange ? ["bankgraph.investigate_bank"] : []),
-    "bankgraph.update_research",
+    ...(compactBoardSurface ? [] : ["bankgraph.update_research"]),
     "bankgraph.share_or_export",
     ...(options.includeDiagnostics
       ? ["bankgraph.webmcp_diagnostics"]

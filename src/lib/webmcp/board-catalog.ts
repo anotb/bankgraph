@@ -375,7 +375,7 @@ function analysisSections(block: ResearchAnalysisBlock): { available: AnalysisRe
 }
 
 function configurationAffordance(block: ResearchBoardBlock) {
-	const commonFields = ['title', 'width', 'height', 'role'] as const;
+	const commonFields = ['title', 'width', 'height', 'role', 'focus'] as const;
 	const anchorFields = ['followWorkspace', 'bankSource', 'metricSource', 'periodSource', 'certs', 'metrics', 'asOf', 'compareWith'] as const;
 	if (block.kind === 'history') {
 		return {
@@ -993,6 +993,7 @@ export function createResearchBoardWebMcpToolCatalog(
 			width: ENUM(BOARD_WIDTHS, 'Valid for every view.'),
 			height: ENUM(BOARD_HEIGHTS, 'Valid for every view.'),
 			role: ENUM(BOARD_ROLES, 'Valid for every view.'),
+			focus: { type: 'boolean', description: 'Use true to focus this view. Use false to clear focus when this view is focused.' },
 			presentation: ENUM(BOARD_PRESENTATIONS, 'Source-bound history views only; chooses one primary measure or small multiples.'),
 			followWorkspace: { type: 'boolean', description: 'Compatibility shorthand for all anchors. true reconnects banks, measures, and periods and cannot be combined with fixed values; false fixes all three at their current effective values and may include replacement values.' },
 			bankSource: ENUM(['workspace', 'fixed'] as const, 'workspace applies current and future workspace banks to this view; fixed keeps its current effective banks unless certs is also supplied.'),
@@ -1020,9 +1021,9 @@ export function createResearchBoardWebMcpToolCatalog(
 			}, ['blockId']),
 			minProperties: 2,
 		},
-		controller: (input) => {
+		controller: (input, context) => {
 			const source = inputObject(input, [
-				'blockId', 'title', 'width', 'height', 'role', 'presentation', 'followWorkspace', 'bankSource', 'metricSource', 'periodSource',
+				'blockId', 'title', 'width', 'height', 'role', 'focus', 'presentation', 'followWorkspace', 'bankSource', 'metricSource', 'periodSource',
 				'certs', 'metrics', 'asOf', 'compareWith', 'historyFrom', 'historyTo',
 				'chartKind', 'scale', 'view', 'sortMetric', 'sortBasis', 'sortDirection',
 				'series', 'xMetric', 'yMetric', 'geographyMode', 'attributionMode',
@@ -1030,7 +1031,7 @@ export function createResearchBoardWebMcpToolCatalog(
 			]);
 			if (!deps.configureBoardView) throw new WebMcpToolError('capability_unavailable', 'Board presentation control is unavailable on this page.', {});
 			const editFields = [
-				'title', 'width', 'height', 'role', 'presentation', 'followWorkspace', 'bankSource', 'metricSource', 'periodSource', 'certs', 'metrics',
+				'title', 'width', 'height', 'role', 'focus', 'presentation', 'followWorkspace', 'bankSource', 'metricSource', 'periodSource', 'certs', 'metrics',
 				'asOf', 'compareWith', 'historyFrom', 'historyTo', 'chartKind', 'scale', 'view',
 				'sortMetric', 'sortBasis', 'sortDirection', 'series', 'xMetric', 'yMetric',
 				'geographyMode', 'attributionMode',
@@ -1038,6 +1039,7 @@ export function createResearchBoardWebMcpToolCatalog(
 			if (!editFields.some((field) => source[field] !== undefined)) {
 				throw new WebMcpInputError('Provide at least one view change');
 			}
+			if (source.focus !== undefined && typeof source.focus !== 'boolean') throw new WebMcpInputError('focus must be a boolean');
 			if (source.ifRevision !== undefined) {
 				const expected = revision(source.ifRevision);
 				if (deps.workspace.state.revision !== expected) throw stale(expected, deps.workspace.state.revision);
@@ -1106,11 +1108,21 @@ export function createResearchBoardWebMcpToolCatalog(
 				throw new WebMcpInputError('historyFrom must not be after historyTo');
 			}
 			const result = deps.configureBoardView(id, configuration);
+			let focusChanged = false;
+			if (source.focus !== undefined) {
+				if (context.signal.aborted) throw context.signal.reason;
+				const currentFocus = deps.workspace.state.board.focusedBlockId;
+				const desiredFocus = source.focus ? id : (currentFocus === id ? null : currentFocus);
+				if (desiredFocus !== currentFocus) {
+					deps.workspace.execute(workspaceCommands.focusBoardBlock(desiredFocus));
+					focusChanged = true;
+				}
+			}
 			const stored = result.block ?? deps.workspace.state.board.blocks.find((item) => item.id === id) ?? block;
 			const updated = deps.resolveBoardBlock?.(stored) ?? stored;
 			return {
 				summary: `${updated.title} now reflects the requested changes.`,
-				data: { ...result, workspaceRevision: deps.workspace.state.revision, blockIds: [id], block: updated, presentation: deps.getBoardPresentation?.() ?? null },
+				data: { ...result, changed: result.changed || focusChanged, workspaceRevision: deps.workspace.state.revision, blockIds: [id], block: updated, presentation: deps.getBoardPresentation?.() ?? null },
 			};
 		},
 	});
