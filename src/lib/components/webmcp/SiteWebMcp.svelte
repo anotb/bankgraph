@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { agentPresence } from '$lib/atlas/agent.svelte';
@@ -32,7 +33,7 @@
 			liveDataState
 		}),
 		searchBanks,
-		open: (path) => window.setTimeout(() => window.location.assign(path), 40),
+		open: (path) => window.setTimeout(() => { void goto(path); }, 40),
 		appearance: getTheme,
 		setAppearance: setTheme
 	}));

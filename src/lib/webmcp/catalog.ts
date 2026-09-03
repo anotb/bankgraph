@@ -2484,7 +2484,7 @@ export function createWorkspaceWebMcpToolCatalog(
             maximumBanks: result.state.peerRecipe.maximumPeers,
             truncated: prepared?.results?.truncated ?? null,
           },
-          nextAction: "Use bankgraph.rank_cohort_on_board to select and compare the highest or lowest banks on a reported measure.",
+          nextAction: "Use bankgraph.read_current_screen to inspect the ranked matches, then use bankgraph.configure_comparison to place selected institutions on the board.",
         },
       };
     },

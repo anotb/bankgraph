@@ -1,6 +1,11 @@
 {
   "name": "bank-data",
   "version": "0.0.1",
+  "homepage": "https://bankgraph.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anotb/bankgraph.git"
+  },
   "license": "Apache-2.0",
   "type": "module",
   "private": true,

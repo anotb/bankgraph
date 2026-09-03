@@ -11,7 +11,7 @@
 <svelte:head>
 	<title>{name} · {inst.city}, {inst.state} · Bankgraph</title>
 	<meta name="description" content={description} />
-	<link rel="canonical" href="https://bankgraph.anot-irky.workers.dev/bank/{inst.cert}" />
+	<link rel="canonical" href="https://bankgraph.app/bank/{inst.cert}" />
 </svelte:head>
 
 <div class="arrive">

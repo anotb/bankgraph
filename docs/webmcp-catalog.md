@@ -119,7 +119,7 @@ on the page as a live chart, exact table, comparison, or takeaway that a person 
 | `bankgraph.read_research_board` | Reads the visible order, resolved strips, focus, theme, titles, widths, semantic bindings, and both revisions. |
 | `bankgraph.read_board_block` | Reads the primary structured data behind one visible view. Optional sections page exact rows, series, components, or analogues, up to 200 records. |
 | `bankgraph.list_board_templates` | Lists the six curated starting points shown to people, including the required bank, cohort, or measure context. |
-| `bankgraph.apply_board_template` | Appends or replaces the board with an Atlas template built from the current selections. |
+| `bankgraph.apply_board_template` | Appends or replaces the board with a Bankgraph layout built from the current selections. |
 | `bankgraph.add_workspace_view` | Adds or replaces a live view of the current comparison matrix, metric history, peer distribution, change attribution, metric relationship, headquarters geography, economic context, or bank context. |
 | `bankgraph.plot_metric_history` | Adds a live bank-history chart from certificates, measures, dates, and presentation choices. |
 | `bankgraph.publish_exact_table` | Adds a horizontally scrollable bank-by-measure table tied to fixed endpoints or the current comparison. |
@@ -226,7 +226,7 @@ before returning success.
 
 ### Route integration contract
 
-The Atlas board and WebMCP adapters receive the same `Board`, `BoardData`, and underlying workspace
+The Bankgraph board and WebMCP adapters receive the same `Board`, `BoardData`, and underlying workspace
 store. A person's control change updates the same semantic binding an agent reads; an agent mutation
 updates the rendered board immediately. There is no separate agent dashboard or copied chart data.
 

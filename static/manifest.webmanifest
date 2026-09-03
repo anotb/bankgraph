@@ -1,7 +1,7 @@
 {
   "name": "Bankgraph",
   "short_name": "Bankgraph",
-  "description": "A public-data research workspace for U.S. banks and the banking system.",
+  "description": "Investigate U.S. banks, the banking system, and the economy with public data.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

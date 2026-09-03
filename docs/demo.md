@@ -47,7 +47,7 @@ npm run test:e2e
 
 ## Try the shared board with ChatGPT
 
-Open the [live Bankgraph site](https://bankgraph.anot-irky.workers.dev/) in ChatGPT's in-app browser, or use Chrome with WebMCP testing enabled. Bankgraph registers its site tools on every primary page, so the first request can begin from the home page, the institution directory, the economy page, or an existing board.
+Open the [live Bankgraph site](https://bankgraph.app/) in ChatGPT's in-app browser, or use Chrome with WebMCP testing enabled. Bankgraph registers its site tools on every primary page, so the first request can begin from the home page, the institution directory, the economy page, or an existing board.
 
 These prompts exercise the shortest complete path:
 

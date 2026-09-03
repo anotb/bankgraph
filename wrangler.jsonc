@@ -7,6 +7,12 @@
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "preview_urls": true,
+  "routes": [
+    {
+      "pattern": "bankgraph.app",
+      "custom_domain": true
+    }
+  ],
 
   "assets": {
     "directory": ".svelte-kit/cloudflare",

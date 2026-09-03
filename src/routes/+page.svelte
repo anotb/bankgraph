@@ -25,7 +25,7 @@
 	}
 	function readingValue(s: { units: string; value: number }) { return s.units.startsWith('Millions') ? usdThousands(s.value * 1000) : s.units.includes('Percent') ? pct(s.value) : s.value.toFixed(2); }
 </script>
-<svelte:head><title>Bankgraph · U.S. banks and the banking system</title><meta name="description" content="Every FDIC-insured bank, peer groups you define, the banking system over decades, and the economy alongside. Build a research board by hand or with an agent." /></svelte:head>
+<svelte:head><title>Bankgraph · U.S. banks, the banking system, and the economy</title><meta name="description" content="Investigate a bank, the U.S. banking system, and what bank behavior says about the economy. Build the research board by hand or with ChatGPT through WebMCP." /></svelte:head>
 
 <div class="page">
 	<section class="row top">

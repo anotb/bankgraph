@@ -104,7 +104,7 @@ async function fetchBlsCpiBulkSlice(
       headers: {
         Accept: 'text/plain,*/*;q=0.8',
         Referer: 'https://www.bls.gov/',
-        'User-Agent': 'Mozilla/5.0 (compatible; Bankgraph/1.0; +https://bankgraph.anot-irky.workers.dev)'
+        'User-Agent': 'Mozilla/5.0 (compatible; Bankgraph/1.0; +https://bankgraph.app)'
       }
     });
     if (!response.ok) throw new Error(`Official BLS CPI bulk request failed (${response.status})`);
@@ -163,7 +163,7 @@ async function fetchFrbSourcePayload(
   const response = await fetch(frbRangeSourceUrl(definition, startYear, endYear), {
     headers: {
       Accept: 'text/csv',
-      'User-Agent': 'Bankgraph/1.0 (+https://bankgraph.anot-irky.workers.dev)'
+      'User-Agent': 'Bankgraph/1.0 (+https://bankgraph.app)'
     }
   });
   if (!response.ok) throw new Error(`Local Federal Reserve source request failed (${response.status})`);

@@ -1,10 +1,10 @@
 # Bankgraph
 
-Bankgraph turns public U.S. banking data into an inspectable research workspace. Screen institutions, compare peers across quarters, trace a change to reported components, and keep the period, cohort, units, formulas, and sources attached to the result.
+Bankgraph turns public U.S. banking and economic data into an inspectable research workspace. Investigate one bank, compare it with peers, see whether a movement is broad or concentrated across the banking system, and put bank balance sheets beside rates, credit, inflation, and employment. The period, cohort, units, formulas, and sources stay attached to the result.
 
 People and ChatGPT work in the same visible workspace. ChatGPT can build a Research board inside Bankgraph with live charts, exact tables, comparisons, and written takeaways. A person can then inspect the values, change the measures or banks, rearrange the answer, and ask the agent to continue from those edits.
 
-Open the [live research board](https://bankgraph.anot-irky.workers.dev/b) or follow the [local verification guide](docs/demo.md). Bankgraph serves a data release only after its coverage and provenance checks pass.
+Open the [live research board](https://bankgraph.app/b) or follow the [local verification guide](docs/demo.md). Bankgraph serves a data release only after its coverage and provenance checks pass.
 
 ## What you can investigate
 
@@ -127,7 +127,7 @@ The repository targets Cloudflare Workers with D1, KV, and R2 bindings. Follow [
 
 Commit [`b852f9b`](https://github.com/anotb/bankgraph/commit/b852f9b) records Bankgraph on August 21, 2026, before the WebMCP Challenge submission period. The public-data pipeline, institution pages, and earlier analytical surfaces predate the challenge.
 
-The reviewable challenge work begins after that baseline. It adds the shared Research board, semantic chart and table composition, measure-led institution screening, deterministic multi-period and failure-pattern analyses, structured reads for every visible view, and the WebMCP adapters that let an agent use the same state transitions as a person. The implementation lives in [`src/lib/atlas`](src/lib/atlas), [`src/lib/webmcp`](src/lib/webmcp), and [`src/lib/components/webmcp`](src/lib/components/webmcp); the native browser checks are in [`tests/critical/webmcp-native.spec.ts`](tests/critical/webmcp-native.spec.ts).
+The reviewable challenge work begins after that baseline. It adds the shared Research board, semantic chart and table composition, measure-led institution screening, deterministic multi-period and failure-pattern analyses, structured reads for every visible view, and the WebMCP adapters that let an agent use the same state transitions as a person. The board implementation lives in [`src/lib/atlas`](src/lib/atlas), the WebMCP layer in [`src/lib/webmcp`](src/lib/webmcp) and [`src/lib/components/webmcp`](src/lib/components/webmcp), and the native browser checks in [`tests/critical/webmcp-native.spec.ts`](tests/critical/webmcp-native.spec.ts).
 
 Owner-only review notes, recording material, and submission drafts remain outside the public branch. The repository keeps the dated history intact so the extension can be reviewed against its real starting point.
 

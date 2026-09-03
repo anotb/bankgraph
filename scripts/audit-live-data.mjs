@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const DEFAULT_ORIGIN = 'https://bankgraph.anot-irky.workers.dev';
+const DEFAULT_ORIGIN = 'https://bankgraph.app';
 const PAGE_SIZE = 1_000;
 const LARGE_BANK_ASSET_THRESHOLDS = [100_000, 1_000_000, 10_000_000];
 

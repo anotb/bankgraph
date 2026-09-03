@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
+	import { goto } from '$app/navigation';
 	import {
 		createWebMcpToolHost,
 		createSiteNavigationTool,
@@ -302,7 +303,7 @@
 	}));
 	const tools = $derived([
 		...createWorkspaceWebMcpTools(stableDependencies, { page, includeDiagnostics }),
-		createSiteNavigationTool({ open: (path) => window.setTimeout(() => window.location.assign(path), 40) })
+		createSiteNavigationTool({ open: (path) => window.setTimeout(() => { void goto(path); }, 40) })
 	]);
 
 	$effect(() => {
