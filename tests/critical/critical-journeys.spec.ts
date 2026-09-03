@@ -83,6 +83,50 @@ test('a person can add, rearrange, clear, and restore live board views', async (
 	await expect(views).toContainText(['The economy']);
 });
 
+test('a board gutter resizes a paired row one column at a time', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.goto('/b?template=peer_comparison&certs=900001');
+	const views = boardViews(page);
+	await expect(views).toHaveCount(4);
+
+	const left = views.nth(2);
+	const right = views.nth(3);
+	const gutter = left.getByRole('separator', { name: 'Resize' });
+	await gutter.scrollIntoViewIfNeeded();
+	const field = page.locator('[data-board-field]');
+	const fieldWidth = await field.evaluate((element) => element.getBoundingClientRect().width);
+	const gap = await field.evaluate((element) => Number.parseFloat(getComputedStyle(element).columnGap));
+	const columnStep = (fieldWidth + gap) / 12;
+	const widths = async () => [
+		await left.evaluate((element) => element.getBoundingClientRect().width),
+		await right.evaluate((element) => element.getBoundingClientRect().width)
+	];
+	const drag = async (distance: number) => {
+		const box = await gutter.boundingBox();
+		if (!box) throw new Error('Resize gutter is not visible');
+		await page.mouse.move(box.x + box.width / 2, box.y + Math.min(80, box.height / 2));
+		await page.mouse.down();
+		await page.mouse.move(box.x + box.width / 2 + distance, box.y + Math.min(80, box.height / 2), { steps: 8 });
+		await page.mouse.up();
+	};
+
+	const initial = await widths();
+	await drag(10);
+	const afterSmallMove = await widths();
+	expect(afterSmallMove[0]).toBeCloseTo(initial[0], 0);
+	expect(afterSmallMove[1]).toBeCloseTo(initial[1], 0);
+
+	await drag(columnStep);
+	const afterOneColumn = await widths();
+	expect(afterOneColumn[0] - initial[0]).toBeCloseTo(columnStep, 0);
+	expect(initial[1] - afterOneColumn[1]).toBeCloseTo(columnStep, 0);
+
+	await drag(-columnStep);
+	const restored = await widths();
+	expect(restored[0]).toBeCloseTo(initial[0], 0);
+	expect(restored[1]).toBeCloseTo(initial[1], 0);
+});
+
 test('question-led layouts replace stale bank anchors with a complete research start', async ({ page }) => {
 	await openOneBankBoard(page);
 	await expect(page.locator('.chip.bank')).toHaveCount(1);

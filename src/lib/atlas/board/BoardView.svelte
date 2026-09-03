@@ -135,7 +135,7 @@
 	{#if board.isEmpty}
 		<Launcher />
 	{:else}
-		<main class="field">
+		<main class="field" data-board-field>
 			{#each board.strips as strip (strip.id)}<StripView {strip} />{/each}
 			<div class="end"><button type="button" class="btn quiet" onclick={() => (addOpen = true)}>+ Add view</button><button type="button" class="btn quiet" onclick={() => board.clearBoard(true)}>Clear board</button></div>
 		</main>

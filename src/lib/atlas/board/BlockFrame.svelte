@@ -36,8 +36,15 @@
 	function dragend() { document.body.classList.remove('dragging'); }
 	function resizeStart(e: PointerEvent) {
 		if (!el) return;
+		const field = el.closest<HTMLElement>('[data-board-field]');
+		if (!field) return;
+		const styles = getComputedStyle(field);
+		const gap = Number.parseFloat(styles.columnGap) || 0;
+		const fieldWidth = field.getBoundingClientRect().width;
+		if (fieldWidth <= 0) return;
+		e.preventDefault();
 		resizing = true; startX = e.clientX; startSpan = span; startNeighbor = neighbor?.span ?? 0;
-		colWidth = (el.parentElement!.parentElement!.getBoundingClientRect().width + 12) / 12;
+		colWidth = (fieldWidth + gap) / COLS;
 		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 	}
 	/** The gutter trades columns with the neighbor to the right; a plate at the row's end resizes against the free space. */
