@@ -16,6 +16,7 @@ import {
 	type PeerRecipe,
 	type PinnedFinding,
 	type ResearchAnalysisView,
+	type ResearchBoardAnchorConfiguration,
 	type ResearchBoard,
 	type ResearchBoardBlock,
 	type ResearchBoardSpan,
@@ -68,6 +69,7 @@ const COMPARISON_MODES = ['prior-quarter', 'year-ago', 'range-start', 'custom'] 
 const COHORT_TREND_CHANGE_UNITS = ['percent_change', 'percentage_points', 'absolute_change'] as const;
 const BOARD_BLOCK_KINDS = ['history', 'exact_table', 'analysis', 'workspace_view', 'takeaway'] as const;
 const BOARD_SPANS = ['quarter', 'half', 'three_quarter', 'full'] as const;
+const BOARD_ANCHOR_SOURCES = ['workspace', 'fixed'] as const;
 const BOARD_WORKSPACE_VIEWS = [
 	'comparison_matrix',
 	'metric_history',
@@ -877,6 +879,54 @@ function normalizeBoardRange(
 	return { from, to };
 }
 
+function normalizeBoardAnchorConfiguration(
+	value: unknown,
+	path: string
+): ResearchBoardAnchorConfiguration {
+	const source = record(value, path);
+	onlyKeys(source, path, [
+		'bankSource', 'metricSource', 'periodSource', 'certs', 'metrics',
+		'asOf', 'compareWith', 'historyFrom', 'historyTo'
+	]);
+	const bankSource = enumValue(source.bankSource, `${path}.bankSource`, BOARD_ANCHOR_SOURCES);
+	const metricSource = enumValue(source.metricSource, `${path}.metricSource`, BOARD_ANCHOR_SOURCES);
+	const periodSource = enumValue(source.periodSource, `${path}.periodSource`, BOARD_ANCHOR_SOURCES);
+	const certs = source.certs === undefined ? undefined : normalizeBoardCerts(source.certs, `${path}.certs`);
+	const metrics = source.metrics === undefined ? undefined : normalizeBoardMetrics(source.metrics, `${path}.metrics`);
+	if (bankSource === 'fixed' && certs === undefined) issue(`${path}.certs`, 'is required when bankSource is fixed');
+	if (bankSource === 'workspace' && certs !== undefined) issue(`${path}.certs`, 'must be omitted when bankSource is workspace');
+	if (metricSource === 'fixed' && metrics === undefined) issue(`${path}.metrics`, 'is required when metricSource is fixed');
+	if (metricSource === 'workspace' && metrics !== undefined) issue(`${path}.metrics`, 'must be omitted when metricSource is workspace');
+
+	const periodFields = ['asOf', 'compareWith', 'historyFrom', 'historyTo'] as const;
+	const providedPeriods = periodFields.filter((field) => source[field] !== undefined);
+	if (periodSource === 'workspace' && providedPeriods.length) {
+		issue(`${path}.${providedPeriods[0]}`, 'must be omitted when periodSource is workspace');
+	}
+	if (periodSource === 'fixed' && providedPeriods.length !== periodFields.length) {
+		issue(path, 'asOf, compareWith, historyFrom, and historyTo are required when periodSource is fixed');
+	}
+	const asOf = periodSource === 'fixed' ? normalizeReportingQuarter(source.asOf, `${path}.asOf`) : undefined;
+	const compareWith = periodSource === 'fixed' ? normalizeReportingQuarter(source.compareWith, `${path}.compareWith`) : undefined;
+	const historyRange = periodSource === 'fixed'
+		? normalizeBoardRange(source.historyFrom, source.historyTo, path)
+		: null;
+
+	return {
+		bankSource,
+		metricSource,
+		periodSource,
+		...(certs === undefined ? {} : { certs }),
+		...(metrics === undefined ? {} : { metrics }),
+		...(periodSource === 'fixed' ? {
+			asOf: asOf!,
+			compareWith: compareWith!,
+			historyFrom: historyRange!.from,
+			historyTo: historyRange!.to
+		} : {})
+	};
+}
+
 function normalizeBoardSpecJson(value: unknown, path: string, depth = 0): NormalizedJson {
 	if (depth > 10) issue(path, 'is nested too deeply');
 	if (value === null || typeof value === 'boolean') return value;
@@ -1119,7 +1169,7 @@ export function normalizeResearchBoardBlock(
 	if (common.title.length === 0) issue(`${path}.title`, 'must not be empty');
 
 	if (kind === 'history') {
-		onlyKeys(source, path, ['id', 'title', 'span', 'kind', 'binding']);
+		onlyKeys(source, path, ['id', 'title', 'span', 'kind', 'binding', 'anchorConfig']);
 		const binding = record(source.binding, `${path}.binding`);
 		onlyKeys(binding, `${path}.binding`, ['certs', 'metrics', 'from', 'to', 'chartKind', 'scale']);
 		const range = normalizeBoardRange(binding.from, binding.to, `${path}.binding`);
@@ -1132,12 +1182,15 @@ export function normalizeResearchBoardBlock(
 				...range,
 				chartKind: enumValue(binding.chartKind, `${path}.binding.chartKind`, ['line', 'area'] as const),
 				scale: enumValue(binding.scale, `${path}.binding.scale`, ['value', 'index'] as const)
-			}
+			},
+			...(source.anchorConfig === undefined ? {} : {
+				anchorConfig: normalizeBoardAnchorConfiguration(source.anchorConfig, `${path}.anchorConfig`)
+			})
 		};
 	}
 
 	if (kind === 'exact_table') {
-		onlyKeys(source, path, ['id', 'title', 'span', 'kind', 'binding']);
+		onlyKeys(source, path, ['id', 'title', 'span', 'kind', 'binding', 'anchorConfig']);
 		const binding = record(source.binding, `${path}.binding`);
 		onlyKeys(binding, `${path}.binding`, ['certs', 'metrics', 'from', 'to', 'followCurrent']);
 		if (typeof binding.followCurrent !== 'boolean') issue(`${path}.binding.followCurrent`, 'must be a boolean');
@@ -1155,7 +1208,10 @@ export function normalizeResearchBoardBlock(
 				metrics: normalizeBoardMetrics(binding.metrics, `${path}.binding.metrics`),
 				...range,
 				followCurrent: binding.followCurrent
-			}
+			},
+			...(source.anchorConfig === undefined ? {} : {
+				anchorConfig: normalizeBoardAnchorConfiguration(source.anchorConfig, `${path}.anchorConfig`)
+			})
 		};
 	}
 
@@ -1170,7 +1226,7 @@ export function normalizeResearchBoardBlock(
 	}
 
 	if (kind === 'workspace_view') {
-		onlyKeys(source, path, ['id', 'title', 'span', 'kind', 'binding']);
+		onlyKeys(source, path, ['id', 'title', 'span', 'kind', 'binding', 'anchorConfig']);
 		const binding = record(source.binding, `${path}.binding`);
 		onlyKeys(binding, `${path}.binding`, ['view']);
 		return {
@@ -1178,7 +1234,10 @@ export function normalizeResearchBoardBlock(
 			kind,
 			binding: {
 				view: enumValue<ResearchWorkspaceView>(binding.view, `${path}.binding.view`, BOARD_WORKSPACE_VIEWS)
-			}
+			},
+			...(source.anchorConfig === undefined ? {} : {
+				anchorConfig: normalizeBoardAnchorConfiguration(source.anchorConfig, `${path}.anchorConfig`)
+			})
 		};
 	}
 

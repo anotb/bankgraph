@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Financial, Institution } from '$lib/types';
-import { createDefaultWorkspaceState } from '$lib/workspace/state';
+import { createDefaultWorkspaceState, workspaceCommands } from '$lib/workspace/state';
 import { createWorkspaceStore } from '$lib/workspace/workspace.svelte';
 import { createAnalysisResultRef } from '$lib/workspace/analysis-result-repository';
 import { createWorkspaceWebMcpToolCatalog, type WorkspaceWebMcpDependencies } from '$lib/webmcp/catalog';
 import { BoardData } from './board-data.svelte';
 import { createBoardDependencies } from './dependencies';
+import { Board } from '$lib/atlas/board/board.svelte';
+import { deserializeWorkspaceSearchParams, serializeWorkspaceSearch } from '$lib/workspace/codec';
 
 vi.hoisted(() => {
 	if (typeof window !== 'undefined' && !window.matchMedia) {
@@ -95,7 +97,7 @@ function row(
 		nclnlsr: 1,
 		lnatresr: 100,
 		nco_ratio: 0.2,
-		lnlsdepr: 80,
+		lnlsdepr: 80 + cert,
 		othbfhlb: 10,
 		numemp: cert * 10,
 		asset_bucket: 1
@@ -119,7 +121,7 @@ function json(value: unknown, status = 200): Response {
 	return new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json' } });
 }
 
-function harness() {
+function harness(withBoard = false) {
 	const fetcher = vi.fn<typeof fetch>(async (input) => {
 		const url = new URL(String(input), 'https://bankgraph.test');
 		if (url.pathname === '/api/v2/banks/screen') {
@@ -147,9 +149,11 @@ function harness() {
 	initialState.peerRecipe = { ...initialState.peerRecipe, name: 'All test banks', maximumPeers: 3 };
 	const store = createWorkspaceStore({ initialState, storage: null, persist: false });
 	const data = new BoardData(fetcher);
+	const board = withBoard ? new Board(store, data, `atlas.test.${Math.random()}`) : undefined;
 	const base = createBoardDependencies({
 		store,
 		data,
+		...(board ? { board } : {}),
 		fetcher,
 		context: () => ({
 			sourceAsOf: Q3,
@@ -163,7 +167,7 @@ function harness() {
 		...base,
 		storeAnalysisResult: async (result) => createAnalysisResultRef(result)
 	};
-	return { catalog: createWorkspaceWebMcpToolCatalog(deps), deps, store, fetcher };
+	return { catalog: createWorkspaceWebMcpToolCatalog(deps), deps, store, fetcher, board };
 }
 
 const controllerContext = (toolName: string) => ({
@@ -173,6 +177,141 @@ const controllerContext = (toolName: string) => ({
 });
 
 describe('Atlas advanced-analysis dependencies', () => {
+	it('persists partial metric/width edits while curated banks and periods keep following the workspace', async () => {
+		const { catalog, deps, store } = harness(true);
+		store.execute(workspaceCommands.setSelectedCerts([1, 2, 3, 4]));
+		store.execute(workspaceCommands.upsertBoardBlock({
+			id: 'peer_comparison-2', title: 'Over time', kind: 'history', span: 'half',
+			binding: { certs: [1, 2, 3, 4], metrics: ['asset'], from: Q1, to: Q3, chartKind: 'line', scale: 'value' }
+		}));
+
+		const configured = await catalog['bankgraph.configure_board_view'].controller({
+			blockId: 'peer_comparison-2', metrics: ['roa'], scale: 'index', width: 'full'
+		}, controllerContext('bankgraph.configure_board_view'));
+		expect(configured.data).toMatchObject({
+			block: {
+				span: 'full',
+				binding: { metrics: ['roa'], scale: 'index' },
+				anchorConfig: { bankSource: 'workspace', metricSource: 'fixed', periodSource: 'workspace', metrics: ['roa'] }
+			}
+		});
+
+		store.execute(workspaceCommands.setSelectedCerts([1, 2, 3, 4, 5, 6, 7]));
+		const read = await catalog['bankgraph.read_research_board'].controller({}, controllerContext('bankgraph.read_research_board'));
+		expect(read.data).toMatchObject({
+			blocks: [{
+				span: 'full',
+				binding: { certs: [1, 2, 3, 4, 5, 6, 7], metrics: ['roa'], scale: 'index' },
+				anchorConfig: { bankSource: 'workspace', metricSource: 'fixed', periodSource: 'workspace' }
+			}]
+		});
+
+		const restored = deserializeWorkspaceSearchParams(serializeWorkspaceSearch(store.state));
+		expect(restored.board.blocks[0]).toMatchObject({
+			span: 'full',
+			anchorConfig: { bankSource: 'workspace', metricSource: 'fixed', periodSource: 'workspace', metrics: ['roa'] }
+		});
+		expect(deps.getBoardPresentation?.().overrides['peer_comparison-2']).toEqual({ span: 12 });
+	});
+
+	it('reattaches only published-view banks through bankSource without losing fixed metrics or periods', async () => {
+		const { catalog, store } = harness(true);
+		store.execute(workspaceCommands.setSelectedCerts([1, 2, 3, 4, 5, 6, 7]));
+		store.execute(workspaceCommands.upsertBoardBlock({
+			id: 'published-history', title: 'Published', kind: 'history', span: 'half',
+			binding: { certs: [1, 2, 3, 4], metrics: ['asset'], from: Q1, to: Q2, chartKind: 'line', scale: 'value' },
+			anchorConfig: {
+				bankSource: 'fixed', metricSource: 'fixed', periodSource: 'fixed', certs: [1, 2, 3, 4], metrics: ['asset'],
+				asOf: Q2, compareWith: Q1, historyFrom: Q1, historyTo: Q2
+			}
+		}));
+
+		const configured = await catalog['bankgraph.configure_board_view'].controller({
+			blockId: 'published-history', bankSource: 'workspace'
+		}, controllerContext('bankgraph.configure_board_view'));
+		expect(configured.data).toMatchObject({
+			block: {
+				binding: { certs: [1, 2, 3, 4, 5, 6, 7], metrics: ['asset'], from: Q1, to: Q2 },
+				anchorConfig: { bankSource: 'workspace', metricSource: 'fixed', periodSource: 'fixed' }
+			}
+		});
+	});
+
+	it('persists a human single-anchor measure pin without freezing banks or periods', () => {
+		const { board, deps, store } = harness(true);
+		store.execute(workspaceCommands.setSelectedCerts([1, 2, 3, 4]));
+		store.execute(workspaceCommands.upsertBoardBlock({
+			id: 'peer_comparison-2', title: 'Over time', kind: 'history', span: 'half',
+			binding: { certs: [1, 2, 3, 4], metrics: ['asset'], from: Q1, to: Q3, chartKind: 'line', scale: 'value' }
+		}));
+
+		board!.setOverride('peer_comparison-2', { pins: { metrics: ['roa'] } });
+		expect(store.state.board.blocks[0]).toMatchObject({
+			anchorConfig: { bankSource: 'workspace', metricSource: 'fixed', periodSource: 'workspace', metrics: ['roa'] }
+		});
+		store.execute(workspaceCommands.setSelectedCerts([1, 2, 3, 4, 5, 6, 7]));
+		expect(deps.resolveBoardBlock?.(store.state.board.blocks[0])).toMatchObject({
+			binding: { certs: [1, 2, 3, 4, 5, 6, 7], metrics: ['roa'] }
+		});
+	});
+	it('turns a loan-to-deposit screen into the ordered cohort and ranks exact values from it', async () => {
+		const { catalog, store, fetcher } = harness();
+		store.execute(workspaceCommands.setPeerRecipe({
+			...store.state.peerRecipe,
+			name: 'Old custom cohort',
+			basis: 'custom',
+			maximumPeers: 3
+		}));
+		store.execute(workspaceCommands.setExcludedCerts([3]));
+
+		const configured = await catalog['bankgraph.configure_screen'].controller({
+			question: 'Which active banks over $10B have the highest loan-to-deposit ratios?',
+			query: '',
+			states: [],
+			active: 'active',
+			assetMin: 10_000_000,
+			conditions: [],
+			sort: 'loanToDeposit',
+			order: 'desc',
+			ifRevision: store.state.revision
+		}, controllerContext('bankgraph.configure_screen'));
+
+		expect(configured.data).toMatchObject({
+			screenView: { sort: 'loanToDeposit', order: 'desc' },
+			cohort: { basis: 'screen', loaded: 3, matching: 3, maximumBanks: 200, truncated: false }
+		});
+		expect(store.state.peerRecipe).toMatchObject({ basis: 'screen', name: 'Current screen', maximumPeers: 200 });
+		expect(store.state.excludedCerts).toEqual([]);
+		const screenCall = fetcher.mock.calls
+			.map(([input]) => new URL(String(input), 'https://bankgraph.test'))
+			.find((url) => url.pathname === '/api/v2/banks/screen');
+		expect(screenCall?.searchParams.get('sort')).toBe('loanToDeposit');
+		expect(screenCall?.searchParams.get('order')).toBe('desc');
+		expect(screenCall?.searchParams.get('limit')).toBe('200');
+
+		const ranked = await catalog['bankgraph.rank_cohort_on_board'].controller({
+			metric: 'lnlsdepr',
+			direction: 'highest',
+			bankCount: 2,
+			metrics: ['lnlsdepr', 'asset'],
+			boardMode: 'keep',
+			ifRevision: store.state.revision
+		}, controllerContext('bankgraph.rank_cohort_on_board'));
+
+		expect(ranked.data).toMatchObject({
+			metric: 'lnlsdepr',
+			unit: 'percent',
+			selectedBanks: [
+				{ cert: 3, value: 83 },
+				{ cert: 2, value: 82 }
+			]
+		});
+		// Workspace identity is canonicalized by certificate number; the tool result
+		// above preserves the analytical rank and reported values.
+		expect(store.state.selectedCerts).toEqual([2, 3]);
+		expect(store.state.activeBank).toBe(3);
+	});
+
 	it('publishes an exact fixed-cohort change result with independent missingness', async () => {
 		const { catalog, store } = harness();
 		const result = await catalog['bankgraph.analyze_cohort_change'].controller({

@@ -25,7 +25,7 @@ function createDatabase(): DatabaseSync {
 		);
 		CREATE TABLE financials (
 			cert INTEGER NOT NULL, repdte TEXT NOT NULL, asset INTEGER, dep INTEGER,
-			numemp INTEGER, roa REAL, roe REAL, nimy REAL, nclnlsr REAL, rbc1rwaj REAL,
+			numemp INTEGER, roa REAL, roe REAL, nimy REAL, nclnlsr REAL, rbc1rwaj REAL, lnlsdepr REAL,
 			PRIMARY KEY (cert, repdte)
 		);
 		CREATE TABLE peer_stats (repdte TEXT);
@@ -35,6 +35,7 @@ function createDatabase(): DatabaseSync {
 		CREATE TABLE risk_scores (repdte TEXT);
 	`);
 	db.exec(readFileSync('migrations/0023_published_release_views.sql', 'utf8'));
+	db.exec(readFileSync('migrations/0025_screenable_loan_to_deposit.sql', 'utf8'));
 	return db;
 }
 
@@ -44,10 +45,10 @@ describe('published release views', () => {
 		db.exec(`
 			INSERT INTO institutions (cert, name, active, total_assets, latest_repdte, latest_roa)
 			VALUES (1, 'Example Bank', 1, 999999, '20240630', 9.9);
-			INSERT INTO financials (cert, repdte, asset, dep, numemp, roa, roe, nimy, nclnlsr, rbc1rwaj)
+			INSERT INTO financials (cert, repdte, asset, dep, numemp, roa, roe, nimy, nclnlsr, rbc1rwaj, lnlsdepr)
 			VALUES
-				(1, '20240331', 100000, 80000, 100, 1.1, 10.0, 3.2, 0.5, 12.0),
-				(1, '20240630', 120000, 90000, 110, 1.3, 11.0, 3.4, 0.4, 12.5);
+				(1, '20240331', 100000, 80000, 100, 1.1, 10.0, 3.2, 0.5, 12.0, 72.5),
+				(1, '20240630', 120000, 90000, 110, 1.3, 11.0, 3.4, 0.4, 12.5, 81.25);
 			INSERT INTO agg_industry VALUES ('20240331'), ('20240630');
 		`);
 
@@ -56,14 +57,14 @@ describe('published release views', () => {
 		expect(db.prepare('SELECT repdte FROM published_agg_industry ORDER BY repdte').all())
 			.toEqual([{ repdte: '20240331' }]);
 		expect(db.prepare(
-			'SELECT total_assets, latest_repdte, latest_roa FROM published_institutions'
-		).get()).toEqual({ total_assets: 100000, latest_repdte: '20240331', latest_roa: 1.1 });
+			'SELECT total_assets, latest_repdte, latest_roa, latest_loan_to_deposit_ratio FROM published_institutions'
+		).get()).toEqual({ total_assets: 100000, latest_repdte: '20240331', latest_roa: 1.1, latest_loan_to_deposit_ratio: 72.5 });
 
 		db.exec("UPDATE release_control SET release = '20240630', generation = 'generation-2'");
 		expect(db.prepare('SELECT repdte FROM published_financials ORDER BY repdte').all())
 			.toEqual([{ repdte: '20240331' }, { repdte: '20240630' }]);
 		expect(db.prepare(
-			'SELECT total_assets, latest_repdte, latest_roa FROM published_institutions'
-		).get()).toEqual({ total_assets: 120000, latest_repdte: '20240630', latest_roa: 1.3 });
+			'SELECT total_assets, latest_repdte, latest_roa, latest_loan_to_deposit_ratio FROM published_institutions'
+		).get()).toEqual({ total_assets: 120000, latest_repdte: '20240630', latest_roa: 1.3, latest_loan_to_deposit_ratio: 81.25 });
 	});
 });

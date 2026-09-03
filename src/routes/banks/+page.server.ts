@@ -1,12 +1,14 @@
 import type { PageServerLoad } from './$types';
+import { BANK_SCREEN_SORTS } from '$lib/bank-screen';
 
 export interface ScreenRow {
 	cert: number; name: string; state: string | null; city: string | null; active: number;
 	total_assets: number | null; total_deposits: number | null; num_branches: number | null; num_employees: number | null;
 	latest_repdte: string | null; latest_roa: number | null; latest_roe: number | null; latest_nim: number | null; latest_npl_ratio: number | null; latest_tier1_ratio: number | null;
+	latest_loan_to_deposit_ratio: number | null;
 }
 
-const SORTS = new Set(['name', 'assets', 'deposits', 'roa', 'roe', 'nim', 'noncurrentLoanRatio', 'tier1Ratio', 'domesticOffices', 'employees']);
+const SORTS = new Set<string>(BANK_SCREEN_SORTS);
 
 export const load: PageServerLoad = async ({ fetch, url }) => {
 	const q = url.searchParams.get('q') ?? '';

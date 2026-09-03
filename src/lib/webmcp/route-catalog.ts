@@ -1,4 +1,4 @@
-import type { BankScreenSort } from "$lib/bank-screen.js";
+import { BANK_SCREEN_SORTS, type BankScreenSort } from "$lib/bank-screen.js";
 import { buildWorkspaceHref } from "$lib/components/home/workspace-links.js";
 import {
   correlationInterpretationLabel,
@@ -146,7 +146,7 @@ export interface FailureRouteData {
 
 /** The exact server-backed state rendered by the standalone bank directory. */
 export interface BankDirectoryRouteData {
-  banks: Institution[];
+  banks: Array<Institution & { latest_loan_to_deposit_ratio?: number | null }>;
   total: number;
   page: number;
   limit: number;
@@ -450,6 +450,7 @@ const DIRECTORY_SORT_TO_SCREEN: Readonly<Record<string, BankScreenSort>> = {
   name: "name",
   assets: "assets",
   deposits: "deposits",
+  loanToDeposit: "loanToDeposit",
   roe: "roe",
   nim: "nim",
   npl: "noncurrentLoanRatio",
@@ -476,7 +477,9 @@ function directoryState(data: BankDirectoryRouteData) {
     : data.params.active === ""
       ? "any" as const
       : "active" as const;
-  const sort = DIRECTORY_SORT_TO_SCREEN[data.params.sort] ?? "assets";
+  const sort = (BANK_SCREEN_SORTS as readonly string[]).includes(data.params.sort)
+    ? data.params.sort as BankScreenSort
+    : DIRECTORY_SORT_TO_SCREEN[data.params.sort] ?? "assets";
   const order = data.params.order === "asc" ? "asc" as const : "desc" as const;
   return {
     filters: {
@@ -578,6 +581,7 @@ export function createBankDirectoryRouteTools(
           roaPercent: bank.latest_roa,
           roePercent: bank.latest_roe,
           netInterestMarginPercent: bank.latest_nim,
+          loanToDepositPercent: bank.latest_loan_to_deposit_ratio ?? null,
           noncurrentLoansPercent: bank.latest_npl_ratio,
           tier1RiskBasedCapitalPercent: bank.latest_tier1_ratio,
         }));
@@ -698,7 +702,7 @@ export function createBankDirectoryRouteTools(
             active: "any",
             metricConditions: [],
             minimumPeers: 2,
-            maximumPeers: Math.min(1_000, Math.max(50, data.total)),
+            maximumPeers: Math.min(200, Math.max(50, data.total)),
           }),
           workspaceCommands.setMapSelection({ states: [], certs: [] }),
           workspaceCommands.setExcludedCerts([]),

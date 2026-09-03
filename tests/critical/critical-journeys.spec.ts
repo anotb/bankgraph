@@ -32,7 +32,7 @@ test.beforeEach(async ({ page }) => {
 
 test('the public product opens a blank board and its primary routes share the Atlas shell', async ({ page }) => {
 	const pageErrors: string[] = [];
-	page.on('pageerror', (error) => pageErrors.push(error.message));
+	page.on('pageerror', (error) => pageErrors.push(`${page.url()}: ${error.stack ?? error.message}`));
 
 	await page.goto('/');
 	await expect(page.getByRole('link', { name: 'Bankgraph home' })).toBeVisible();

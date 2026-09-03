@@ -17,7 +17,7 @@ function mockDb() {
 						total_assets: 500000, total_deposits: 400000, num_branches: 8,
 						num_employees: 120, latest_repdte: '20260630', latest_roa: 1.4,
 						latest_roe: 12, latest_nim: 3.7, latest_npl_ratio: 0.8,
-						latest_tier1_ratio: 14
+						latest_tier1_ratio: 14, latest_loan_to_deposit_ratio: 92.4
 					}]
 				};
 			}
@@ -47,6 +47,21 @@ async function call(
 }
 
 describe('GET /api/v2/banks/screen', () => {
+	it('returns and orders by the reported loan-to-deposit ratio', async () => {
+		const { db, calls } = mockDb();
+		const response = await call(
+			'https://bankgraph.test/api/v2/banks/screen?active=active&asset_min=10000000&sort=loanToDeposit&order=desc&limit=10',
+			db
+		);
+		const body = await response.json() as { data: Array<Record<string, unknown>> };
+
+		expect(response.status).toBe(200);
+		expect(body.data[0]).toMatchObject({ latest_loan_to_deposit_ratio: 92.4 });
+		expect(calls.find((entry) => entry.method === 'all')?.sql).toContain(
+			'latest_loan_to_deposit_ratio IS NULL ASC, latest_loan_to_deposit_ratio DESC'
+		);
+	});
+
 	it('release-caches the finite family of common first-page workspace screens', async () => {
 		const { db, prepare } = mockDb();
 		const values = new Map<string, string>();

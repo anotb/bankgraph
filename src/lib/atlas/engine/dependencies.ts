@@ -1,5 +1,5 @@
 import type { WorkspaceStore } from '$lib/workspace/workspace.svelte';
-import type { WorkspaceState, ResearchHistoryBinding, ResearchExactTableBinding, WorkspaceAnalysisResult } from '$lib/workspace/types';
+import { WORKSPACE_SCHEMA_VERSION, type WorkspaceState, type ResearchHistoryBinding, type ResearchExactTableBinding, type WorkspaceAnalysisResult } from '$lib/workspace/types';
 import type {
 	WorkspaceWebMcpDependencies,
 	WebMcpDataContext,
@@ -50,7 +50,7 @@ import {
 	researchMetricDefinition,
 	type ResearchMetric
 } from './metrics';
-import { effective } from '$lib/atlas/board/views/util';
+import { configureAnchorConfiguration, effective, resolveBoardBlock, withAnchorConfiguration } from '$lib/atlas/board/views/util';
 import type { BlockLayoutOverride } from '$lib/atlas/board/layout';
 import { readAtlasStructuredView, AtlasStructuredReadError } from './structured-view-data';
 import { BOARD_TEMPLATES, templateById } from '$lib/atlas/templates';
@@ -280,8 +280,23 @@ export function createBoardDependencies(options: {
 		ensureBanksLoaded: async (certs, context) => { await hydrate(certs, context); },
 		getCurrentCohortMemberCount: () => data.cohort.length,
 
-		prepareScreen: async (filters, context) => {
-			const next: WorkspaceState = { ...state(), filters, peerRecipe: { ...state().peerRecipe, basis: 'screen' } };
+		prepareScreen: async (filters, screenView, context) => {
+			const next: WorkspaceState = {
+				...state(),
+				filters,
+				screenView,
+				excludedCerts: [],
+				peerRecipe: {
+					name: 'Current screen',
+					basis: 'screen',
+					states: [...filters.states],
+					assetRange: { ...filters.assetRange },
+					active: filters.active,
+					metricConditions: filters.metricConditions.map((condition) => ({ ...condition })),
+					minimumPeers: 2,
+					maximumPeers: 200
+				}
+			};
 			await data.loadCohort(next, context.signal);
 			aborted(context);
 			return { results: { total: data.cohortTotal, returned: data.cohort.length, latestQuarter: data.cohortAsOf, refreshedAt: new Date().toISOString(), queryRevision: data.cohortKey.slice(0, 32), truncated: data.cohortTotal > data.cohort.length }, commit() { /* cohort already published to BoardData */ } };
@@ -702,6 +717,7 @@ export function createBoardDependencies(options: {
 				views: strip.blocks.map((item) => ({ blockId: item.block.id, role: item.role, columns: item.span }))
 			}))
 		}) : undefined,
+		resolveBoardBlock: options.board ? (block) => resolveBoardBlock(options.board!, block) : undefined,
 		applyBoardTemplate: options.board ? async (request, context) => {
 			aborted(context);
 			const template = templateById(request.templateId);
@@ -764,6 +780,32 @@ export function createBoardDependencies(options: {
 			if (nextBlock.kind === 'analysis' && configuration.view !== undefined) {
 				nextBlock = { ...nextBlock, binding: { ...nextBlock.binding, view: configuration.view } };
 			}
+			if (configuration.width !== undefined && configuration.width !== 'auto') {
+				nextBlock = {
+					...nextBlock,
+					span: configuration.width
+				};
+			}
+			const anchorEdit = configuration.followWorkspace !== undefined
+				|| configuration.bankSource !== undefined || configuration.metricSource !== undefined || configuration.periodSource !== undefined
+				|| configuration.certs !== undefined || configuration.metrics !== undefined
+				|| configuration.asOf !== undefined || configuration.compareWith !== undefined
+				|| configuration.historyFrom !== undefined || configuration.historyTo !== undefined;
+			if (anchorEdit && (nextBlock.kind === 'history' || nextBlock.kind === 'exact_table' || nextBlock.kind === 'workspace_view')) {
+				const anchorConfig = configureAnchorConfiguration(board, nextBlock, {
+					...(configuration.followWorkspace === undefined ? {} : { followWorkspace: configuration.followWorkspace }),
+					...(configuration.bankSource === undefined ? {} : { bankSource: configuration.bankSource }),
+					...(configuration.metricSource === undefined ? {} : { metricSource: configuration.metricSource }),
+					...(configuration.periodSource === undefined ? {} : { periodSource: configuration.periodSource }),
+					...(configuration.certs === undefined ? {} : { certs: configuration.certs }),
+					...(configuration.metrics === undefined ? {} : { metrics: configuration.metrics }),
+					...(configuration.asOf === undefined ? {} : { asOf: configuration.asOf }),
+					...(configuration.compareWith === undefined ? {} : { compareWith: configuration.compareWith }),
+					...(configuration.historyFrom === undefined ? {} : { historyFrom: configuration.historyFrom }),
+					...(configuration.historyTo === undefined ? {} : { historyTo: configuration.historyTo })
+				});
+				nextBlock = withAnchorConfiguration(board, nextBlock, anchorConfig);
+			}
 			const blockChanged = JSON.stringify(nextBlock) !== JSON.stringify(block);
 			if (blockChanged) board.upsertBlock(nextBlock);
 
@@ -775,24 +817,10 @@ export function createBoardDependencies(options: {
 			if (configuration.role !== undefined) patch.role = configuration.role === 'auto' ? undefined : configuration.role;
 			if (configuration.presentation !== undefined) patch.presentation = configuration.presentation === 'auto' ? undefined : configuration.presentation;
 
-			const pinEdit = configuration.certs !== undefined || configuration.metrics !== undefined || configuration.asOf !== undefined || configuration.compareWith !== undefined;
-			if (configuration.followWorkspace === true) {
-				patch.followWorkspace = true;
+			if (anchorEdit) {
+				// Durable block configuration is the source of truth; remove legacy semantic sidecars.
+				patch.followWorkspace = undefined;
 				patch.pins = undefined;
-			} else if (pinEdit) {
-				patch.followWorkspace = false;
-				patch.pins = {
-					...(board.overrides[blockId]?.pins ?? {}),
-					...(configuration.certs === undefined ? {} : { certs: configuration.certs }),
-					...(configuration.metrics === undefined ? {} : { metrics: configuration.metrics }),
-					...(configuration.asOf === undefined ? {} : { asOf: configuration.asOf }),
-					...(configuration.compareWith === undefined ? {} : { compareWith: configuration.compareWith }),
-				};
-			} else if (configuration.followWorkspace === false) {
-				patch.followWorkspace = false;
-			}
-			if ((configuration.historyFrom !== undefined || configuration.historyTo !== undefined) && configuration.followWorkspace === undefined) {
-				patch.followWorkspace = false;
 			}
 			if (configuration.series !== undefined) patch.series = configuration.series;
 			if (configuration.xMetric !== undefined) patch.xMetric = configuration.xMetric;
@@ -803,7 +831,7 @@ export function createBoardDependencies(options: {
 			if (configuration.sortBasis !== undefined) patch.sortBasis = configuration.sortBasis;
 			if (configuration.sortDirection !== undefined) patch.sortDirection = configuration.sortDirection;
 			const presentationChanged = Object.keys(patch).length > 0 && board.setOverride(blockId, patch);
-			return { changed: blockChanged || presentationChanged };
+			return { changed: blockChanged || presentationChanged, block: resolveBoardBlock(board, nextBlock) };
 		} : undefined,
 
 		prepareBoardHistory: async (binding: ResearchHistoryBinding, context) => { await hydrate(binding.certs, context, previousQuarter(binding.from, 4)); },
@@ -817,7 +845,7 @@ export function createBoardDependencies(options: {
 			}
 			if (request.format === 'workspace_json') {
 				const params = serializeWorkspaceSearchParams(state());
-				return { content: JSON.stringify({ version: 3, search: params.toString(), state: state() }), contentType: 'application/json', filename: 'bankgraph-board.json' };
+				return { content: JSON.stringify({ version: WORKSPACE_SCHEMA_VERSION, search: params.toString(), state: state() }), contentType: 'application/json', filename: 'bankgraph-board.json' };
 			}
 			throw new WebMcpToolError('capability_unavailable', 'CSV export is not available from this board yet.', {}, false);
 		},

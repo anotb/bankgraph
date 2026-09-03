@@ -1,5 +1,6 @@
 import {
 	WORKSPACE_SCHEMA_VERSION,
+	type ResearchBoardAnchorConfiguration,
 	type ResearchBoardBlock,
 	type WorkspaceState
 } from './types';
@@ -53,7 +54,7 @@ export interface DeserializedWorkspaceShare {
 	metadata: WorkspaceShareMetadata;
 }
 
-type CompactWorkspaceV3 = [
+type CompactWorkspaceV4 = [
 	number,
 	string,
 	unknown,
@@ -74,6 +75,21 @@ type CompactWorkspaceV3 = [
 	unknown,
 	unknown
 ];
+
+function compactAnchorConfiguration(configuration: ResearchBoardAnchorConfiguration | undefined): unknown[] | null {
+	if (!configuration) return null;
+	return [
+		configuration.bankSource === 'workspace' ? 'w' : 'f',
+		configuration.certs ?? null,
+		configuration.metricSource === 'workspace' ? 'w' : 'f',
+		configuration.metrics ?? null,
+		configuration.periodSource === 'workspace' ? 'w' : 'f',
+		configuration.asOf ?? null,
+		configuration.compareWith ?? null,
+		configuration.historyFrom ?? null,
+		configuration.historyTo ?? null
+	];
+}
 
 interface ShareSanitization {
 	findingNotesTruncated: number;
@@ -96,23 +112,25 @@ function compactBoardBlock(block: ResearchBoardBlock): unknown[] {
 		case 'history':
 			return [
 				'h', block.id, block.title, block.span, block.binding.certs, block.binding.metrics,
-				block.binding.from, block.binding.to, block.binding.chartKind, block.binding.scale
+				block.binding.from, block.binding.to, block.binding.chartKind, block.binding.scale,
+				compactAnchorConfiguration(block.anchorConfig)
 			];
 		case 'exact_table':
 			return [
 				't', block.id, block.title, block.span, block.binding.certs, block.binding.metrics,
-				block.binding.from, block.binding.to, block.binding.followCurrent
+				block.binding.from, block.binding.to, block.binding.followCurrent,
+				compactAnchorConfiguration(block.anchorConfig)
 			];
 		case 'analysis':
 			return ['a', block.id, block.title, block.span, block.binding.resultRef, block.binding.view];
 		case 'workspace_view':
-			return ['w', block.id, block.title, block.span, block.binding.view];
+			return ['w', block.id, block.title, block.span, block.binding.view, compactAnchorConfiguration(block.anchorConfig)];
 		case 'takeaway':
 			return ['n', block.id, block.title, block.span, block.text, block.referenceBlockIds];
 	}
 }
 
-function compact(state: WorkspaceState): { payload: CompactWorkspaceV3; sanitization: ShareSanitization } {
+function compact(state: WorkspaceState): { payload: CompactWorkspaceV4; sanitization: ShareSanitization } {
 	const sanitization: ShareSanitization = {
 		findingNotesTruncated: 0,
 		omittedNoteCharacters: 0,
@@ -356,13 +374,41 @@ function expandV2(value: unknown): WorkspaceState {
 	});
 }
 
-function expandBoardBlock(value: unknown, path: string): unknown {
+function expandAnchorConfiguration(value: unknown, path: string): unknown {
+	if (value === null) return undefined;
+	if (!Array.isArray(value) || value.length !== 9) {
+		throw new WorkspaceValidationError({ path, message: 'must be a nine-item anchor configuration or null' });
+	}
+	const bankSource = at(value, 0, path) === 'w' ? 'workspace' : at(value, 0, path) === 'f' ? 'fixed' : null;
+	const metricSource = at(value, 2, path) === 'w' ? 'workspace' : at(value, 2, path) === 'f' ? 'fixed' : null;
+	const periodSource = at(value, 4, path) === 'w' ? 'workspace' : at(value, 4, path) === 'f' ? 'fixed' : null;
+	if (!bankSource) throw new WorkspaceValidationError({ path: `${path}[0]`, message: 'must be w or f' });
+	if (!metricSource) throw new WorkspaceValidationError({ path: `${path}[2]`, message: 'must be w or f' });
+	if (!periodSource) throw new WorkspaceValidationError({ path: `${path}[4]`, message: 'must be w or f' });
+	return {
+		bankSource,
+		metricSource,
+		periodSource,
+		...(bankSource === 'fixed' ? { certs: at(value, 1, path) } : {}),
+		...(metricSource === 'fixed' ? { metrics: at(value, 3, path) } : {}),
+		...(periodSource === 'fixed' ? {
+			asOf: at(value, 5, path),
+			compareWith: at(value, 6, path),
+			historyFrom: at(value, 7, path),
+			historyTo: at(value, 8, path)
+		} : {})
+	};
+}
+
+function expandBoardBlock(value: unknown, path: string, version: 3 | 4): unknown {
 	if (!Array.isArray(value)) {
 		throw new WorkspaceValidationError({ path, message: 'must be an array' });
 	}
 	const tag = at(value, 0, path);
 	if (tag === 'h') {
-		if (value.length !== 10) throw new WorkspaceValidationError({ path, message: 'must be a ten-item history block' });
+		const expected = version === 3 ? 10 : 11;
+		if (value.length !== expected) throw new WorkspaceValidationError({ path, message: `must be a ${expected}-item history block` });
+		const anchorConfig = version === 4 ? expandAnchorConfiguration(at(value, 10, path), `${path}[10]`) : undefined;
 		return {
 			kind: 'history',
 			id: at(value, 1, path),
@@ -375,11 +421,14 @@ function expandBoardBlock(value: unknown, path: string): unknown {
 				to: at(value, 7, path),
 				chartKind: at(value, 8, path),
 				scale: at(value, 9, path)
-			}
+			},
+			...(anchorConfig === undefined ? {} : { anchorConfig })
 		};
 	}
 	if (tag === 't') {
-		if (value.length !== 9) throw new WorkspaceValidationError({ path, message: 'must be a nine-item exact-table block' });
+		const expected = version === 3 ? 9 : 10;
+		if (value.length !== expected) throw new WorkspaceValidationError({ path, message: `must be a ${expected}-item exact-table block` });
+		const anchorConfig = version === 4 ? expandAnchorConfiguration(at(value, 9, path), `${path}[9]`) : undefined;
 		return {
 			kind: 'exact_table',
 			id: at(value, 1, path),
@@ -391,7 +440,8 @@ function expandBoardBlock(value: unknown, path: string): unknown {
 				from: at(value, 6, path),
 				to: at(value, 7, path),
 				followCurrent: at(value, 8, path)
-			}
+			},
+			...(anchorConfig === undefined ? {} : { anchorConfig })
 		};
 	}
 	if (tag === 'a') {
@@ -405,13 +455,16 @@ function expandBoardBlock(value: unknown, path: string): unknown {
 		};
 	}
 	if (tag === 'w') {
-		if (value.length !== 5) throw new WorkspaceValidationError({ path, message: 'must be a five-item workspace-view block' });
+		const expected = version === 3 ? 5 : 6;
+		if (value.length !== expected) throw new WorkspaceValidationError({ path, message: `must be a ${expected}-item workspace-view block` });
+		const anchorConfig = version === 4 ? expandAnchorConfiguration(at(value, 5, path), `${path}[5]`) : undefined;
 		return {
 			kind: 'workspace_view',
 			id: at(value, 1, path),
 			title: at(value, 2, path),
 			span: at(value, 3, path),
-			binding: { view: at(value, 4, path) }
+			binding: { view: at(value, 4, path) },
+			...(anchorConfig === undefined ? {} : { anchorConfig })
 		};
 	}
 	if (tag === 'n') {
@@ -428,11 +481,11 @@ function expandBoardBlock(value: unknown, path: string): unknown {
 	throw new WorkspaceValidationError({ path: `${path}[0]`, message: 'must be h, t, a, w, or n' });
 }
 
-function expandV3(value: unknown): WorkspaceState {
+function expandBoardWorkspace(value: unknown, version: 3 | 4): WorkspaceState {
 	if (!Array.isArray(value) || value.length !== 19) {
 		throw new WorkspaceValidationError({
 			path: 'search.ws',
-			message: 'must be a 19-item version 3 payload'
+			message: `must be a 19-item version ${version} payload`
 		});
 	}
 	const base = expandV2(value.slice(0, 18));
@@ -452,9 +505,17 @@ function expandV3(value: unknown): WorkspaceState {
 		version: WORKSPACE_SCHEMA_VERSION,
 		board: {
 			focusedBlockId: at(board, 0, 'search.ws[18][0]'),
-			blocks: blockValues.map((block, index) => expandBoardBlock(block, `search.ws[18][1][${index}]`))
+			blocks: blockValues.map((block, index) => expandBoardBlock(block, `search.ws[18][1][${index}]`, version))
 		}
 	});
+}
+
+function expandV3(value: unknown): WorkspaceState {
+	return expandBoardWorkspace(value, 3);
+}
+
+function expandV4(value: unknown): WorkspaceState {
+	return expandBoardWorkspace(value, 4);
 }
 
 function parseJson(text: string, path: string): unknown {
@@ -585,7 +646,7 @@ export function deserializeWorkspaceShare(
 	if (encoded === null && version === null && options.empty !== 'error') {
 		return { state: createDefaultWorkspaceState(), metadata: shareMetadata };
 	}
-	if (version !== '1' && version !== '2' && version !== String(WORKSPACE_SCHEMA_VERSION)) {
+	if (version !== '1' && version !== '2' && version !== '3' && version !== String(WORKSPACE_SCHEMA_VERSION)) {
 		throw new WorkspaceValidationError({
 			path: `search.${WORKSPACE_SEARCH_VERSION_PARAM}`,
 			message: `uses unsupported workspace version ${version ?? '(missing)'}`
@@ -599,7 +660,9 @@ export function deserializeWorkspaceShare(
 			? expandV1(parseJson(encoded, `search.${WORKSPACE_SEARCH_STATE_PARAM}`))
 			: version === '2'
 				? expandV2(parseJson(encoded, `search.${WORKSPACE_SEARCH_STATE_PARAM}`))
-				: expandV3(parseJson(encoded, `search.${WORKSPACE_SEARCH_STATE_PARAM}`)),
+				: version === '3'
+					? expandV3(parseJson(encoded, `search.${WORKSPACE_SEARCH_STATE_PARAM}`))
+					: expandV4(parseJson(encoded, `search.${WORKSPACE_SEARCH_STATE_PARAM}`)),
 		metadata: shareMetadata
 	};
 }
@@ -674,7 +737,13 @@ export function migrateWorkspaceState(value: unknown): { state: WorkspaceState; 
 			migrated: missingDepth || missingActiveMetric || missingScreenView || missingCanonicalPeriods || missingBoard
 		};
 	}
-	if (source.version !== undefined && source.version !== 0 && source.version !== 1 && source.version !== 2) {
+	if (source.version === 3) {
+		return {
+			state: normalizeWorkspaceState({ ...source, version: WORKSPACE_SCHEMA_VERSION }),
+			migrated: true
+		};
+	}
+	if (source.version !== undefined && source.version !== 0 && source.version !== 1 && source.version !== 2 && source.version !== 3) {
 		throw new WorkspaceValidationError({
 			path: 'workspace.version',
 			message: `uses unsupported workspace version ${String(source.version)}`
@@ -716,6 +785,7 @@ export function parseWorkspaceJson(text: string): { state: WorkspaceState; migra
 			envelope.version !== undefined
 			&& envelope.version !== 1
 			&& envelope.version !== 2
+			&& envelope.version !== 3
 			&& envelope.version !== WORKSPACE_SCHEMA_VERSION
 		) {
 			throw new WorkspaceValidationError({

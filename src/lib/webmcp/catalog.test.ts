@@ -82,6 +82,7 @@ function dependencies() {
           tier1Ratio: null,
           domesticOffices: null,
           employees: null,
+          loanToDeposit: null,
         },
       },
       {
@@ -101,6 +102,7 @@ function dependencies() {
           tier1Ratio: null,
           domesticOffices: null,
           employees: null,
+          loanToDeposit: null,
         },
       },
     ].slice(request.offset ?? 0, (request.offset ?? 0) + request.limit),
@@ -1136,23 +1138,29 @@ describe("workspace WebMCP catalog", () => {
     expect(workspace.state.filters.states).toEqual(["NC"]);
   });
 
-  it("stores screen ordering in the revisioned workspace state", async () => {
+  it("stores loan-to-deposit ordering and makes the screen the current cohort", async () => {
     const { deps, workspace, searchBanks } = dependencies();
     const configure = tool(deps, "bankgraph.configure_screen");
     await configure.controller(
       {
-        question: "North Carolina banks by name",
+        question: "Large North Carolina banks by loan-to-deposit ratio",
         query: "",
         states: ["NC"],
         active: "active",
         conditions: [],
-        sort: "name",
-        order: "asc",
+        assetMin: 10_000_000,
+        sort: "loanToDeposit",
+        order: "desc",
         ifRevision: 0,
       },
       { signal, scope: "test", toolName: configure.name },
     );
-    expect(workspace.state.screenView).toEqual({ sort: "name", order: "asc" });
+    expect(workspace.state.screenView).toEqual({ sort: "loanToDeposit", order: "desc" });
+    expect(workspace.state.peerRecipe).toMatchObject({
+      name: "Current screen",
+      basis: "screen",
+      maximumPeers: 200,
+    });
 
     const read = tool(deps, "bankgraph.read_current_screen");
     await read.controller(
@@ -1160,7 +1168,7 @@ describe("workspace WebMCP catalog", () => {
       { signal, scope: "test", toolName: read.name },
     );
     expect(searchBanks).toHaveBeenLastCalledWith(
-      expect.objectContaining({ sort: "name", order: "asc" }),
+      expect.objectContaining({ sort: "loanToDeposit", order: "desc", assetMin: 10_000_000 }),
       expect.objectContaining({ signal }),
     );
   });

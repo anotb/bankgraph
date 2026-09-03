@@ -7,6 +7,7 @@ import {
 	type AnalysisResultSection,
 	type ResearchAnalysisBlock,
 	type ResearchAnalysisView,
+	type ResearchBoardAnchorSource,
 	type ResearchBoardBlock,
 	type ResearchBoardSpan,
 	type ResearchExactTableBinding,
@@ -171,6 +172,9 @@ export interface ResearchBoardViewConfiguration {
 	role?: 'auto' | 'lead' | 'support' | 'contrast' | 'reference' | 'multiples' | 'context' | 'investigation';
 	presentation?: 'auto' | 'primary' | 'multiples';
 	followWorkspace?: boolean;
+	bankSource?: ResearchBoardAnchorSource;
+	metricSource?: ResearchBoardAnchorSource;
+	periodSource?: ResearchBoardAnchorSource;
 	certs?: number[];
 	metrics?: ResearchMetric[];
 	asOf?: string;
@@ -217,6 +221,7 @@ export interface ResearchBoardWebMcpDependencies {
 	): Promise<ResearchBoardBlockReadResult | null>;
 	listBoardTemplates?(): ResearchBoardTemplateSummary[];
 	getBoardPresentation?(): ResearchBoardPresentation;
+	resolveBoardBlock?(block: ResearchBoardBlock): ResearchBoardBlock;
 	applyBoardTemplate?(
 		request: {
 			templateId: string;
@@ -236,7 +241,7 @@ export interface ResearchBoardWebMcpDependencies {
 	configureBoardView?(
 		blockId: string,
 		configuration: ResearchBoardViewConfiguration,
-	): { changed: boolean };
+	): { changed: boolean; block?: ResearchBoardBlock };
 }
 
 function mutation(
@@ -371,7 +376,7 @@ function analysisSections(block: ResearchAnalysisBlock): { available: AnalysisRe
 
 function configurationAffordance(block: ResearchBoardBlock) {
 	const commonFields = ['title', 'width', 'height', 'role'] as const;
-	const anchorFields = ['followWorkspace', 'certs', 'metrics', 'asOf', 'compareWith'] as const;
+	const anchorFields = ['followWorkspace', 'bankSource', 'metricSource', 'periodSource', 'certs', 'metrics', 'asOf', 'compareWith'] as const;
 	if (block.kind === 'history') {
 		return {
 			blockId: block.id,
@@ -490,10 +495,11 @@ export function createResearchBoardWebMcpToolCatalog(
 				: includeData === 'focused'
 					? [state.board.blocks.find((block) => block.id === state.board.focusedBlockId) ?? state.board.blocks[0]].filter((block): block is ResearchBoardBlock => Boolean(block))
 					: [];
+			const resolvedBlocks = state.board.blocks.map((block) => deps.resolveBoardBlock?.(block) ?? block);
 			const baseData = {
 				workspaceRevision: state.revision,
 				focusedBlockId: state.board.focusedBlockId,
-				blocks: state.board.blocks,
+				blocks: resolvedBlocks,
 				configurationAffordances: state.board.blocks.map(configurationAffordance),
 				presentation,
 				counts: { blocks: state.board.blocks.length, maximum: WORKSPACE_LIMITS.boardBlocks },
@@ -676,7 +682,12 @@ export function createResearchBoardWebMcpToolCatalog(
 				selectedMetrics: currentTemplateMetrics(state),
 				...periods,
 				idPrefix,
-			});
+			}).map((block) => block.kind === 'history' || block.kind === 'workspace_view'
+				? normalizeResearchBoardBlock({
+					...block,
+					anchorConfig: { bankSource: 'workspace', metricSource: 'workspace', periodSource: 'workspace' }
+				})
+				: block);
 			const templateIds = blocks.map((block) => block.id);
 			const retainedIds = mode === 'replace'
 				? []
@@ -752,6 +763,7 @@ export function createResearchBoardWebMcpToolCatalog(
 				title: stringValue(source.title, 'title', { min: 1, max: 160 }),
 				span: enumValue(source.span, 'span', SPANS),
 				binding: { view: enumValue(source.view, 'view', WORKSPACE_VIEWS) },
+				anchorConfig: { bankSource: 'workspace', metricSource: 'workspace', periodSource: 'workspace' },
 			});
 			const data = commitDesiredBlock(deps, desired, revision(source.ifRevision), source.focus === true, context);
 			return { summary: `${desired.title} is visible on the research board and follows current workspace state.`, data };
@@ -779,6 +791,12 @@ export function createResearchBoardWebMcpToolCatalog(
 			const desired = normalizeResearchBoardBlock({
 				id: blockId(source.blockId), kind: 'history', title: stringValue(source.title, 'title', { min: 1, max: 160 }),
 				span: enumValue(source.span, 'span', SPANS), binding,
+				anchorConfig: {
+					bankSource: 'fixed', metricSource: 'fixed', periodSource: 'fixed',
+					certs: binding.certs, metrics: binding.metrics,
+					asOf: binding.to, compareWith: binding.from,
+					historyFrom: binding.from, historyTo: binding.to,
+				},
 			});
 			const expected = revision(source.ifRevision);
 			if (deps.workspace.state.revision !== expected && !exactBlock(deps.workspace.state, desired)) throw stale(expected, deps.workspace.state.revision);
@@ -839,6 +857,11 @@ export function createResearchBoardWebMcpToolCatalog(
 			const desired = normalizeResearchBoardBlock({
 				id: blockId(source.blockId), kind: 'exact_table', title: stringValue(source.title, 'title', { min: 1, max: 160 }),
 				span: enumValue(source.span, 'span', SPANS), binding,
+				anchorConfig: {
+					bankSource: 'fixed', metricSource: 'fixed', periodSource: fixed ? 'fixed' : 'workspace',
+					certs: binding.certs, metrics: binding.metrics,
+					...(fixed ? { asOf: to!, compareWith: from!, historyFrom: from!, historyTo: to! } : {})
+				},
 			});
 			const expected = revision(source.ifRevision);
 			if (deps.workspace.state.revision !== expected && !exactBlock(deps.workspace.state, desired)) throw stale(expected, deps.workspace.state.revision);
@@ -961,7 +984,7 @@ export function createResearchBoardWebMcpToolCatalog(
 	const configureBoardView = mutation({
 		name: 'bankgraph.configure_board_view',
 		title: 'Edit a board view',
-		description: 'Change only the requested part of an existing view and preserve everything else. First read bankgraph.read_research_board and use that block\'s configurationAffordances: live workspace views accept only their listed subtype fields, history views accept history dates and chart style, exact tables accept sorting, and stored analyses accept only the listed compatible view values. Data-anchor fields can pin any data-bearing view; followWorkspace reconnects it to the board. Revision guards are optional because every field is an exact, idempotent setting.',
+		description: 'Change only the requested part of an existing view and preserve everything else. First read bankgraph.read_research_board and use that block\'s configurationAffordances. Bank, measure, and period sources are independent: supplying certs, metrics, or dates fixes only that anchor. Set bankSource to workspace to apply current and future workspace banks without changing the view\'s measures or periods. followWorkspace remains a shorthand for reconnecting or fixing every anchor. Revision guards are optional because every field is an exact, idempotent setting.',
 		maxResultChars: MAX_WEBMCP_EXTENDED_ENVELOPE_CHARS,
 		inputSchema: {
 			...OBJECT({
@@ -971,11 +994,14 @@ export function createResearchBoardWebMcpToolCatalog(
 			height: ENUM(BOARD_HEIGHTS, 'Valid for every view.'),
 			role: ENUM(BOARD_ROLES, 'Valid for every view.'),
 			presentation: ENUM(BOARD_PRESENTATIONS, 'Source-bound history views only; chooses one primary measure or small multiples.'),
-			followWorkspace: { type: 'boolean', description: 'Data-bearing views only. true clears pins and follows board anchors; false keeps a separate selection. Do not combine true with anchor or history-date fields.' },
-			certs: { ...ARRAY(INTEGER(1, 99_999_999), WORKSPACE_LIMITS.selectedBanks), description: 'Data-anchor override for a data-bearing view. Do not send with followWorkspace=true.' },
-			metrics: { ...ARRAY(ENUM(RESEARCH_METRIC_IDS), WORKSPACE_LIMITS.visibleMetrics), description: 'Data-anchor override for a data-bearing view. Do not send with followWorkspace=true.' },
-			asOf: STRING(8, 'Data-anchor reporting period for a data-bearing view. Do not send with followWorkspace=true.'),
-			compareWith: STRING(8, 'Data-anchor comparison period for a data-bearing view. Do not send with followWorkspace=true.'),
+			followWorkspace: { type: 'boolean', description: 'Compatibility shorthand for all anchors. true reconnects banks, measures, and periods and cannot be combined with fixed values; false fixes all three at their current effective values and may include replacement values.' },
+			bankSource: ENUM(['workspace', 'fixed'] as const, 'workspace applies current and future workspace banks to this view; fixed keeps its current effective banks unless certs is also supplied.'),
+			metricSource: ENUM(['workspace', 'fixed'] as const, 'workspace follows workspace measures; fixed keeps the current effective measures unless metrics is also supplied.'),
+			periodSource: ENUM(['workspace', 'fixed'] as const, 'workspace follows workspace periods; fixed keeps current effective periods unless date fields are also supplied.'),
+			certs: { ...ARRAY(INTEGER(1, 99_999_999), WORKSPACE_LIMITS.selectedBanks), description: 'Fix only the bank anchor for a data-bearing view. Do not send with bankSource=workspace.' },
+			metrics: { ...ARRAY(ENUM(RESEARCH_METRIC_IDS), WORKSPACE_LIMITS.visibleMetrics), description: 'Fix only the measure anchor for a data-bearing view. Do not send with metricSource=workspace.' },
+			asOf: STRING(8, 'Fix the point-in-time reporting period without changing bank or measure sources. Do not send with periodSource=workspace.'),
+			compareWith: STRING(8, 'Fix the comparison period without changing bank or measure sources. Do not send with periodSource=workspace.'),
 			historyFrom: STRING(8, 'Source-bound history views only.'),
 			historyTo: STRING(8, 'Source-bound history views only.'),
 			chartKind: ENUM(['line', 'area'], 'Source-bound history views only.'),
@@ -996,7 +1022,7 @@ export function createResearchBoardWebMcpToolCatalog(
 		},
 		controller: (input) => {
 			const source = inputObject(input, [
-				'blockId', 'title', 'width', 'height', 'role', 'presentation', 'followWorkspace',
+				'blockId', 'title', 'width', 'height', 'role', 'presentation', 'followWorkspace', 'bankSource', 'metricSource', 'periodSource',
 				'certs', 'metrics', 'asOf', 'compareWith', 'historyFrom', 'historyTo',
 				'chartKind', 'scale', 'view', 'sortMetric', 'sortBasis', 'sortDirection',
 				'series', 'xMetric', 'yMetric', 'geographyMode', 'attributionMode',
@@ -1004,7 +1030,7 @@ export function createResearchBoardWebMcpToolCatalog(
 			]);
 			if (!deps.configureBoardView) throw new WebMcpToolError('capability_unavailable', 'Board presentation control is unavailable on this page.', {});
 			const editFields = [
-				'title', 'width', 'height', 'role', 'presentation', 'followWorkspace', 'certs', 'metrics',
+				'title', 'width', 'height', 'role', 'presentation', 'followWorkspace', 'bankSource', 'metricSource', 'periodSource', 'certs', 'metrics',
 				'asOf', 'compareWith', 'historyFrom', 'historyTo', 'chartKind', 'scale', 'view',
 				'sortMetric', 'sortBasis', 'sortDirection', 'series', 'xMetric', 'yMetric',
 				'geographyMode', 'attributionMode',
@@ -1027,9 +1053,13 @@ export function createResearchBoardWebMcpToolCatalog(
 			if (source.followWorkspace !== undefined && typeof source.followWorkspace !== 'boolean') throw new WebMcpInputError('followWorkspace must be a boolean');
 			const historyRequested = source.historyFrom !== undefined || source.historyTo !== undefined;
 			const pinsRequested = source.certs !== undefined || source.metrics !== undefined || source.asOf !== undefined || source.compareWith !== undefined;
-			if (source.followWorkspace === true && (pinsRequested || historyRequested)) {
-				throw new WebMcpInputError('Banks, measures, or dates cannot be pinned while followWorkspace is true');
+			const sourcesRequested = source.bankSource !== undefined || source.metricSource !== undefined || source.periodSource !== undefined;
+			if (source.followWorkspace === true && (pinsRequested || historyRequested || sourcesRequested)) {
+				throw new WebMcpInputError('followWorkspace=true cannot be combined with per-anchor sources, values, or history dates');
 			}
+			if (source.bankSource === 'workspace' && source.certs !== undefined) throw new WebMcpInputError('certs cannot be fixed while bankSource is workspace');
+			if (source.metricSource === 'workspace' && source.metrics !== undefined) throw new WebMcpInputError('metrics cannot be fixed while metricSource is workspace');
+			if (source.periodSource === 'workspace' && (source.asOf !== undefined || source.compareWith !== undefined || historyRequested)) throw new WebMcpInputError('dates cannot be fixed while periodSource is workspace');
 			if (historyRequested && block.kind !== 'history') throw new WebMcpInputError('historyFrom and historyTo are accepted only for a history view');
 			if ((source.chartKind !== undefined || source.scale !== undefined) && block.kind !== 'history') throw new WebMcpInputError('chartKind and scale are accepted only for a history view');
 			if (source.presentation !== undefined && block.kind !== 'history') throw new WebMcpInputError('presentation is accepted only for a history view');
@@ -1051,6 +1081,9 @@ export function createResearchBoardWebMcpToolCatalog(
 				...(source.role === undefined ? {} : { role: enumValue(source.role, 'role', BOARD_ROLES) }),
 				...(source.presentation === undefined ? {} : { presentation: enumValue(source.presentation, 'presentation', BOARD_PRESENTATIONS) }),
 				...(source.followWorkspace === undefined ? {} : { followWorkspace: source.followWorkspace }),
+				...(source.bankSource === undefined ? {} : { bankSource: enumValue(source.bankSource, 'bankSource', ['workspace', 'fixed'] as const) }),
+				...(source.metricSource === undefined ? {} : { metricSource: enumValue(source.metricSource, 'metricSource', ['workspace', 'fixed'] as const) }),
+				...(source.periodSource === undefined ? {} : { periodSource: enumValue(source.periodSource, 'periodSource', ['workspace', 'fixed'] as const) }),
 				...(source.certs === undefined ? {} : { certs: certs(source.certs) }),
 				...(source.metrics === undefined ? {} : { metrics: metrics(source.metrics) }),
 				...(source.asOf === undefined ? {} : { asOf: reportingPeriod(source.asOf, 'asOf') }),
@@ -1073,7 +1106,8 @@ export function createResearchBoardWebMcpToolCatalog(
 				throw new WebMcpInputError('historyFrom must not be after historyTo');
 			}
 			const result = deps.configureBoardView(id, configuration);
-			const updated = deps.workspace.state.board.blocks.find((item) => item.id === id) ?? block;
+			const stored = result.block ?? deps.workspace.state.board.blocks.find((item) => item.id === id) ?? block;
+			const updated = deps.resolveBoardBlock?.(stored) ?? stored;
 			return {
 				summary: `${updated.title} now reflects the requested changes.`,
 				data: { ...result, workspaceRevision: deps.workspace.state.revision, blockIds: [id], block: updated, presentation: deps.getBoardPresentation?.() ?? null },

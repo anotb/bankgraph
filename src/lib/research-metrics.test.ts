@@ -35,6 +35,18 @@ describe('research metric registry', () => {
 		expect(canonicalResearchMetric('unknown')).toBeNull();
 	});
 
+	it('exposes reported loan-to-deposit ratios to the institution screen', () => {
+		const definition = RESEARCH_METRICS.find((metric) => metric.id === 'lnlsdepr');
+		expect(definition).toMatchObject({
+			source: 'LNLSDEPR',
+			screen: {
+				id: 'loanToDeposit',
+				unit: 'percent',
+				snapshotField: 'latest_loan_to_deposit_ratio'
+			}
+		});
+	});
+
 	it('declares aggregation and endpoint semantics for every metric', () => {
 		expect(RESEARCH_METRICS.every((metric) =>
 			metric.aggregation === 'additive' || metric.aggregation === 'distribution_only'

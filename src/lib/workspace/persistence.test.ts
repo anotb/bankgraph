@@ -55,7 +55,7 @@ describe('workspace local persistence', () => {
 			migrated: true,
 			error: null,
 			state: {
-				version: 3,
+				version: 4,
 				asOfQuarter: '20260630',
 				comparison: { mode: 'range-start', resolvedQuarter: '20240331' },
 				chartHistory: { from: '20240331', to: '20260630' }

@@ -78,6 +78,9 @@ function blocks(): ResearchBoardBlock[] {
 			binding: {
 				certs: [1, 2], metrics: ['asset', 'roa'], from: '20250331', to: '20260630',
 				chartKind: 'area', scale: 'index'
+			},
+			anchorConfig: {
+				bankSource: 'workspace', metricSource: 'fixed', periodSource: 'workspace', metrics: ['roa']
 			}
 		},
 		{
@@ -90,7 +93,8 @@ function blocks(): ResearchBoardBlock[] {
 		},
 		{
 			id: 'workspace-view-1', title: 'Current peer distribution', kind: 'workspace_view', span: 'half',
-			binding: { view: 'peer_distribution' }
+			binding: { view: 'peer_distribution' },
+			anchorConfig: { bankSource: 'workspace', metricSource: 'workspace', periodSource: 'workspace' }
 		},
 		{
 			id: 'takeaway-1', title: 'Takeaway', kind: 'takeaway', span: 'full',
@@ -111,7 +115,7 @@ describe('research-board share codec', () => {
 
 		const encoded = serializeWorkspaceSearch(state);
 		const payload = new URLSearchParams(encoded).get('ws') ?? '';
-		expect(encoded).toContain('wv=3');
+		expect(encoded).toContain('wv=4');
 		expect(payload).not.toContain('MATERIALIZED_RAW_MARKER');
 		expect(payload).not.toContain('MATERIALIZED_BANK_NAME');
 		expect(payload).not.toContain('MATERIALIZED-ONLY-RESULT');
@@ -130,7 +134,7 @@ describe('research-board share codec', () => {
 		const migrated = migrateWorkspaceState({ ...legacy, version: 2 });
 		expect(migrated).toMatchObject({
 			migrated: true,
-			state: { version: 3, board: { focusedBlockId: null, blocks: [] } }
+			state: { version: 4, board: { focusedBlockId: null, blocks: [] } }
 		});
 		});
 
@@ -145,10 +149,34 @@ describe('research-board share codec', () => {
 		params.set('ws', JSON.stringify(payload.slice(0, 18)));
 		const decoded = deserializeWorkspaceSearchParams(params);
 		expect(decoded).toMatchObject({
-			version: 3,
+			version: 4,
 			question: 'Legacy compact link',
 			board: { focusedBlockId: null, blocks: [] }
 		});
+	});
+
+	it('continues to decode compact schema 3 board links without durable anchor configuration', () => {
+		let state = createDefaultWorkspaceState();
+		for (const block of blocks().map((block) => {
+			if (block.kind !== 'history' && block.kind !== 'exact_table' && block.kind !== 'workspace_view') return block;
+			const { anchorConfig: _anchorConfig, ...legacy } = block;
+			return legacy as ResearchBoardBlock;
+		})) {
+			state = applyWorkspaceCommand(state, workspaceCommands.upsertBoardBlock(block)).state;
+		}
+		const params = new URLSearchParams(serializeWorkspaceSearch(state));
+		const payload = JSON.parse(params.get('ws') ?? 'null') as unknown[];
+		const board = payload[18] as unknown[];
+		const compactBlocks = board[1] as unknown[][];
+		for (const block of compactBlocks) {
+			if (block[0] === 'h' || block[0] === 't' || block[0] === 'w') block.pop();
+		}
+		params.set('wv', '3');
+		params.set('ws', JSON.stringify(payload));
+
+		const decoded = deserializeWorkspaceSearchParams(params);
+		expect(decoded.version).toBe(4);
+		expect(decoded.board.blocks).toEqual(state.board.blocks);
 	});
 
 	it('reports the existing clear URL budget error for a large bounded takeaway', () => {

@@ -1,7 +1,8 @@
-import { BANK_SCREEN_SORTS, type BankScreenSort } from '$lib/bank-screen.js';
+import { BANK_SCREEN_METRIC_RULES, BANK_SCREEN_SORTS, type BankScreenMetric, type BankScreenSort } from '$lib/bank-screen.js';
 import { BOARD_TEMPLATES } from '$lib/atlas/templates.js';
 import {
 	arrayValue,
+	booleanValue,
 	cert,
 	enumValue,
 	inputObject,
@@ -58,6 +59,7 @@ const INTEGER = (minimum: number, maximum: number, description?: string): TightJ
 	maximum,
 	...(description ? { description } : {})
 });
+const BOOLEAN: TightJsonSchema = { type: 'boolean' };
 const ARRAY = (items: TightJsonSchema, maxItems: number, description?: string): TightJsonSchema => ({
 	type: 'array',
 	items,
@@ -113,11 +115,12 @@ export function createSiteNavigationTool(deps: SiteNavigationDependencies): WebM
 	return {
 		name: 'bankgraph.navigate',
 		title: 'Navigate Bankgraph',
-		description: 'Move this tab to any Bankgraph surface: the system homepage, research board, institution directory, economy, methodology, or a bank profile. A research destination can carry a question, layout, banks, states, asset range, and reporting quarter into the full board toolset.',
+		description: 'Move this tab to any Bankgraph surface: the system homepage, research board, institution directory, economy, methodology, or a bank profile. A research destination can carry a question, layout, banks, states, asset range, and reporting quarter into the full board toolset. Research resumes the saved board unless fresh is true or the blank layout is requested.',
 		inputSchema: OBJECT({
 			destination: ENUM(DESTINATIONS),
 			question: STRING(500, 'Research question to place on the board.'),
 			template: ENUM(TEMPLATE_IDS, 'Optional research layout. Use blank when the agent should compose the board.'),
+			fresh: BOOLEAN,
 			cert: INTEGER(1, 99_999_999, 'FDIC certificate number when destination is bank.'),
 			certs: ARRAY(INTEGER(1, 99_999_999), 10, 'FDIC certificate numbers to select on a research board.'),
 			states: ARRAY(STRING(2, 'Two-letter state code.', 2), 10),
@@ -127,7 +130,7 @@ export function createSiteNavigationTool(deps: SiteNavigationDependencies): WebM
 		}, ['destination']),
 		annotations: LOCAL_ACTION,
 		controller: (input) => {
-			const source = inputObject(input, ['destination', 'question', 'template', 'cert', 'certs', 'states', 'assetMin', 'assetMax', 'asOf']);
+			const source = inputObject(input, ['destination', 'question', 'template', 'fresh', 'cert', 'certs', 'states', 'assetMin', 'assetMax', 'asOf']);
 			const destination = enumValue(source.destination, 'destination', DESTINATIONS);
 			let path: string;
 			if (destination === 'bank') {
@@ -136,6 +139,7 @@ export function createSiteNavigationTool(deps: SiteNavigationDependencies): WebM
 			} else if (destination === 'research') {
 				const question = optionalString(source.question, 'question', { max: 500 });
 				const template = source.template === undefined ? undefined : enumValue(source.template, 'template', TEMPLATE_IDS);
+				const fresh = source.fresh === undefined ? template === 'blank' : booleanValue(source.fresh, 'fresh');
 				const certs = parseCerts(source.certs);
 				const states = parseStates(source.states);
 				const assetMin = optionalNumber(source.assetMin, 'assetMin', 0, 1e14);
@@ -143,6 +147,7 @@ export function createSiteNavigationTool(deps: SiteNavigationDependencies): WebM
 				if (assetMin !== undefined && assetMax !== undefined && assetMin > assetMax) throw new WebMcpInputError('assetMin must not exceed assetMax');
 				const asOf = source.asOf === undefined ? undefined : reportingPeriod(source.asOf, 'asOf');
 				const params = new URLSearchParams();
+				if (fresh) params.set('fresh', '1');
 				if (question) params.set('q', question);
 				if (template && template !== 'blank') params.set('template', template);
 				if (certs.length) params.set('certs', certs.join(','));
@@ -161,7 +166,7 @@ export function createSiteNavigationTool(deps: SiteNavigationDependencies): WebM
 					destination,
 					path,
 					nextAction: destination === 'research' || destination === 'bank'
-						? 'After the page changes, call bankgraph.get_context and continue with the full board tools.'
+						? 'Wait until bankgraph.get_context is advertised by the new page, then call it and continue with the full board tools.'
 						: 'Continue with the tools registered by the destination page.'
 				}
 			};
@@ -235,6 +240,7 @@ export function createSiteWebMcpTools(deps: SiteWebMcpDependencies): WebMcpToolD
 			};
 			const result = await deps.searchBanks(request, context);
 			const nextOffset = offset + result.banks.length < result.total ? offset + result.banks.length : null;
+			const sortedMetric = request.sort === 'name' ? null : request.sort as BankScreenMetric;
 			return {
 				summary: `Found ${result.total.toLocaleString('en-US')} matching institutions; returned ${result.banks.length}.`,
 				data: {
@@ -244,7 +250,8 @@ export function createSiteWebMcpTools(deps: SiteWebMcpDependencies): WebMcpToolD
 						city: bank.city,
 						state: bank.state,
 						totalAssets: bank.totalAssets,
-						latestQuarter: bank.latestQuarter
+						latestQuarter: bank.latestQuarter,
+						metrics: sortedMetric ? { [sortedMetric]: bank.metrics?.[sortedMetric] ?? null } : {}
 					})),
 					total: result.total,
 					offset,
@@ -253,6 +260,7 @@ export function createSiteWebMcpTools(deps: SiteWebMcpDependencies): WebMcpToolD
 					asOf: result.asOf,
 					sourceMode: result.sourceMode,
 					assetUnit: 'usd_thousands',
+					metricUnits: sortedMetric ? { [sortedMetric]: BANK_SCREEN_METRIC_RULES[sortedMetric].unit } : {},
 					truncated: result.truncated
 				}
 			};

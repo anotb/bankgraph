@@ -92,7 +92,7 @@ npx wrangler d1 migrations apply DB --remote
 
 Cloudflare captures a D1 backup when migrations are applied. Do not run the initial data pipeline until every migration succeeds.
 
-The readiness endpoint requires schema marker `0024`. Migrations advance that marker in order; an interrupted upgrade therefore remains degraded instead of serving against a partial release-barrier, bounded-publication, lakehouse, expected-coverage, published-view, or release-attestation schema.
+The readiness endpoint requires publication schema marker `0024`. Migrations through 0024 advance that marker in order, so an interrupted publication-schema upgrade remains degraded. Migration 0025 only adds a release-elected field to an existing public view; it leaves the staged publication and attestation contract unchanged, so the marker remains `0024`.
 
 The historical Summary of Deposits lake has a separate operator procedure in [Summary of Deposits storage](sod-lakehouse.md). Complete its checksum, manifest, and bounded-publication checks before registering a new R2 partition.
 

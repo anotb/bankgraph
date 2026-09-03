@@ -5,7 +5,7 @@
 	import BlockContent from './BlockContent.svelte';
 	import { quarterLabel, shortBankName } from '$lib/atlas/format';
 	import { metricShort } from '$lib/atlas/engine/metrics';
-	import { effective, followsWorkspace } from './views/util';
+	import { effective, followsWorkspace, resolveAnchorConfiguration } from './views/util';
 
 	interface Sibling { id: string; span: number }
 	let { block, role, span, siblings = [], tall = false }: { block: ResearchBoardBlock; role: ViewRole; span: number; siblings?: Sibling[]; tall?: boolean } = $props();
@@ -16,7 +16,12 @@
 	let startX = 0, startSpan = 6, startNeighbor = 0, colWidth = 100;
 	let el: HTMLElement | undefined = $state();
 
-	let pins = $derived(board.overrides[block.id]?.pins ?? {});
+	let anchorConfig = $derived(resolveAnchorConfiguration(board, block));
+	let pins = $derived({
+		...(anchorConfig.bankSource === 'fixed' ? { certs: anchorConfig.certs } : {}),
+		...(anchorConfig.metricSource === 'fixed' ? { metrics: anchorConfig.metrics } : {}),
+		...(anchorConfig.periodSource === 'fixed' ? { asOf: anchorConfig.asOf, compareWith: anchorConfig.compareWith } : {})
+	});
 	let follows = $derived(followsWorkspace(board, block));
 	let ownData = $derived(!follows || Boolean(pins.asOf || pins.compareWith || pins.certs?.length || pins.metrics?.length));
 	let selected = $derived(board.state.board.focusedBlockId === block.id);
@@ -104,9 +109,9 @@
 						<button type="button" aria-pressed={follows && !ownData} onclick={useBoardData}>Use the board selection</button>
 						<button type="button" aria-pressed={ownData} onclick={keepOwnData}>Keep a separate selection</button>
 						<div class="sep"></div>
-						<label><span>Period</span><select class="in" value={pins.asOf ?? ''} onchange={(e) => board.setOverride(block.id, { followWorkspace: false, pins: { ...pins, asOf: e.currentTarget.value || undefined } })}><option value="">Use board period</option>{#each board.quarters.slice().reverse() as q}<option value={q}>Keep {quarterLabel(q, 'long')}</option>{/each}</select></label>
-						<label><span>Bank</span><select class="in" value={pins.certs?.join(',') ?? ''} onchange={(e) => board.setOverride(block.id, { followWorkspace: false, pins: { ...pins, certs: e.currentTarget.value ? e.currentTarget.value.split(',').map(Number) : undefined } })}><option value="">Use board banks</option>{#each board.selectedCerts as c}<option value={String(c)}>Keep {shortBankName(board.data.institutions[c]?.name ?? String(c))}</option>{/each}</select></label>
-						<label><span>Measure</span><select class="in" value={pins.metrics?.join(',') ?? ''} onchange={(e) => board.setOverride(block.id, { followWorkspace: false, pins: { ...pins, metrics: e.currentTarget.value ? e.currentTarget.value.split(',') : undefined } })}><option value="">Use board measures</option>{#each board.metrics as m}<option value={m}>Keep {metricShort(m)}</option>{/each}</select></label>
+						<label><span>Period</span><select class="in" value={pins.asOf ?? ''} onchange={(e) => board.setOverride(block.id, { pins: { asOf: e.currentTarget.value || undefined } })}><option value="">Use board period</option>{#each board.quarters.slice().reverse() as q}<option value={q}>Keep {quarterLabel(q, 'long')}</option>{/each}</select></label>
+						<label><span>Bank</span><select class="in" value={pins.certs?.join(',') ?? ''} onchange={(e) => board.setOverride(block.id, { pins: { certs: e.currentTarget.value ? e.currentTarget.value.split(',').map(Number) : undefined } })}><option value="">Use board banks</option>{#each board.selectedCerts as c}<option value={String(c)}>Keep {shortBankName(board.data.institutions[c]?.name ?? String(c))}</option>{/each}</select></label>
+						<label><span>Measure</span><select class="in" value={pins.metrics?.join(',') ?? ''} onchange={(e) => board.setOverride(block.id, { pins: { metrics: e.currentTarget.value ? e.currentTarget.value.split(',') : undefined } })}><option value="">Use board measures</option>{#each board.metrics as m}<option value={m}>Keep {metricShort(m)}</option>{/each}</select></label>
 					</div>
 				{/if}
 			</div>

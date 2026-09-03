@@ -371,12 +371,22 @@ test('site tools remain available across pages and hand off to the full research
 	await expect(page).toHaveURL('/economy');
 	await expectSiteTools(page);
 
-	await invoke(page, 'bankgraph.navigate', {
+	const researchNavigation = await invoke(page, 'bankgraph.navigate', {
 		destination: 'research',
+		fresh: true,
 		question: 'Which large banks saw noncurrent loans rise fastest?',
 		template: 'credit_stress'
 	});
+	if (!researchNavigation.ok) throw new Error(`research navigation failed: ${JSON.stringify(researchNavigation.error)}`);
 	await expect(page).toHaveURL(/\/b/);
+	await expect.poll(() => page.evaluate(() => window.__bankgraphWebMcpE2E?.names() ?? [])).toContain(
+		'bankgraph.get_context'
+	);
+	const boardContext = await invoke(page, 'bankgraph.get_context');
+	expect(boardContext).toMatchObject({
+		ok: true,
+		data: { question: 'Which large banks saw noncurrent loans rise fastest?' }
+	});
 	await expectWorkspaceTools(page);
 	await expect.poll(() => page.evaluate(() => window.__bankgraphWebMcpE2E?.names() ?? [])).toContain(
 		'bankgraph.navigate'

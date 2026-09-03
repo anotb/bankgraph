@@ -17,8 +17,8 @@ describe('createBrowserBankSearch', () => {
 			]);
 			return new Response(JSON.stringify({
 				data: [
-					{ cert: 1, name: 'Former Bank', state: 'NC', city: 'Durham', total_assets: 20_000, latest_roa: 1.1, latest_repdte: '20240930' },
-					{ cert: 2, name: 'Active Bank', state: 'NC', city: 'Raleigh', total_assets: 10_000, latest_roa: 1.4, latest_repdte: '20251231' }
+					{ cert: 1, name: 'Former Bank', state: 'NC', city: 'Durham', total_assets: 20_000, latest_roa: 1.1, latest_loan_to_deposit_ratio: 88.2, latest_repdte: '20240930' },
+					{ cert: 2, name: 'Active Bank', state: 'NC', city: 'Raleigh', total_assets: 10_000, latest_roa: 1.4, latest_loan_to_deposit_ratio: 93.7, latest_repdte: '20251231' }
 				],
 				total: 2,
 				asOf: '20251231',
@@ -40,6 +40,7 @@ describe('createBrowserBankSearch', () => {
 		expect(result).toMatchObject({ total: 2, sourceMode: 'live', asOf: '20251231', truncated: false });
 		expect(result.banks.map((bank) => bank.cert)).toEqual([1, 2]);
 		expect(result.banks.map((bank) => bank.metrics?.roa)).toEqual([1.1, 1.4]);
+		expect(result.banks.map((bank) => bank.metrics?.loanToDeposit)).toEqual([88.2, 93.7]);
 	});
 
 	it('reports a release mismatch as a reloadable stale-page error', async () => {

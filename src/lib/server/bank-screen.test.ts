@@ -121,6 +121,28 @@ describe('bank screen request and compiler', () => {
 		expect(parseBankScreenRequest(bankScreenSearchParams(request)).conditions).toEqual(request.conditions);
 	});
 
+	it('compiles loan-to-deposit filters and ranking against the release snapshot', () => {
+		const request = parse({
+			active: 'active',
+			asset_min: '10000000',
+			conditions: JSON.stringify([
+				{ metric: 'loanToDeposit', operator: 'gte', value: 80 }
+			]),
+			sort: 'loanToDeposit',
+			order: 'desc',
+			limit: '10'
+		});
+		const compiled = compileBankScreen(request);
+
+		expect(compiled.whereSql).toContain(
+			'latest_loan_to_deposit_ratio IS NOT NULL AND latest_loan_to_deposit_ratio >= ?'
+		);
+		expect(compiled.sortSql).toBe(
+			'latest_loan_to_deposit_ratio IS NULL ASC, latest_loan_to_deposit_ratio DESC, name ASC, cert ASC'
+		);
+		expect(compiled.params).toEqual([1, 10_000_000, 80]);
+	});
+
 	it('validates programmatic service requests as well as URL input', () => {
 		const request = parse({});
 		expect(() => compileBankScreen({ ...request, states: ['NC', 'NC'] } as BankScreenRequest))

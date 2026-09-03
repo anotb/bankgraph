@@ -172,7 +172,10 @@ describe('readAtlasStructuredView', () => {
 		};
 		const curatedHistory: ResearchBoardBlock = {
 			id: 'peer_comparison-2', title: 'Over time', span: 'full', kind: 'history',
-			binding: { certs: [1], metrics: ['asset'], from: Q1, to: Q3, chartKind: 'line', scale: 'value' }
+			binding: { certs: [1], metrics: ['asset'], from: Q1, to: Q3, chartKind: 'line', scale: 'value' },
+			anchorConfig: {
+				bankSource: 'workspace', metricSource: 'fixed', periodSource: 'workspace', metrics: ['roa']
+			}
 		};
 
 		const table = await readAtlasStructuredView({ board: atlas, block: curatedTable });
@@ -180,6 +183,25 @@ describe('readAtlasStructuredView', () => {
 
 		expect(table.anchors.certs).toEqual([1, 2, 3]);
 		expect(history.anchors.certs).toEqual([1, 2, 3]);
+		expect(history.anchors.metrics).toEqual(['roa']);
+	});
+
+	it('keeps explicitly fixed published banks independent from workspace selection changes', async () => {
+		const atlas = board({ selectedCerts: [1, 2, 3] } as Partial<Board>);
+		const published: ResearchBoardBlock = {
+			id: 'published-history', title: 'Published', span: 'half', kind: 'history',
+			binding: { certs: [1], metrics: ['asset'], from: Q1, to: Q2, chartKind: 'line', scale: 'value' },
+			anchorConfig: {
+				bankSource: 'fixed', metricSource: 'fixed', periodSource: 'fixed',
+				certs: [1], metrics: ['asset'], asOf: Q2, compareWith: Q1, historyFrom: Q1, historyTo: Q2
+			}
+		};
+
+		const result = await readAtlasStructuredView({ board: atlas, block: published });
+		expect(result.anchors).toMatchObject({
+			certs: [1], metrics: ['asset'], from: Q1, to: Q2,
+			sources: { banks: 'fixed', metrics: 'fixed', periods: 'fixed' }
+		});
 	});
 
 	it('reads distributions, relationships, geography, and institution records from the shared BoardData cache', async () => {

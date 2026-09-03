@@ -56,4 +56,8 @@ These prompts exercise the shortest complete path:
 3. “Start a fresh board. Compare JPMorgan Chase with readable peers in its asset group across size, funding, credit quality, profitability, and capital.”
 4. “Add several more peers, change one view to focus on deposits, and place the exact table below the charts.”
 
+For a deterministic rehearsal, navigate to research with `fresh: true`, wait for
+`bankgraph.get_context`, and set the desired appearance explicitly. Normal navigation resumes the
+saved board so returning users do not lose their work.
+
 The important result is visible in Bankgraph rather than confined to the chat response. The agent should load or compose the views, the person should be able to revise them, and a later structured read should reflect those revisions without reading numbers from a screenshot.

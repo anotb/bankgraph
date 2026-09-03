@@ -27,6 +27,7 @@ interface BankApiRow {
 	latest_nim?: unknown;
 	latest_npl_ratio?: unknown;
 	latest_tier1_ratio?: unknown;
+	latest_loan_to_deposit_ratio?: unknown;
 }
 
 interface BankApiResponse {

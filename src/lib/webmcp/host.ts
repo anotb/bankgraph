@@ -417,7 +417,9 @@ export function createWebMcpToolHost(
 		}
 
 		const generation = ++state.generation;
-		for (const definition of [...desired.values()].sort((a, b) => a.name.localeCompare(b.name))) {
+		// Native registration is sequential. Preserve catalog order so essential handoff
+		// tools become available before the route-specific long tail.
+		for (const definition of desired.values()) {
 			if (syncOptions.signal?.aborted || scopes.get(scope) !== state) {
 				result.failed[definition.name] = 'scope was cancelled during registration';
 				break;

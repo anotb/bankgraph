@@ -45,9 +45,8 @@ async function invoke(name, input) {
 async function shot(name) { await page.screenshot({ path: join(outDir, `${name}.png`), fullPage: true }); log('shot', name); }
 const revision = async () => (await invoke('bankgraph.get_context', {})).data.revision;
 
-await page.goto(`${base}/b`);
-await page.evaluate(() => { localStorage.clear(); indexedDB.deleteDatabase('bankgraph-analysis-results'); });
-await page.goto(`${base}/b`);
+await page.goto(`${base}/b?fresh=1`);
+await page.evaluate(() => { indexedDB.deleteDatabase('bankgraph-analysis-results'); });
 await page.waitForFunction(() => (window.__agent?.names().length ?? 0) > 20, null, { timeout: 30000 });
 log('tools registered:', (await page.evaluate(() => window.__agent.names())).length);
 await shot('01-empty-board');
@@ -71,7 +70,7 @@ await invoke('bankgraph.publish_result_view', { resultId, blockId: 'fp-traj', ti
 await invoke('bankgraph.add_workspace_view', { blockId: 'fp-econ', title: 'The economy around the failures', view: 'economic_context', span: 'half', focus: false, ifRevision: await revision() });
 let presentation = (await invoke('bankgraph.read_research_board', {})).data.presentation;
 await invoke('bankgraph.configure_board_view', {
-	blockId: 'fp-econ', width: 'half', height: 'standard', role: 'context', presentation: 'auto', followWorkspace: true,
+	blockId: 'fp-econ', width: 'half', height: 'standard', role: 'context', followWorkspace: true,
 	series: ['UST10Y2Y', 'BLS_UNRATE', 'FRB_FEDFUNDS'], ifRevision: await revision(), ifPresentationRevision: presentation.presentationRevision
 });
 await invoke('bankgraph.set_appearance', { theme: 'dark' });

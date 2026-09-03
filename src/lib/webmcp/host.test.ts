@@ -81,6 +81,41 @@ describe('createWebMcpToolHost', () => {
 		expect(host.getDiagnostics().registrations[0].status).toBe('removed');
 	});
 
+	it('preserves catalog priority while the remaining tools register', async () => {
+		let releaseSecond: (() => void) | undefined;
+		const secondGate = new Promise<void>((resolve) => {
+			releaseSecond = resolve;
+		});
+		class GatedModelContext extends FakeModelContext {
+			override async registerTool(
+				registeredTool: NativeModelContextTool,
+				options?: ModelContextRegisterOptions
+			): Promise<void> {
+				if (this.calls.length === 1) await secondGate;
+				await super.registerTool(registeredTool, options);
+			}
+		}
+		const context = new GatedModelContext();
+		const host = createWebMcpToolHost({ modelContext: context });
+		const pending = host.syncScope('board', [
+			tool('bankgraph.get_context'),
+			tool('bankgraph.z_last'),
+			tool('bankgraph.a_later')
+		]);
+
+		await vi.waitFor(() => expect(context.calls).toHaveLength(1));
+		expect(context.calls[0].tool.name).toBe('bankgraph.get_context');
+		expect(context.active.has('bankgraph.get_context')).toBe(true);
+
+		releaseSecond?.();
+		await pending;
+		expect(context.calls.map(({ tool: registeredTool }) => registeredTool.name)).toEqual([
+			'bankgraph.get_context',
+			'bankgraph.z_last',
+			'bankgraph.a_later'
+		]);
+	});
+
 	it('re-syncs idempotently while refreshing the live controller', async () => {
 		const context = new FakeModelContext();
 		const host = createWebMcpToolHost({ modelContext: context });

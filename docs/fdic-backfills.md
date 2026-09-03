@@ -50,7 +50,7 @@ D1 is the hot serving layer, not the full SOD archive. Operational guidance load
 
 ## Repeatable CLI runs
 
-Start the Worker or SvelteKit server with the D1 and R2 bindings, set `PIPELINE_SECRET` in the environment or `.dev.vars`, and apply migrations through `0024_release_attestations.sql` before starting a run. Migration 0019 is the versioned D1 hot-table publication layer for SOD and locations, migration 0022 adds bounded institution publication, migration 0023 adds published release views, and migration 0024 adds release attestations.
+Start the Worker or SvelteKit server with the D1 and R2 bindings, set `PIPELINE_SECRET` in the environment or `.dev.vars`, and apply migrations through `0025_screenable_loan_to_deposit.sql` before starting a run. Migration 0019 adds versioned D1 publication for SOD and locations, migration 0022 bounds institution publication, migration 0023 adds release views, migration 0024 adds release attestations, and migration 0025 exposes the elected quarter's loan-to-deposit ratio to institution screens.
 
 Production financial history does not use this generic partition CLI. Its sole canonical path is the quarter-reconciled core stage, which starts at 1992Q1, persists one durable quarter/page checkpoint, and reconciles the complete source total before release:
 

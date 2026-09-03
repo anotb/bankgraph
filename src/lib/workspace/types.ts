@@ -15,7 +15,7 @@ import type { ResearchMetric } from '$lib/research-metrics';
 import type { FailurePatternsResponse } from '$lib/server/analytics/failure-patterns';
 import type { AnalysisResultRef } from './analysis-result-repository';
 
-export const WORKSPACE_SCHEMA_VERSION = 3 as const;
+export const WORKSPACE_SCHEMA_VERSION = 4 as const;
 
 export const WORKSPACE_LIMITS = {
 	/** Large enough for a working comparison set; views may progressively disclose dense series. */
@@ -339,6 +339,27 @@ export type WorkspaceAnalysisResult =
 export type ResearchBoardSpan = 'quarter' | 'half' | 'three_quarter' | 'full';
 export type ResearchHistoryChartKind = 'line' | 'area';
 export type ResearchHistoryScale = 'value' | 'index';
+export type ResearchBoardAnchorSource = 'workspace' | 'fixed';
+
+/**
+ * Durable data-source policy for a board view. Each anchor is independent so a
+ * view can, for example, keep one measure while continuing to follow workspace
+ * banks and periods.
+ */
+export interface ResearchBoardAnchorConfiguration {
+	bankSource: ResearchBoardAnchorSource;
+	metricSource: ResearchBoardAnchorSource;
+	periodSource: ResearchBoardAnchorSource;
+	/** Present only when bankSource is fixed. */
+	certs?: number[];
+	/** Present only when metricSource is fixed. */
+	metrics?: ResearchMetric[];
+	/** All four period values are present only when periodSource is fixed. */
+	asOf?: string;
+	compareWith?: string;
+	historyFrom?: string;
+	historyTo?: string;
+}
 
 export interface ResearchBoardBlockBase {
 	/** Stable caller-supplied identifier used for safe retries and references. */
@@ -359,6 +380,7 @@ export interface ResearchHistoryBinding {
 export interface ResearchHistoryBlock extends ResearchBoardBlockBase {
 	kind: 'history';
 	binding: ResearchHistoryBinding;
+	anchorConfig?: ResearchBoardAnchorConfiguration;
 }
 
 export interface ResearchExactTableBinding {
@@ -373,6 +395,7 @@ export interface ResearchExactTableBinding {
 export interface ResearchExactTableBlock extends ResearchBoardBlockBase {
 	kind: 'exact_table';
 	binding: ResearchExactTableBinding;
+	anchorConfig?: ResearchBoardAnchorConfiguration;
 }
 
 export type ResearchAnalysisView =
@@ -422,6 +445,7 @@ export interface ResearchWorkspaceViewBinding {
 export interface ResearchWorkspaceViewBlock extends ResearchBoardBlockBase {
 	kind: 'workspace_view';
 	binding: ResearchWorkspaceViewBinding;
+	anchorConfig?: ResearchBoardAnchorConfiguration;
 }
 
 export interface ResearchTakeawayBlock extends ResearchBoardBlockBase {

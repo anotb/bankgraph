@@ -18,6 +18,11 @@ Routes supply stable metadata plus a live `controller`. The host registers the c
 shape and calls the latest controller even when a Svelte update creates a new function. This keeps
 idempotent updates from churning the browser registry.
 
+Cross-page research navigation resumes the saved board by default. Pass `fresh: true`, or request
+the `blank` layout, to start over. After the page changes, wait until
+`bankgraph.get_context` is advertised by the destination before continuing; it is deliberately
+registered before the route-specific long tail.
+
 ```svelte
 <script lang="ts">
 	import { WebMcpHost } from '$lib/components/webmcp/index.js';
@@ -77,8 +82,8 @@ on the page as a live chart, exact table, comparison, or takeaway that a person 
 | Tool | What it does |
 | --- | --- |
 | `bankgraph.get_context` | Reads the current question, screen, bank selection, periods, peers, views, takeaways, watchlist, data date, and workspace revision. |
-| `bankgraph.search_banks` | Searches up to the first 1,000 ranked institution matches and returns complete records in cursor pages. |
-| `bankgraph.configure_screen` | Replaces the question, activity, location, asset, latest-metric, and result-ordering screen recipe. |
+| `bankgraph.search_banks` | Searches up to the first 1,000 ranked institution matches, including loan-to-deposit ratio, and returns the values used to rank each page. |
+| `bankgraph.configure_screen` | Replaces the screen and its ordering, then uses the first 200 ordered matches as the current analysis cohort. |
 | `bankgraph.read_current_screen` | Reads the visible screen recipe and its ranked matches through revision-bound cursor pages. |
 | `bankgraph.configure_comparison` | Chooses banks, measures, period, history presentation, comparison basis, and bank focus. |
 | `bankgraph.set_peer_cohort` | Defines a reproducible cohort and its exact exclusions. |
@@ -155,13 +160,14 @@ or cohort context. Change inspection remains narrower because it only accepts me
 deterministic endpoint or component method. Assets, quarterly net income, and loan-to-deposit results
 include their available component bridges; every result names its calculation method and units. The
 workspace screen applies name, headquarters state, activity, asset bounds, and up to 12 conditions
-using metrics stored on the latest institution snapshot. Board tools accept semantic choices that
+using metrics stored on the latest institution snapshot. It can filter or rank directly on the reported
+loan-to-deposit ratio. Board tools accept semantic choices that
 Bankgraph can render from published data. They do not accept arbitrary JavaScript, HTML, SQL, chart
 code, or caller-supplied numerical series.
 
 The board stores its order, titles, widths, focus, source bindings, live workspace-view bindings, and
 compact result references in the workspace state. Materialized analysis results live in a
-content-addressed browser repository and are checked before they are read. The version 3 live-link
+content-addressed browser repository and are checked before they are read. The version 4 live-link
 codec carries these reproducible semantic specifications and short takeaways, not a large copied
 result payload; its existing history, table, analysis, and takeaway tuples remain compatible.
 

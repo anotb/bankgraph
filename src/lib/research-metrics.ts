@@ -132,7 +132,8 @@ export const RESEARCH_METRICS = [
 		id: 'lnlsdepr', label: 'Loan-to-deposit ratio', shortLabel: 'Loans / deposits', category: 'funding',
 		unit: 'percent', displayUnit: '%', source: 'LNLSDEPR',
 		description: 'Loans and leases as a percentage of total deposits.', direction: 'neutral',
-		change: 'percentage_points', aggregation: 'distribution_only', endpointDependency: 'reported', valueField: 'lnlsdepr', aliases: ['loanToDeposit']
+		change: 'percentage_points', aggregation: 'distribution_only', endpointDependency: 'reported', valueField: 'lnlsdepr', aliases: ['loanToDeposit'],
+		screen: { id: 'loanToDeposit', unit: 'percent', minimum: -100_000, maximum: 100_000, integer: false, snapshotField: 'latest_loan_to_deposit_ratio' }
 	},
 	{
 		id: 'othbfhlb', label: 'Other borrowed funds', shortLabel: 'Borrowed funds', category: 'funding',

@@ -48,11 +48,13 @@ const bank: Institution = {
   latest_tier1_ratio: 13.1,
 };
 
+const directoryBank = { ...bank, latest_loan_to_deposit_ratio: 84.6 };
+
 function bankDirectory(
   overrides: Partial<BankDirectoryRouteData> = {},
 ): BankDirectoryRouteData {
   return {
-    banks: [bank, { ...bank, cert: 777, name: "Second Community Bank", state: "NC" }],
+    banks: [directoryBank, { ...directoryBank, cert: 777, name: "Second Community Bank", state: "NC" }],
     total: 42,
     page: 2,
     limit: 25,
@@ -246,7 +248,7 @@ describe("route-scoped WebMCP catalog", () => {
         returned: 1,
         resultsTruncated: true,
       },
-      banks: [{ cert: bank.cert, name: bank.name, rankOnPage: 1 }],
+      banks: [{ cert: bank.cert, name: bank.name, rankOnPage: 1, loanToDepositPercent: 84.6 }],
       source: {
         publisher: "Federal Deposit Insurance Corporation",
         reportingPeriod: "20260630",

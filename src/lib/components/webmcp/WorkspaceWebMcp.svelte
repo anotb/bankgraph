@@ -101,10 +101,10 @@
 				}
 			: undefined,
 		prepareScreen: hasScreenPreparation
-			? (filters, context) => {
+			? (filters, screenView, context) => {
 					const prepare = latestDependencies.prepareScreen;
 					if (!prepare) throw new Error('Screen preparation is no longer available on this page.');
-					return prepare(filters, context);
+					return prepare(filters, screenView, context);
 				}
 			: undefined,
 		preparePeerCohort: hasPeerPreparation

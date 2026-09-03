@@ -93,6 +93,9 @@ describe('research board WebMCP catalog', () => {
 		expect(edit.title).toBe('Edit a board view');
 		expect(edit.inputSchema.required).toEqual(['blockId']);
 		expect(edit.inputSchema.properties).toMatchObject({
+			bankSource: { enum: ['workspace', 'fixed'], description: expect.stringContaining('current and future workspace banks') },
+			metricSource: { enum: ['workspace', 'fixed'] },
+			periodSource: { enum: ['workspace', 'fixed'] },
 			historyFrom: { description: expect.stringContaining('history views only') },
 			historyTo: { description: expect.stringContaining('history views only') },
 			chartKind: { enum: ['line', 'area'], description: expect.stringContaining('history views only') },
@@ -161,11 +164,13 @@ describe('research board WebMCP catalog', () => {
 			sortBasis: 'level',
 			sortDirection: 'desc',
 			width: 'full',
+			bankSource: 'workspace',
 		}, context('bankgraph.configure_board_view'));
 
-		expect(configureBoardView).toHaveBeenCalledWith('exact-values', {
+			expect(configureBoardView).toHaveBeenCalledWith('exact-values', {
 			title: 'Credit quality, worst first',
 			width: 'full',
+			bankSource: 'workspace',
 			sortMetric: 'nclnlsr',
 			sortBasis: 'level',
 			sortDirection: 'desc',
@@ -185,6 +190,7 @@ describe('research board WebMCP catalog', () => {
 		expect(workspace.state.board.blocks).toEqual([{
 			id: 'live-context', title: 'Current economic context', kind: 'workspace_view',
 			span: 'quarter', binding: { view: 'economic_context' },
+			anchorConfig: { bankSource: 'workspace', metricSource: 'workspace', periodSource: 'workspace' },
 		}]);
 		const boardRead = await tools['bankgraph.read_research_board'].controller({}, context('bankgraph.read_research_board'));
 		expect(boardRead.data).toMatchObject({
@@ -206,6 +212,7 @@ describe('research board WebMCP catalog', () => {
 		expect(workspace.state.board.blocks[0]).toEqual({
 			id: 'live-context', title: 'Current bank context', kind: 'workspace_view',
 			span: 'three_quarter', binding: { view: 'bank_context' },
+			anchorConfig: { bankSource: 'workspace', metricSource: 'workspace', periodSource: 'workspace' },
 		});
 		expect(() => add.controller(
 			{ ...input, view: 'snapshot_rows', ifRevision: 2 },

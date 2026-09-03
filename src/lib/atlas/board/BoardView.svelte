@@ -39,7 +39,7 @@
 	});
 	$effect(() => {
 		const s = board.state;
-		const snapshot = JSON.parse(JSON.stringify({ peerRecipe: s.peerRecipe, filters: s.filters, excludedCerts: s.excludedCerts })) as typeof s;
+		const snapshot = JSON.parse(JSON.stringify({ peerRecipe: s.peerRecipe, filters: s.filters, screenView: s.screenView, excludedCerts: s.excludedCerts })) as typeof s;
 		const controller = new AbortController();
 		const t = setTimeout(() => { void board.data.loadCohort(snapshot, controller.signal); }, 0);
 		return () => { clearTimeout(t); controller.abort(); };

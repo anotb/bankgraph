@@ -56,7 +56,7 @@ const ALLOWED_QUERY_PARAMS = new Set([
 const SELECT_COLUMNS = [
 	'cert', 'name', 'state', 'city', 'active', 'total_assets', 'total_deposits',
 	'num_branches', 'num_employees', 'latest_repdte', 'latest_roa', 'latest_roe',
-	'latest_nim', 'latest_npl_ratio', 'latest_tier1_ratio'
+	'latest_nim', 'latest_npl_ratio', 'latest_tier1_ratio', 'latest_loan_to_deposit_ratio'
 ].join(', ');
 
 export class BankScreenInputError extends Error {
@@ -79,7 +79,7 @@ export type BankScreenRow = Pick<Institution,
 	| 'total_assets' | 'total_deposits' | 'num_branches' | 'num_employees'
 	| 'latest_repdte' | 'latest_roa' | 'latest_roe' | 'latest_nim'
 	| 'latest_npl_ratio' | 'latest_tier1_ratio'
->;
+> & { latest_loan_to_deposit_ratio: number | null };
 
 export interface BankScreenResponse {
 	data: BankScreenRow[];

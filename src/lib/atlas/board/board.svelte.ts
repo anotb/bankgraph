@@ -7,6 +7,7 @@ import { BoardData } from '$lib/atlas/engine/board-data.svelte';
 import { metricChange, metricValue, previousQuarter, quartersBetween, isQuarterEnd, yearAgo } from '$lib/atlas/engine/metrics';
 import { composeStrips, type BlockLayoutOverride, type Strip, type ViewRole } from './layout';
 import { BOARD_TEMPLATES, templateById, type BoardTemplate, type TemplateView } from '$lib/atlas/templates';
+import { configureAnchorConfiguration, withAnchorConfiguration } from './views/util';
 
 const KEY = Symbol('atlas-board');
 const LINKED_CHART_ID = 'linked-analysis';
@@ -221,6 +222,20 @@ export class Board {
 		if (block) this.store.execute(workspaceCommands.upsertBoardBlock({ ...block, title: title.slice(0, 160) }));
 	}
 	setOverride(id: string, patch: BlockLayoutOverride): boolean {
+		const block = this.blocks.find((candidate) => candidate.id === id);
+		if (block && (patch.followWorkspace !== undefined || patch.pins !== undefined)) {
+			const pins = patch.pins;
+			const has = (field: keyof NonNullable<BlockLayoutOverride['pins']>) =>
+				pins !== undefined && Object.prototype.hasOwnProperty.call(pins, field);
+			const anchorConfig = configureAnchorConfiguration(this, block, {
+				...(patch.followWorkspace === undefined ? {} : { followWorkspace: patch.followWorkspace }),
+				...(has('certs') ? (pins!.certs?.length ? { certs: pins!.certs } : { bankSource: 'workspace' as const }) : {}),
+				...(has('metrics') ? (pins!.metrics?.length ? { metrics: pins!.metrics as ResearchMetric[] } : { metricSource: 'workspace' as const }) : {}),
+				...(has('asOf') ? (pins!.asOf ? { asOf: pins!.asOf } : { periodSource: 'workspace' as const }) : {}),
+				...(has('compareWith') && pins!.compareWith ? { compareWith: pins!.compareWith } : {})
+			});
+			this.store.execute(workspaceCommands.upsertBoardBlock(withAnchorConfiguration(this, block, anchorConfig)));
+		}
 		const merged = Object.fromEntries(Object.entries({ ...(this.overrides[id] ?? {}), ...patch }).filter(([, value]) => value !== undefined)) as BlockLayoutOverride;
 		if (JSON.stringify(this.overrides[id] ?? {}) === JSON.stringify(merged)) return false;
 		const next = { ...this.overrides, [id]: merged };
@@ -512,16 +527,25 @@ export class Board {
 	blockForTemplateView(view: TemplateView, id: string): ResearchBoardBlock | null {
 		const metrics = (view.options?.metrics as ResearchMetric[] | undefined) ?? this.metrics;
 		const title = view.title ?? '';
+		const configuredSpan = typeof view.options?.columns === 'number'
+			? view.options.columns <= 4 ? 'quarter' : view.options.columns <= 6 ? 'half' : view.options.columns <= 9 ? 'three_quarter' : 'full'
+			: undefined;
+		const anchorConfig = {
+			bankSource: 'workspace' as const,
+			metricSource: view.options?.metrics ? 'fixed' as const : 'workspace' as const,
+			periodSource: 'workspace' as const,
+			...(view.options?.metrics ? { metrics } : {})
+		};
 		switch (view.kind) {
-			case 'statements': return { id, kind: 'workspace_view', title: title || 'Position', span: 'full', binding: { view: 'comparison_matrix' } };
-			case 'history': return { id, kind: 'history', title: title || 'Over time', span: 'full', binding: { certs: this.selectedCerts.length ? this.selectedCerts : [], metrics, from: this.historyFrom, to: this.historyTo, chartKind: 'line', scale: 'value' } };
-			case 'exact_table': return { id, kind: 'exact_table', title: title || 'Exact values', span: 'full', binding: { certs: this.selectedCerts, metrics, from: null, to: null, followCurrent: true } };
-			case 'distribution': return { id, kind: 'workspace_view', title: title || 'Among peers', span: 'half', binding: { view: 'peer_distribution' } };
-			case 'attribution': return { id, kind: 'workspace_view', title: title || 'What moved', span: 'half', binding: { view: 'change_attribution' } };
-			case 'relationship': return { id, kind: 'workspace_view', title: title || 'Relationship', span: 'half', binding: { view: 'metric_relationship' } };
-			case 'geography': return { id, kind: 'workspace_view', title: title || 'Where', span: 'half', binding: { view: 'headquarters_geography' } };
-			case 'economy': return { id, kind: 'workspace_view', title: title || 'The economy alongside', span: 'full', binding: { view: 'economic_context' } };
-			case 'record': return { id, kind: 'workspace_view', title: title || 'Institution record', span: 'quarter', binding: { view: 'bank_context' } };
+			case 'statements': return { id, kind: 'workspace_view', title: title || 'Position', span: configuredSpan ?? 'full', binding: { view: 'comparison_matrix' }, anchorConfig };
+			case 'history': return { id, kind: 'history', title: title || 'Over time', span: configuredSpan ?? 'full', binding: { certs: this.selectedCerts.length ? this.selectedCerts : [], metrics, from: this.historyFrom, to: this.historyTo, chartKind: 'line', scale: 'value' }, anchorConfig };
+			case 'exact_table': return { id, kind: 'exact_table', title: title || 'Exact values', span: configuredSpan ?? 'full', binding: { certs: this.selectedCerts, metrics, from: null, to: null, followCurrent: true }, anchorConfig };
+			case 'distribution': return { id, kind: 'workspace_view', title: title || 'Among peers', span: configuredSpan ?? 'half', binding: { view: 'peer_distribution' }, anchorConfig };
+			case 'attribution': return { id, kind: 'workspace_view', title: title || 'What moved', span: configuredSpan ?? 'half', binding: { view: 'change_attribution' }, anchorConfig };
+			case 'relationship': return { id, kind: 'workspace_view', title: title || 'Relationship', span: configuredSpan ?? 'half', binding: { view: 'metric_relationship' }, anchorConfig };
+			case 'geography': return { id, kind: 'workspace_view', title: title || 'Where', span: configuredSpan ?? 'half', binding: { view: 'headquarters_geography' }, anchorConfig };
+			case 'economy': return { id, kind: 'workspace_view', title: title || 'The economy alongside', span: configuredSpan ?? 'full', binding: { view: 'economic_context' }, anchorConfig };
+			case 'record': return { id, kind: 'workspace_view', title: title || 'Institution record', span: configuredSpan ?? 'quarter', binding: { view: 'bank_context' }, anchorConfig };
 			default: return null; // analysis-backed views are created by running the analysis
 		}
 	}

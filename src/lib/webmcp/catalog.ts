@@ -16,6 +16,7 @@ import {
   type WorkspaceCommandOptions,
   type WorkspaceCommandResult,
   type WorkspacePanel,
+  type WorkspaceScreenView,
   type WorkspaceComparisonMode,
   type WorkspaceComparisonPair,
   type WorkspaceState,
@@ -970,6 +971,7 @@ export interface WorkspaceWebMcpDependencies extends ResearchBoardWebMcpDependen
   ): Promise<void>;
   prepareScreen?(
     filters: BankScreenFilters,
+    screenView: WorkspaceScreenView,
     context: WebMcpControllerContext,
   ): Promise<PreparedWorkspaceCohort>;
   preparePeerCohort?(
@@ -2367,7 +2369,7 @@ export function createWorkspaceWebMcpToolCatalog(
     name: "bankgraph.configure_screen",
     title: "Configure the current bank screen",
     description:
-      "Replace the visible question, bank-screen recipe, and result ordering. Read bankgraph.get_context first and pass its revision as ifRevision. Conditions use AND and exclude missing values. Assets and deposits use FDIC USD thousands: 10,000,000 means $10 billion.",
+      "Replace the visible question, bank screen, and result order. The matching institutions become the current analysis cohort in the same order, up to 200 banks. Read bankgraph.get_context first and pass its revision as ifRevision. Conditions use AND and exclude missing values. Assets and deposits use FDIC USD thousands: 10,000,000 means $10 billion.",
     inputSchema: OBJECT(
       {
         question: STRING(1_000),
@@ -2434,7 +2436,7 @@ export function createWorkspaceWebMcpToolCatalog(
       };
       const commitRevision = requiredRevision(source.ifRevision);
       requireRevision(deps.workspace.state, commitRevision);
-      const prepared = await deps.prepareScreen?.(filters, context);
+      const prepared = await deps.prepareScreen?.(filters, screenView, context);
       throwIfAborted(context.signal);
       requireRevision(deps.workspace.state, commitRevision);
       const commands = [
@@ -2446,6 +2448,17 @@ export function createWorkspaceWebMcpToolCatalog(
         ),
         workspaceCommands.setFilters(filters),
         workspaceCommands.setScreenView(screenView),
+        workspaceCommands.setPeerRecipe({
+          name: "Current screen",
+          basis: "screen",
+          states: [...filters.states],
+          assetRange: { ...filters.assetRange },
+          active: filters.active,
+          metricConditions: filters.metricConditions.map((condition) => ({ ...condition })),
+          minimumPeers: 2,
+          maximumPeers: 200,
+        }),
+        workspaceCommands.setExcludedCerts([]),
         ...(prepared?.results
           ? [workspaceCommands.setResults(prepared.results)]
           : []),
@@ -2464,6 +2477,14 @@ export function createWorkspaceWebMcpToolCatalog(
         data: {
           ...resultMeta(deps, result.state, result.changed),
           screenView: result.state.screenView,
+          cohort: {
+            basis: result.state.peerRecipe.basis,
+            loaded: prepared?.results?.returned ?? null,
+            matching: prepared?.results?.total ?? null,
+            maximumBanks: result.state.peerRecipe.maximumPeers,
+            truncated: prepared?.results?.truncated ?? null,
+          },
+          nextAction: "Use bankgraph.rank_cohort_on_board to select and compare the highest or lowest banks on a reported measure.",
         },
       };
     },
@@ -3750,7 +3771,14 @@ export function createWorkspaceWebMcpToolCatalog(
       }
       const committed = executeSeries(deps.workspace, commands, commitRevision, context.signal);
       const board = boardMode === "replace" && deps.applyBoardTemplate
-        ? await deps.applyBoardTemplate({ templateId: "peer_comparison", mode: "replace", focus: false }, context)
+        ? await deps.applyBoardTemplate({
+            templateId: "peer_comparison",
+            mode: "replace",
+            focus: false,
+            sortMetric: metric,
+            sortBasis: "level",
+            sortDirection: direction === "highest" ? "desc" : "asc",
+          }, context)
         : { changed: false, blockIds: [] as string[] };
       return {
         summary: `${selected.length} bank${selected.length === 1 ? "" : "s"} from the ${direction} end of the cohort now form the visible answer set.`,

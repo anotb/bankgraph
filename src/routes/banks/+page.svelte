@@ -103,6 +103,7 @@
 						<th><button type="button" class:on={data.sort === 'deposits'} onclick={() => sortBy('deposits')}>Deposits{arrow('deposits')}</button></th>
 						<th><button type="button" class:on={data.sort === 'roa'} onclick={() => sortBy('roa')}>ROA{arrow('roa')}</button></th>
 						<th><button type="button" class:on={data.sort === 'nim'} onclick={() => sortBy('nim')}>NIM{arrow('nim')}</button></th>
+						<th><button type="button" class:on={data.sort === 'loanToDeposit'} onclick={() => sortBy('loanToDeposit')}>Loans / deposits{arrow('loanToDeposit')}</button></th>
 						<th><button type="button" class:on={data.sort === 'noncurrentLoanRatio'} onclick={() => sortBy('noncurrentLoanRatio')}>Noncurrent{arrow('noncurrentLoanRatio')}</button></th>
 						<th><button type="button" class:on={data.sort === 'tier1Ratio'} onclick={() => sortBy('tier1Ratio')}>Tier 1{arrow('tier1Ratio')}</button></th>
 						<th><button type="button" class:on={data.sort === 'domesticOffices'} onclick={() => sortBy('domesticOffices')}>Offices{arrow('domesticOffices')}</button></th>
@@ -115,11 +116,12 @@
 							<td class="n hq">{r.city ? `${r.city}, ` : ''}{r.state}</td>
 							<td class:sorted={data.sort === 'assets'}>{usdThousands(r.total_assets)}</td><td class:sorted={data.sort === 'deposits'}>{usdThousands(r.total_deposits)}</td>
 							<td class:sorted={data.sort === 'roa'}>{pct(r.latest_roa)}</td><td class:sorted={data.sort === 'nim'}>{pct(r.latest_nim)}</td>
+							<td class:sorted={data.sort === 'loanToDeposit'}>{pct(r.latest_loan_to_deposit_ratio)}</td>
 							<td class:sorted={data.sort === 'noncurrentLoanRatio'} class={r.latest_npl_ratio != null && r.latest_npl_ratio >= 2 ? 'down' : ''}>{pct(r.latest_npl_ratio)}</td>
 							<td class:sorted={data.sort === 'tier1Ratio'}>{pct(r.latest_tier1_ratio)}</td><td class:sorted={data.sort === 'domesticOffices'}>{count(r.num_branches)}</td>
 						</tr>
 					{/each}
-					{#if !data.rows.length}<tr><td colspan="9" class="n dim">No institutions match.</td></tr>{/if}
+					{#if !data.rows.length}<tr><td colspan="10" class="n dim">No institutions match.</td></tr>{/if}
 				</tbody>
 			</table>
 		</div>

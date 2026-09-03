@@ -159,7 +159,10 @@ export class BoardData {
 		if (filters.assetRange.min != null) params.set('asset_min', String(filters.assetRange.min));
 		if (filters.assetRange.max != null) params.set('asset_max', String(filters.assetRange.max));
 		if (filters.metricConditions.length) params.set('conditions', JSON.stringify(filters.metricConditions.map((c) => ({ metric: c.metric, operator: c.operator, value: c.value, ...(c.operator === 'between' ? { upperValue: c.upperValue } : {}) }))));
-		params.set('sort', 'assets'); params.set('order', 'desc'); params.set('limit', String(limit + state.excludedCerts.length));
+		const ordering = recipe.basis === 'screen'
+			? (state.screenView ?? { sort: 'assets' as const, order: 'desc' as const })
+			: { sort: 'assets' as const, order: 'desc' as const };
+		params.set('sort', ordering.sort); params.set('order', ordering.order); params.set('limit', String(limit + state.excludedCerts.length));
 		const key = params.toString();
 		if (key === this.cohortKey) return;
 		await this.#track((async () => {

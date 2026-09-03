@@ -55,7 +55,7 @@ describe('workspace URL codec', () => {
 	it('roundtrips every state field and revision through compact versioned search params', () => {
 		const input = populatedState();
 		const encoded = serializeWorkspaceSearch(input);
-		expect(encoded).toContain('wv=3');
+		expect(encoded).toContain('wv=4');
 		expect(encoded).toContain('ws=');
 		expect(deserializeWorkspaceSearchParams(encoded)).toEqual(input);
 	});
@@ -240,7 +240,7 @@ describe('workspace migrations', () => {
 		});
 		expect(migrated.migrated).toBe(true);
 		expect(migrated.state).toMatchObject({
-			version: 3,
+			version: 4,
 			question: 'Legacy question',
 			asOfQuarter: '20241231',
 			comparison: {
@@ -255,7 +255,7 @@ describe('workspace migrations', () => {
 
 	it('parses persisted envelopes and rejects future versions clearly', () => {
 		const state = populatedState();
-		expect(parseWorkspaceJson(JSON.stringify({ version: 3, state })).state).toEqual(state);
+		expect(parseWorkspaceJson(JSON.stringify({ version: 4, state })).state).toEqual(state);
 		const {
 			asOfQuarter: _asOfQuarter,
 			comparison: _comparison,
@@ -268,7 +268,7 @@ describe('workspace migrations', () => {
 		}))).toMatchObject({
 			migrated: true,
 			state: {
-				version: 3,
+				version: 4,
 				asOfQuarter: '20250331',
 				comparison: { mode: 'range-start', resolvedQuarter: '20240331' },
 				chartHistory: { from: '20240331', to: '20250331' }
